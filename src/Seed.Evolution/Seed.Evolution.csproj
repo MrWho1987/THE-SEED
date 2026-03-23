@@ -1,0 +1,19 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Seed.Core\Seed.Core.csproj" />
+    <ProjectReference Include="..\Seed.Worlds\Seed.Worlds.csproj" />
+    <ProjectReference Include="..\Seed.Agents\Seed.Agents.csproj" />
+    <ProjectReference Include="..\Seed.Genetics\Seed.Genetics.csproj" />
+    <ProjectReference Include="..\Seed.Development\Seed.Development.csproj" />
+    <ProjectReference Include="..\Seed.Brain\Seed.Brain.csproj" />
+    <ProjectReference Include="..\Seed.Observatory\Seed.Observatory.csproj" />
+  </ItemGroup>
+
+</Project>

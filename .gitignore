@@ -1,0 +1,72 @@
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.rsuser
+
+# Build logs
+*.log
+msbuild.wrn
+msbuild.err
+
+# NuGet
+**/[Pp]ackages/*
+!**/[Pp]ackages/build/
+*.nupkg
+*.snupkg
+**/packages.lock.json
+project.lock.json
+project.fragment.lock.json
+
+# Rider
+.idea/
+*.sln.iml
+
+# VS Code
+.vscode/
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# User-specific config overrides
+config.json
+!config.default.json
+
+# Node (Dashboard ClientApp)
+**/node_modules/
+**/dist/
+
+# Test results
+[Tt]est[Rr]esult*/
+*.trx
+*.coverage
+*.coveragexml
+
+# Misc
+*.tmp
+*.temp
+*.swp
+*~
