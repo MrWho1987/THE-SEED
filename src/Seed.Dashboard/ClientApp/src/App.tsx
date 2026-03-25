@@ -5,6 +5,9 @@ import { BrainView } from './components/BrainView';
 import { ControlPanel } from './components/ControlPanel';
 import { FitnessChart } from './components/FitnessChart';
 import { ReplayPlayer } from './components/ReplayPlayer';
+import { EnvironmentBar } from './components/EnvironmentBar';
+import { AgentInspector } from './components/AgentInspector';
+import { WorldControls } from './components/WorldControls';
 import type { WorldFrameDto } from './types';
 import './App.css';
 
@@ -15,6 +18,7 @@ function App() {
   const [replayFrame, setReplayFrame] = useState<WorldFrameDto | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [selectedAgentId, setSelectedAgentId] = useState(0);
+  const [brainCollapsed, setBrainCollapsed] = useState(false);
 
   const handleSelectAgent = useCallback((id: number) => {
     setSelectedAgentId(id);
@@ -41,59 +45,51 @@ function App() {
   }, []);
 
   const displayFrame = replayMode ? replayFrame : state.frame;
+  const selectedAgent = displayFrame?.agents.find(a => a.id === selectedAgentId) ?? null;
 
   return (
     <div className="min-h-screen bg-[var(--color-bg)] text-[var(--color-text)]">
       {/* Header */}
-      <header className="border-b border-[var(--color-border)] px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <h1 className="text-xl font-bold text-[var(--color-accent)]">
-            🌱 Seed Dashboard
+      <header className="border-b border-[var(--color-border)] px-4 py-2 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <h1 className="text-lg font-bold text-[var(--color-accent)]">
+            The Seed
           </h1>
-          <span className={`px-2 py-1 text-xs rounded ${
+          <span className={`px-2 py-0.5 text-[10px] rounded font-mono ${
             state.connected 
               ? 'bg-[var(--color-success)]/20 text-[var(--color-success)]' 
               : 'bg-[var(--color-danger)]/20 text-[var(--color-danger)]'
           }`}>
-            {state.connected ? 'Connected' : 'Disconnected'}
+            {state.connected ? 'ONLINE' : 'OFFLINE'}
           </span>
           {replayMode && (
-            <span className="px-2 py-1 text-xs rounded bg-[var(--color-accent)]/20 text-[var(--color-accent)]">
-              Replay Mode
+            <span className="px-2 py-0.5 text-[10px] rounded font-mono bg-[var(--color-accent)]/20 text-[var(--color-accent)]">
+              REPLAY
             </span>
           )}
         </div>
         <div className="flex items-center gap-4">
-          {/* Recording Controls */}
           <div className="flex gap-2">
             {!isRecording ? (
               <button
                 onClick={handleStartRecording}
                 disabled={replayMode}
-                className="px-3 py-1 bg-[var(--color-danger)] hover:bg-[var(--color-danger)]/80 
-                           disabled:opacity-50 rounded text-sm font-semibold"
+                className="px-2.5 py-1 bg-[var(--color-danger)] hover:bg-[var(--color-danger)]/80 
+                           disabled:opacity-50 rounded text-xs font-semibold"
               >
-                ⏺ Record
+                REC
               </button>
             ) : (
               <button
                 onClick={handleStopRecording}
-                className="px-3 py-1 bg-[var(--color-danger)] animate-pulse rounded text-sm font-semibold"
+                className="px-2.5 py-1 bg-[var(--color-danger)] animate-pulse rounded text-xs font-semibold"
               >
-                ⏹ Stop ({replayFrames.length})
+                STOP ({replayFrames.length})
               </button>
             )}
           </div>
           
-          {state.status && !replayMode && (
-            <div className="flex gap-6 text-sm text-[var(--color-text-muted)]">
-              <span>Gen: <strong className="text-[var(--color-text)]">{state.status.currentGeneration}</strong></span>
-              <span>Tick: <strong className="text-[var(--color-text)]">{state.status.currentTick}</strong></span>
-              <span>Round: <strong className="text-[var(--color-text)]">{state.status.currentRound + 1}</strong></span>
-              <span>Alive: <strong className="text-[var(--color-text)]">{state.status.aliveCount}/{state.status.populationSize}</strong></span>
-              <span>Species: <strong className="text-[var(--color-text)]">{state.status.speciesCount}</strong></span>
-            </div>
-          )}
+          {/* Gen/Rnd/Species moved to EnvironmentBar */}
         </div>
       </header>
 
@@ -103,6 +99,11 @@ function App() {
           status={state.status} 
           controls={controls} 
         />
+      )}
+
+      {/* World Controls */}
+      {!replayMode && (
+        <WorldControls status={state.status} controls={controls} initialOverrides={state.worldOverrides} />
       )}
 
       {/* Replay Player */}
@@ -115,28 +116,49 @@ function App() {
       )}
 
       {/* Main Content */}
-      <main className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* World View */}
-        <div className="bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] p-4">
-          <h2 className="text-lg font-semibold mb-3 text-[var(--color-accent)]">World View</h2>
-          <WorldView 
-            frame={displayFrame} 
-            onSelectAgent={handleSelectAgent}
-            selectedAgentId={selectedAgentId}
-          />
+      <main className="p-3 grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-3">
+        {/* Left Column */}
+        <div className="flex flex-col gap-3">
+          <div className="bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] p-3">
+            <WorldView 
+              frame={displayFrame} 
+              onSelectAgent={handleSelectAgent}
+              selectedAgentId={selectedAgentId}
+              speed={state.status?.speed ?? 1}
+            />
+          </div>
+          <EnvironmentBar frame={displayFrame} status={state.status} />
         </div>
 
-        {/* Brain View */}
-        <div className="bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] p-4">
-          <h2 className="text-lg font-semibold mb-3 text-[var(--color-accent)]">Brain Graph</h2>
-          <BrainView brain={state.brain} />
+        {/* Right Column */}
+        <div className="flex flex-col gap-3">
+          <div className="bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)]">
+            <div className="px-3 py-2 border-b border-[var(--color-border)]">
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Agent Inspector</h2>
+            </div>
+            <AgentInspector agent={selectedAgent} speciesId={selectedAgent?.speciesId} details={state.agentDetails} />
+          </div>
+
+          <div className="bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] flex-1 min-h-0">
+            <button
+              onClick={() => setBrainCollapsed(!brainCollapsed)}
+              className="w-full px-3 py-2 border-b border-[var(--color-border)] flex items-center justify-between hover:bg-[var(--color-surface-alt)] transition-colors"
+            >
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Brain Graph</h2>
+              <span className="text-[var(--color-text-muted)] text-xs">{brainCollapsed ? '▸' : '▾'}</span>
+            </button>
+            {!brainCollapsed && (
+              <div className="p-3">
+                <BrainView brain={state.brain} />
+              </div>
+            )}
+          </div>
         </div>
       </main>
 
-      {/* Fitness Chart */}
-      <section className="px-4 pb-4">
-        <div className="bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] p-4">
-          <h2 className="text-lg font-semibold mb-3 text-[var(--color-accent)]">Fitness History</h2>
+      {/* Charts Section */}
+      <section className="px-3 pb-3">
+        <div className="bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] p-3">
           <FitnessChart history={state.history} />
         </div>
       </section>

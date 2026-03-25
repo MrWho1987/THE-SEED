@@ -33,7 +33,11 @@ public sealed class SimulationHub : Hub
         
         // Send generation history
         await Clients.Caller.SendAsync("GenerationHistory", _runner.GenerationHistory);
-        
+
+        var overrides = _runner.GetWorldOverrides();
+        if (overrides != null)
+            await Clients.Caller.SendAsync("WorldOverrides", overrides);
+
         await base.OnConnectedAsync();
     }
     
@@ -121,6 +125,16 @@ public sealed class SimulationHub : Hub
         {
             await Clients.Caller.SendAsync("BrainSnapshot", snapshot);
         }
+    }
+
+    public void ApplyWorldOverride(WorldOverrideDto dto)
+    {
+        _runner.ApplyWorldOverride(dto);
+    }
+
+    public void ClearWorldOverride()
+    {
+        _runner.ClearWorldOverride();
     }
 }
 

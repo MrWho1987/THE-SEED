@@ -17,6 +17,7 @@ public sealed class AgentView : IWorld
     public float AgentY => _arena.AgentY(_agentIndex);
     public float AgentHeading => _arena.AgentHeading(_agentIndex);
     public float AgentSpeed => _arena.AgentSpeed(_agentIndex);
+    public float LightLevel => _arena.LightLevel;
 
     public (float distance, int hitType) Raycast(float originX, float originY,
         float dirX, float dirY, float maxDistance)

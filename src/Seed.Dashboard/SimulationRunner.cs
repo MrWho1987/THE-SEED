@@ -24,6 +24,9 @@ internal sealed class AgentEvalState
     public int FoodCollected { get; set; }
     public float EnergySpent { get; set; }
     public float InstabilitySum { get; set; }
+    public float DistanceTraveled { get; set; }
+    public float PrevX { get; set; }
+    public float PrevY { get; set; }
     public List<EpisodeMetrics> RoundMetrics { get; set; } = new();
     public FitnessAggregate AggregatedFitness { get; set; }
 }
@@ -46,6 +49,7 @@ public sealed class SimulationRunner : BackgroundService
 
     private int _selectedAgentIndex = 0;
     private int _generation;
+    private float[] _selectedAgentModulators = new float[ModulatorIndex.Count];
 
     private volatile bool _isRunning;
     private volatile bool _isPaused = true;
@@ -67,6 +71,9 @@ public sealed class SimulationRunner : BackgroundService
 
     private volatile bool _historyUpdated = false;
 
+    private WorldOverrideDto? _worldOverrides;
+    private bool _overridesActive;
+
     private static readonly AgentConfig AgentCfg = AgentConfig.Default;
 
     private static readonly AllBudgets DashboardBudgets = new(
@@ -82,7 +89,12 @@ public sealed class SimulationRunner : BackgroundService
             FoodClusters: 3,
             FoodEnergyAmplitude: 0.4f,
             FoodEnergyPeriod: 500,
-            RoundJitter: 0.15f
+            RoundJitter: 0.15f,
+            DayNightPeriod: 150,
+            SeasonPeriod: 1500,
+            AmbientEnergyRate: 0.00015f,
+            CorpseEnergyBase: 0.3f,
+            FoodQualityVariation: 0.1f
         ),
         Compute: new ComputeBudget(0)
     );
@@ -174,9 +186,15 @@ public sealed class SimulationRunner : BackgroundService
             state.FoodCollected = 0;
             state.EnergySpent = 0f;
             state.InstabilitySum = 0f;
+            state.DistanceTraveled = 0f;
+            state.PrevX = _arena.AgentX(i);
+            state.PrevY = _arena.AgentY(i);
             if (round == 0)
                 state.RoundMetrics.Clear();
         }
+
+        if (_overridesActive && _worldOverrides != null)
+            ApplyOverridesToArena();
     }
 
     public void Play() { _isPaused = false; }
@@ -194,6 +212,63 @@ public sealed class SimulationRunner : BackgroundService
     }
 
     public void Reset() { Initialize(_config); }
+
+    public void ApplyWorldOverride(WorldOverrideDto dto)
+    {
+        lock (_lock)
+        {
+            _worldOverrides = dto;
+            _overridesActive = dto.FoodCount != null || dto.AmbientEnergyRate != null
+                || dto.CorpseEnergyBase != null || dto.DayNightPeriod != null
+                || dto.SeasonPeriod != null || dto.HazardDamageMultiplier != null
+                || dto.FoodQualityVariation != null || dto.LightLevelOverride != null;
+            ApplyOverridesToArena();
+        }
+    }
+
+    public WorldOverrideDto? GetWorldOverrides()
+    {
+        lock (_lock) { return _worldOverrides; }
+    }
+
+    public void ClearWorldOverride()
+    {
+        lock (_lock)
+        {
+            _worldOverrides = null;
+            _overridesActive = false;
+            if (_arena != null)
+            {
+                _arena.SetBudget(_currentWorldBudget);
+                _arena.HazardDamageMultiplier = 1.0f;
+                _arena.LightLevelOverride = null;
+            }
+        }
+    }
+
+    private void ApplyOverridesToArena()
+    {
+        if (_arena == null || _worldOverrides == null) return;
+
+        var dto = _worldOverrides;
+        var b = _currentWorldBudget;
+
+        var newBudget = b with
+        {
+            AmbientEnergyRate = dto.AmbientEnergyRate ?? b.AmbientEnergyRate,
+            CorpseEnergyBase = dto.CorpseEnergyBase ?? b.CorpseEnergyBase,
+            DayNightPeriod = dto.DayNightPeriod ?? b.DayNightPeriod,
+            SeasonPeriod = dto.SeasonPeriod ?? b.SeasonPeriod,
+            FoodQualityVariation = dto.FoodQualityVariation ?? b.FoodQualityVariation
+        };
+        _arena.SetBudget(newBudget);
+
+        _arena.HazardDamageMultiplier = dto.HazardDamageMultiplier ?? 1.0f;
+        _arena.LightLevelOverride = dto.LightLevelOverride;
+
+        if (dto.FoodCount.HasValue)
+            _arena.AdjustFoodCount(dto.FoodCount.Value);
+    }
 
     public void StartRecording()
     {
@@ -228,7 +303,10 @@ public sealed class SimulationRunner : BackgroundService
                 Speed: _speed,
                 PopulationSize: _agentStates.Count,
                 SpeciesCount: _speciation.Species.Count,
-                AliveCount: aliveCount
+                AliveCount: aliveCount,
+                MaxTicksPerRound: _config.Budgets.Runtime.MaxTicksPerEpisode,
+                ArenaRounds: _config.Budgets.Population.ArenaRounds,
+                OverridesActive: _overridesActive
             );
         }
     }
@@ -259,6 +337,47 @@ public sealed class SimulationRunner : BackgroundService
         {
             if (_selectedAgentIndex >= _agentStates.Count) return null;
             return _agentStates[_selectedAgentIndex].Runtime?.GetActivations().ToArray();
+        }
+    }
+
+    private SelectedAgentDetailsDto? BuildSelectedAgentDetails()
+    {
+        lock (_lock)
+        {
+            if (_selectedAgentIndex < 0 || _selectedAgentIndex >= _agentStates.Count)
+                return null;
+
+            var state = _agentStates[_selectedAgentIndex];
+            var genome = state.Genome;
+            int hiddenNodes = genome.Cppn.Nodes.Count(n => n.Type == CppnNodeType.Hidden);
+
+            float instPen = state.SurvivalTicks > 0
+                ? state.InstabilitySum / state.SurvivalTicks : 0f;
+
+            var roundHistory = state.RoundMetrics
+                .Select((m, idx) => new RoundMetricsDto(
+                    idx, m.SurvivalTicks, m.NetEnergyDelta,
+                    m.FoodCollected, m.DistanceTraveled, m.Fitness))
+                .ToArray();
+
+            return new SelectedAgentDetailsDto(
+                AgentId: _selectedAgentIndex,
+                ConnectionCount: genome.Cppn.Connections.Count,
+                HiddenNodeCount: hiddenNodes,
+                TotalNodeCount: genome.Cppn.Nodes.Count,
+                SurvivalTicks: state.SurvivalTicks,
+                FoodCollected: state.FoodCollected,
+                NetEnergyDelta: state.NetEnergyDelta,
+                DistanceTraveled: state.DistanceTraveled,
+                InstabilityPenalty: instPen,
+                ModReward: _selectedAgentModulators[ModulatorIndex.Reward],
+                ModPain: _selectedAgentModulators[ModulatorIndex.Pain],
+                ModCuriosity: _selectedAgentModulators[ModulatorIndex.Curiosity],
+                RoundHistory: roundHistory,
+                AggregatedFitness: state.RoundMetrics.Count >= _config.Budgets.Population.ArenaRounds
+                    ? state.AggregatedFitness.Score
+                    : (float?)null
+            );
         }
     }
 
@@ -300,6 +419,10 @@ public sealed class SimulationRunner : BackgroundService
                     var activations = GetBrainActivations();
                     if (activations != null)
                         await _hub.Clients.All.SendAsync("BrainActivations", activations, stoppingToken);
+
+                    var agentDetails = BuildSelectedAgentDetails();
+                    if (agentDetails != null)
+                        await _hub.Clients.All.SendAsync("SelectedAgentDetails", agentDetails, stoppingToken);
 
                     await _hub.Clients.All.SendAsync("Status", GetStatus(), stoppingToken);
                 }
@@ -365,11 +488,21 @@ public sealed class SimulationRunner : BackgroundService
         {
             var state = _agentStates[i];
             results[i].Modulators[ModulatorIndex.Curiosity] = curiosities[i];
+            if (i == _selectedAgentIndex)
+                Array.Copy(results[i].Modulators, _selectedAgentModulators, Math.Min(results[i].Modulators.Length, ModulatorIndex.Count));
             state.Runtime.Learn(results[i].Modulators, new BrainLearnContext(state.CurrentTick));
             state.Body.ApplyWorldSignals(results[i].Signals);
 
             state.CurrentTick++;
-            if (_arena.AgentAlive(i)) state.SurvivalTicks++;
+            if (_arena.AgentAlive(i))
+            {
+                state.SurvivalTicks++;
+                float dx = _arena.AgentX(i) - state.PrevX;
+                float dy = _arena.AgentY(i) - state.PrevY;
+                state.DistanceTraveled += MathF.Sqrt(dx * dx + dy * dy);
+                state.PrevX = _arena.AgentX(i);
+                state.PrevY = _arena.AgentY(i);
+            }
             state.FoodCollected += results[i].Signals.FoodCollectedThisStep;
             state.NetEnergyDelta += results[i].Signals.EnergyDelta;
             if (results[i].Signals.EnergyDelta < 0)
@@ -395,10 +528,11 @@ public sealed class SimulationRunner : BackgroundService
             float instPen = state.SurvivalTicks > 0 ? state.InstabilitySum / state.SurvivalTicks : 0f;
             float fitness = DeterministicHelpers.ComputeEpisodeFitness(
                 state.SurvivalTicks, state.NetEnergyDelta, state.FoodCollected,
-                state.EnergySpent, instPen, _config.Budgets.Runtime.MaxTicksPerEpisode);
+                state.EnergySpent, instPen, state.DistanceTraveled,
+                _config.Budgets.Runtime.MaxTicksPerEpisode);
             state.RoundMetrics.Add(new EpisodeMetrics(
                 state.SurvivalTicks, state.NetEnergyDelta, state.FoodCollected,
-                state.EnergySpent, instPen, fitness));
+                state.EnergySpent, instPen, state.DistanceTraveled, fitness));
         }
 
         _currentRound++;
@@ -436,6 +570,19 @@ public sealed class SimulationRunner : BackgroundService
         var genomes = _agentStates.Select(a => (IGenome)a.Genome).ToList();
         _speciation.Speciate(genomes, _config.Speciation);
 
+        var fitnessLookup = _agentStates
+            .GroupBy(a => a.Genome.GenomeId)
+            .ToDictionary(g => g.Key, g => g.First().AggregatedFitness.Score);
+
+        var speciesBreakdown = _speciation.Species
+            .Select(sp => new SpeciesInfoDto(
+                sp.SpeciesId,
+                sp.Members.Count,
+                sp.Members.Count > 0
+                    ? (float)sp.Members.Average(m => fitnessLookup.GetValueOrDefault(m.GenomeId, 0f))
+                    : 0f))
+            .ToArray();
+
         int modulatoryEdgeCount = 0;
         float avgDelay = 0f;
         var bestAgent = _agentStates.OrderByDescending(a => a.AggregatedFitness.Score).First();
@@ -446,6 +593,13 @@ public sealed class SimulationRunner : BackgroundService
             avgDelay = (float)allEdges.Average(e => e.Meta.Delay);
         }
 
+        float avgDist = (float)_agentStates.Average(a =>
+            a.RoundMetrics.Count > 0 ? a.RoundMetrics.Average(m => m.DistanceTraveled) : 0.0);
+        float avgFood = (float)_agentStates.Average(a =>
+            a.RoundMetrics.Count > 0 ? a.RoundMetrics.Average(m => (double)m.FoodCollected) : 0.0);
+        float avgSurv = (float)_agentStates.Average(a =>
+            a.RoundMetrics.Count > 0 ? a.RoundMetrics.Average(m => (double)m.SurvivalTicks) : 0.0);
+
         var stats = new GenerationStatsDto(
             Generation: _generation,
             BestFitness: bestFitness,
@@ -454,7 +608,11 @@ public sealed class SimulationRunner : BackgroundService
             SpeciesCount: _speciation.Species.Count,
             PopulationSize: _agentStates.Count,
             ModulatoryEdgeCount: modulatoryEdgeCount,
-            AvgDelay: avgDelay
+            AvgDelay: avgDelay,
+            AvgDistanceTraveled: avgDist,
+            AvgFoodCollected: avgFood,
+            AvgSurvivalTicks: avgSurv,
+            SpeciesBreakdown: speciesBreakdown
         );
         _generationHistory.Add(stats);
         _historyUpdated = true;
@@ -462,21 +620,18 @@ public sealed class SimulationRunner : BackgroundService
         _logger.LogInformation("Generation {Gen} complete. Best: {Best:F1}, Mean: {Mean:F1}, Species: {Species}",
             _generation, bestFitness, meanFitness, _speciation.Species.Count);
 
-        EvolvePopulation();
+        EvolvePopulation(fitnessLookup);
         _generation++;
         InitializeRound(0);
     }
 
-    private void EvolvePopulation()
+    private void EvolvePopulation(Dictionary<Guid, float> fitnessLookup)
     {
         int popSize = _agentStates.Count;
         int elitesPerSpecies = _config.Budgets.Population.ElitesPerSpecies;
         int minSpeciesSize = _config.Budgets.Population.MinSpeciesSizeForElitism;
         int tournamentSize = _config.Speciation.TournamentSize;
 
-        var fitnessLookup = _agentStates
-            .GroupBy(a => a.Genome.GenomeId)
-            .ToDictionary(g => g.Key, g => g.First().AggregatedFitness.Score);
         var offspringAlloc = _speciation.AllocateOffspring(fitnessLookup, popSize, _config.Budgets.Population, _config.Speciation);
 
         var newGenomes = new List<SeedGenome>();
@@ -610,7 +765,7 @@ public sealed class SimulationRunner : BackgroundService
 
         var food = _arena.GetFoodItems()
             .Where(f => !f.Consumed)
-            .Select((f, i) => new FoodDto(i, f.X, f.Y, f.EnergyValue))
+            .Select((f, i) => new FoodDto(i, f.X, f.Y, f.EnergyValue, f.IsCorpse))
             .ToArray();
         var obstacles = _arena.GetObstacles()
             .Select(o => new ObstacleDto(o.MinX, o.MinY, o.Width, o.Height))
@@ -618,14 +773,6 @@ public sealed class SimulationRunner : BackgroundService
         var hazards = _arena.GetHazards()
             .Select(h => new HazardDto(h.MinX, h.MinY, h.Width, h.Height, ContinuousWorld.HazardDamage))
             .ToArray();
-
-        float foodMult = 1f;
-        if (_currentWorldBudget.FoodEnergyAmplitude > 0f && _currentWorldBudget.FoodEnergyPeriod > 0)
-        {
-            int tick = _agentStates.Count > 0 ? _agentStates[0].CurrentTick : 0;
-            float phase = 2f * MathF.PI * tick / _currentWorldBudget.FoodEnergyPeriod;
-            foodMult = 1f + _currentWorldBudget.FoodEnergyAmplitude * MathF.Sin(phase);
-        }
 
         return new WorldFrameDto(
             Tick: _agentStates.Count > 0 ? _agentStates[0].CurrentTick : 0,
@@ -637,7 +784,8 @@ public sealed class SimulationRunner : BackgroundService
             Food: food,
             Obstacles: obstacles,
             Hazards: hazards,
-            FoodEnergyMultiplier: foodMult
+            FoodEnergyMultiplier: _arena?.FoodEnergyMultiplier ?? 1f,
+            LightLevel: _arena?.LightLevel ?? 1f
         );
     }
 
@@ -670,7 +818,10 @@ public sealed class SimulationRunner : BackgroundService
                     To: dstId,
                     Weight: edge.WSlow + edge.WFast,
                     Type: edge.Meta.EdgeType.ToString(),
-                    Delay: edge.Meta.Delay
+                    Delay: edge.Meta.Delay,
+                    WSlow: edge.WSlow,
+                    WFast: edge.WFast,
+                    PlasticityGain: edge.PlasticityGain
                 ));
             }
         }

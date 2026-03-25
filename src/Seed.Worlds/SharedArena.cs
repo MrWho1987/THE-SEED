@@ -33,7 +33,16 @@ public sealed class SharedArena
     private float[] _interactionGain = Array.Empty<float>();
     private float[] _interactionLoss = Array.Empty<float>();
 
+    private float _lightLevel = 1f;
+    private float _seasonPhase;
+    private float _energyMultiplier = 1f;
+    private int _nextCorpseId;
+
     public int AgentCount => _agents.Length;
+    public float LightLevel => _lightLevel;
+    public float FoodEnergyMultiplier => _energyMultiplier;
+    public float HazardDamageMultiplier { get; set; } = 1.0f;
+    public float? LightLevelOverride { get; set; }
 
     public float AgentX(int i) => _agents[i].X;
     public float AgentY(int i) => _agents[i].Y;
@@ -46,6 +55,11 @@ public sealed class SharedArena
     public IReadOnlyList<FoodItem> GetFoodItems() => _food;
     public IReadOnlyList<AABB> GetObstacles() => _obstacles;
     public IReadOnlyList<AABB> GetHazards() => _hazards;
+
+    public void SetBudget(in WorldBudget newBudget)
+    {
+        _budget = newBudget;
+    }
 
     public void Reset(ulong seed, in WorldBudget budget, int agentCount)
     {
@@ -60,6 +74,8 @@ public sealed class SharedArena
         _grid = new SpatialGrid(_budget.WorldWidth, _budget.WorldHeight, 10f);
         _grid.Rebuild(_agents);
 
+        _nextCorpseId = _food.Count > 0 ? _food.Max(f => f.Id) + 1 : 10000;
+
         if (_results.Length != agentCount)
         {
             _results = new WorldStepResult[agentCount];
@@ -72,6 +88,37 @@ public sealed class SharedArena
             for (int i = 0; i < agentCount; i++)
                 _modulators[i] = new float[ModulatorIndex.Count];
         }
+
+        UpdateTimeState();
+    }
+
+    private void UpdateTimeState()
+    {
+        if (LightLevelOverride.HasValue)
+        {
+            _lightLevel = LightLevelOverride.Value;
+        }
+        else if (_budget.DayNightPeriod > 0)
+        {
+            float dayPhase = 2f * MathF.PI * _tick / _budget.DayNightPeriod;
+            _lightLevel = 0.5f + 0.5f * MathF.Cos(dayPhase);
+        }
+        else
+        {
+            _lightLevel = 1f;
+        }
+
+        if (_budget.SeasonPeriod > 0)
+        {
+            float seasonAngle = 2f * MathF.PI * _tick / _budget.SeasonPeriod;
+            _seasonPhase = MathF.Sin(seasonAngle);
+        }
+        else
+        {
+            _seasonPhase = 0f;
+        }
+
+        _energyMultiplier = 1f + 0.3f * _seasonPhase;
     }
 
     public WorldStepResult[] StepAll(float[][] actionsPerAgent)
@@ -196,17 +243,11 @@ public sealed class SharedArena
             foreach (var haz in _hazards)
             {
                 if (haz.OverlapsCircle(_agents[i].X, _agents[i].Y, ContinuousWorld.AgentRadius))
-                    _hazardPenalties[i] += ContinuousWorld.HazardDamage;
+                    _hazardPenalties[i] += ContinuousWorld.HazardDamage * HazardDamageMultiplier;
             }
         }
 
         // 5. Food competition -- grid-accelerated closest alive agent within collection radius
-        float energyMultiplier = 1f;
-        if (_budget.FoodEnergyAmplitude > 0f && _budget.FoodEnergyPeriod > 0)
-        {
-            float phase = 2f * MathF.PI * _tick / _budget.FoodEnergyPeriod;
-            energyMultiplier = 1f + _budget.FoodEnergyAmplitude * MathF.Sin(phase);
-        }
 
         Array.Clear(_foodCollected, 0, n);
         Array.Clear(_foodEnergy, 0, n);
@@ -244,7 +285,7 @@ public sealed class SharedArena
             if (bestAgent >= 0)
             {
                 _food[fi] = f with { Consumed = true, RespawnTick = _tick + ContinuousWorld.FoodRespawnDelay };
-                _foodEnergy[bestAgent] += f.EnergyValue * energyMultiplier;
+                _foodEnergy[bestAgent] += f.EnergyValue * _energyMultiplier;
                 _foodCollected[bestAgent]++;
             }
         }
@@ -298,6 +339,8 @@ public sealed class SharedArena
         }
 
         // 7. Energy update + death check, build results
+        float ambientGain = _budget.AmbientEnergyRate * _lightLevel * (1f + 0.3f * _seasonPhase);
+
         for (int i = 0; i < n; i++)
         {
             if (!_agents[i].Alive)
@@ -313,9 +356,10 @@ public sealed class SharedArena
 
             float movementCost = MathF.Abs(_agents[i].Speed) * ContinuousWorld.MovementEnergyCost;
             float totalCost = ContinuousWorld.BaseEnergyCost + movementCost + _hazardPenalties[i];
-            float energyDelta = _foodEnergy[i] + _interactionGain[i] - _interactionLoss[i] - totalCost;
+            float energyDelta = _foodEnergy[i] + _interactionGain[i] - _interactionLoss[i] - totalCost + ambientGain;
             _agents[i].Energy += energyDelta;
 
+            bool justDied = false;
             if (_agents[i].Energy <= 0)
             {
                 _agents[i].Energy = 0;
@@ -324,9 +368,22 @@ public sealed class SharedArena
                 _agents[i].Signal1 = 0;
                 _agents[i].ShareReceived = 0;
                 _agents[i].AttackReceived = 0;
+                justDied = true;
             }
 
-            _modulators[i][ModulatorIndex.Reward] = Math.Max(0, _foodEnergy[i] + _interactionGain[i]);
+            if (justDied && _budget.CorpseEnergyBase > 0f)
+            {
+                _food.Add(new FoodItem(
+                    _nextCorpseId++,
+                    _agents[i].X,
+                    _agents[i].Y,
+                    0.4f,
+                    _budget.CorpseEnergyBase,
+                    false,
+                    IsCorpse: true));
+            }
+
+            _modulators[i][ModulatorIndex.Reward] = Math.Max(0, _foodEnergy[i] + _interactionGain[i] + ambientGain);
             _modulators[i][ModulatorIndex.Pain] = Math.Max(0, totalCost) + _hazardPenalties[i] + _interactionLoss[i];
             if (ModulatorIndex.Count > 2)
                 _modulators[i][ModulatorIndex.Curiosity] = 0f;
@@ -339,6 +396,7 @@ public sealed class SharedArena
         }
 
         _tick++;
+        UpdateTimeState();
         return _results;
     }
 
@@ -562,7 +620,7 @@ public sealed class SharedArena
         float margin = 2f;
         int obstacleCount = (int)(_budget.WorldWidth * _budget.WorldHeight * _budget.ObstacleDensity / 16f);
         int hazardCount = (int)(_budget.WorldWidth * _budget.WorldHeight * _budget.HazardDensity / 16f);
-        int effectiveFoodCount = Math.Max(_budget.FoodCount, agentCount * 2);
+        int effectiveFoodCount = _budget.FoodCount;
 
         int id = 0;
         for (int i = 0; i < obstacleCount; i++)
@@ -630,7 +688,12 @@ public sealed class SharedArena
                     foreach (var obs in _obstacles)
                         if (obs.Contains(x, y, ContinuousWorld.FoodCollectionRadius))
                         { valid = false; break; }
-                    if (valid) { _food.Add(new FoodItem(i, x, y, 0.3f, 0.2f, false)); break; }
+                    if (valid)
+                    {
+                        float ev = QualityVariedEnergy(ref rng, 0.2f);
+                        _food.Add(new FoodItem(i, x, y, 0.3f, ev, false));
+                        break;
+                    }
                 }
             }
         }
@@ -650,7 +713,12 @@ public sealed class SharedArena
                     {
                         if (obs.Contains(x, y, ContinuousWorld.FoodCollectionRadius)) { valid = false; break; }
                     }
-                    if (valid) { _food.Add(new FoodItem(i, x, y, 0.3f, 0.2f, false)); break; }
+                    if (valid)
+                    {
+                        float ev = QualityVariedEnergy(ref rng, 0.2f);
+                        _food.Add(new FoodItem(i, x, y, 0.3f, ev, false));
+                        break;
+                    }
                 }
             }
         }
@@ -720,6 +788,14 @@ public sealed class SharedArena
         }
     }
 
+    private float QualityVariedEnergy(ref Rng64 rng, float baseEnergy)
+    {
+        if (_budget.FoodQualityVariation <= 0f) return baseEnergy;
+        float variation = _budget.FoodQualityVariation;
+        float multiplier = 1f + variation * rng.NextFloat(-1f, 1f);
+        return Math.Max(0.01f, baseEnergy * multiplier);
+    }
+
     private bool IsValidAgentPosition(float x, float y, int placedSoFar, float minSeparation)
     {
         foreach (var obs in _obstacles)
@@ -779,7 +855,8 @@ public sealed class SharedArena
                     }
                     if (valid)
                     {
-                        _food[i] = new FoodItem(f.Id, x, y, f.Radius, f.EnergyValue, false, -1);
+                        float ev = QualityVariedEnergy(ref _worldRng, f.EnergyValue);
+                        _food[i] = new FoodItem(f.Id, x, y, f.Radius, ev, false, -1);
                         placed = true;
                         break;
                     }
@@ -800,7 +877,75 @@ public sealed class SharedArena
                         x = _worldRng.NextFloat(margin, _budget.WorldWidth - margin);
                         y = _worldRng.NextFloat(margin, _budget.WorldHeight - margin);
                     }
-                    _food[i] = new FoodItem(f.Id, x, y, f.Radius, f.EnergyValue, false, -1);
+                    float ev = QualityVariedEnergy(ref _worldRng, f.EnergyValue);
+                    _food[i] = new FoodItem(f.Id, x, y, f.Radius, ev, false, -1);
+                }
+            }
+        }
+    }
+
+    public void AdjustFoodCount(int targetCount)
+    {
+        int currentActive = 0;
+        for (int i = 0; i < _food.Count; i++)
+            if (!_food[i].Consumed) currentActive++;
+
+        if (targetCount > currentActive)
+        {
+            float margin = 2f;
+            int toAdd = targetCount - currentActive;
+            for (int n = 0; n < toAdd; n++)
+            {
+                bool placed = false;
+                for (int attempt = 0; attempt < 20; attempt++)
+                {
+                    float x, y;
+                    if (_budget.FoodClusters > 0 && _clusterX.Length > 0)
+                    {
+                        int cluster = _worldRng.NextInt(_clusterX.Length);
+                        x = _clusterX[cluster] + _worldRng.NextGaussian() * _clusterSpread;
+                        y = _clusterY[cluster] + _worldRng.NextGaussian() * _clusterSpread;
+                        x = DeterministicHelpers.Clamp(x, margin, _budget.WorldWidth - margin);
+                        y = DeterministicHelpers.Clamp(y, margin, _budget.WorldHeight - margin);
+                    }
+                    else
+                    {
+                        x = _worldRng.NextFloat(margin, _budget.WorldWidth - margin);
+                        y = _worldRng.NextFloat(margin, _budget.WorldHeight - margin);
+                    }
+
+                    bool valid = true;
+                    foreach (var obs in _obstacles)
+                    {
+                        if (obs.Contains(x, y, ContinuousWorld.FoodCollectionRadius))
+                        { valid = false; break; }
+                    }
+                    if (valid)
+                    {
+                        float ev = QualityVariedEnergy(ref _worldRng, 0.3f);
+                        _food.Add(new FoodItem(_nextCorpseId++, x, y, 0.3f, ev, false, -1));
+                        placed = true;
+                        break;
+                    }
+                }
+                if (!placed)
+                {
+                    float fx = _worldRng.NextFloat(margin, _budget.WorldWidth - margin);
+                    float fy = _worldRng.NextFloat(margin, _budget.WorldHeight - margin);
+                    float ev = QualityVariedEnergy(ref _worldRng, 0.3f);
+                    _food.Add(new FoodItem(_nextCorpseId++, fx, fy, 0.3f, ev, false, -1));
+                }
+            }
+        }
+        else if (targetCount < currentActive)
+        {
+            int toRemove = currentActive - targetCount;
+            for (int i = _food.Count - 1; i >= 0 && toRemove > 0; i--)
+            {
+                if (!_food[i].Consumed)
+                {
+                    _food[i] = _food[i] with { Consumed = true, RespawnTick = -1 };
+                    toRemove--;
                 }
             }
         }

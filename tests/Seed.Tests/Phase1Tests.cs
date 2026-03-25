@@ -117,9 +117,9 @@ public class Phase1Tests
     {
         var episodes = new EpisodeMetrics[]
         {
-            new(100, 5f, 3, 2f, 0.1f, 50f),
-            new(80, 3f, 2, 3f, 0.2f, 30f),
-            new(60, 1f, 1, 4f, 0.3f, 10f),
+            new(100, 5f, 3, 2f, 0.1f, 0f, 50f),
+            new(80, 3f, 2, 3f, 0.2f, 0f, 30f),
+            new(60, 1f, 1, 4f, 0.3f, 0f, 10f),
         };
 
         var agg1 = DeterministicHelpers.AggregateFitness(episodes, lambdaVar: 0f, lambdaWorst: 0f);

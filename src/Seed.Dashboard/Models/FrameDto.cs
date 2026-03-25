@@ -21,7 +21,7 @@ public sealed record AgentDto(
 /// <summary>
 /// Lightweight snapshot of food for dashboard rendering.
 /// </summary>
-public sealed record FoodDto(int Id, float X, float Y, float Value);
+public sealed record FoodDto(int Id, float X, float Y, float Value, bool IsCorpse);
 
 /// <summary>
 /// Lightweight snapshot of an obstacle for dashboard rendering.
@@ -46,7 +46,8 @@ public sealed record WorldFrameDto(
     FoodDto[] Food,
     ObstacleDto[] Obstacles,
     HazardDto[] Hazards,
-    float FoodEnergyMultiplier
+    float FoodEnergyMultiplier,
+    float LightLevel
 );
 
 /// <summary>
@@ -69,7 +70,10 @@ public sealed record BrainEdgeDto(
     int To,
     float Weight,
     string Type, // "Standard", "Modulatory", "Plastic"
-    int Delay
+    int Delay,
+    float WSlow = 0f,
+    float WFast = 0f,
+    float PlasticityGain = 0f
 );
 
 /// <summary>
@@ -92,7 +96,11 @@ public sealed record GenerationStatsDto(
     int SpeciesCount,
     int PopulationSize,
     int ModulatoryEdgeCount = 0,
-    float AvgDelay = 0f
+    float AvgDelay = 0f,
+    float AvgDistanceTraveled = 0f,
+    float AvgFoodCollected = 0f,
+    float AvgSurvivalTicks = 0f,
+    SpeciesInfoDto[]? SpeciesBreakdown = null
 );
 
 /// <summary>
@@ -107,7 +115,47 @@ public sealed record SimulationStatusDto(
     float Speed,
     int PopulationSize,
     int SpeciesCount,
-    int AliveCount
+    int AliveCount,
+    int MaxTicksPerRound = 300,
+    int ArenaRounds = 4,
+    bool OverridesActive = false
 );
 
+public sealed record RoundMetricsDto(
+    int Round,
+    int SurvivalTicks,
+    float NetEnergyDelta,
+    int FoodCollected,
+    float DistanceTraveled,
+    float Fitness
+);
 
+public sealed record SelectedAgentDetailsDto(
+    int AgentId,
+    int ConnectionCount,
+    int HiddenNodeCount,
+    int TotalNodeCount,
+    int SurvivalTicks,
+    int FoodCollected,
+    float NetEnergyDelta,
+    float DistanceTraveled,
+    float InstabilityPenalty,
+    float ModReward,
+    float ModPain,
+    float ModCuriosity,
+    RoundMetricsDto[] RoundHistory,
+    float? AggregatedFitness
+);
+
+public sealed record SpeciesInfoDto(int SpeciesId, int MemberCount, float MeanFitness);
+
+public sealed record WorldOverrideDto(
+    int? FoodCount = null,
+    float? AmbientEnergyRate = null,
+    float? CorpseEnergyBase = null,
+    int? DayNightPeriod = null,
+    int? SeasonPeriod = null,
+    float? HazardDamageMultiplier = null,
+    float? FoodQualityVariation = null,
+    float? LightLevelOverride = null
+);

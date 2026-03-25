@@ -39,7 +39,7 @@ public readonly record struct PopulationBudget(
     int MinSpeciesSizeForElitism = 5
 )
 {
-    public static PopulationBudget Default => new(128, 4, 1, 5);
+    public static PopulationBudget Default => new(256, 6, 2, 5);
 }
 
 /// <summary>
@@ -54,7 +54,12 @@ public readonly record struct WorldBudget(
     int FoodClusters = 0,
     float FoodEnergyAmplitude = 0f,
     int FoodEnergyPeriod = 500,
-    float RoundJitter = 0f
+    float RoundJitter = 0f,
+    int DayNightPeriod = 0,
+    int SeasonPeriod = 0,
+    float AmbientEnergyRate = 0f,
+    float CorpseEnergyBase = 0f,
+    float FoodQualityVariation = 0f
 )
 {
     public static WorldBudget Default => new(64, 64, 0.12f, 0.04f, 25);
@@ -72,7 +77,12 @@ public readonly record struct WorldBudget(
             FoodClusters: FoodClusters,
             FoodEnergyAmplitude: FoodEnergyAmplitude,
             FoodEnergyPeriod: FoodEnergyPeriod,
-            RoundJitter: 0f
+            RoundJitter: 0f,
+            DayNightPeriod: DayNightPeriod,
+            SeasonPeriod: SeasonPeriod,
+            AmbientEnergyRate: AmbientEnergyRate,
+            CorpseEnergyBase: CorpseEnergyBase,
+            FoodQualityVariation: FoodQualityVariation
         );
     }
 }
@@ -114,7 +124,12 @@ public readonly record struct AllBudgets(
             FoodClusters: 3,
             FoodEnergyAmplitude: 0.4f,
             FoodEnergyPeriod: 500,
-            RoundJitter: 0.15f
+            RoundJitter: 0.15f,
+            DayNightPeriod: 150,
+            SeasonPeriod: 1500,
+            AmbientEnergyRate: 0.00015f,
+            CorpseEnergyBase: 0.3f,
+            FoodQualityVariation: 0.1f
         ),
         ComputeBudget.Default
     );

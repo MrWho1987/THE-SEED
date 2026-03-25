@@ -44,24 +44,22 @@ public sealed class AgentBody : IAgentBody
 
         int idx = 0;
 
-        // Proximity rays
+        // Proximity rays (range modulated by light level)
         float heading = _world.AgentHeading;
         float x = _world.AgentX;
         float y = _world.AgentY;
+        float effectiveRayMax = _config.RayMaxDistance * (0.3f + 0.7f * _world.LightLevel);
 
         for (int i = 0; i < _config.RayCount; i++)
         {
-            // Rays spread across the forward hemisphere
             float rayAngle = heading + (i - _config.RayCount / 2f) * _config.RaySpreadRadians / _config.RayCount;
             float dirX = MathF.Cos(rayAngle);
             float dirY = MathF.Sin(rayAngle);
 
-            var (distance, hitType) = _world.Raycast(x, y, dirX, dirY, _config.RayMaxDistance);
+            var (distance, hitType) = _world.Raycast(x, y, dirX, dirY, effectiveRayMax);
 
-            // Normalize distance to [0, 1] where 0 = max distance, 1 = touching
-            sensorBuffer[idx++] = 1f - (distance / _config.RayMaxDistance);
+            sensorBuffer[idx++] = 1f - (distance / effectiveRayMax);
 
-            // One-hot encode hit type (5 types: wall, obstacle, hazard, food, agent)
             sensorBuffer[idx++] = hitType == (int)EntityType.Wall ? 1f : 0f;
             sensorBuffer[idx++] = hitType == (int)EntityType.Obstacle ? 1f : 0f;
             sensorBuffer[idx++] = hitType == (int)EntityType.Hazard ? 1f : 0f;
@@ -87,6 +85,9 @@ public sealed class AgentBody : IAgentBody
 
         // Bias input (always 1)
         sensorBuffer[idx++] = 1f;
+
+        // Ambient light level
+        sensorBuffer[idx++] = _world.LightLevel;
 
         // Signal sensing (strength per channel + gradient direction)
         var (s0, s1) = _world.NearbySignals(x, y);
@@ -180,9 +181,10 @@ public sealed record AgentConfig(
 {
     // Per ray: distance + 5 type channels = 6
     // Plus: food gradient (2) + energy (1) + speed (1) + bias (1) = 5
+    // Plus: light level (1) = 1
     // Plus: signal strength per channel + signal gradient (2) = SignalChannels + 2
     // Plus: nearest agent energy (1) + agent density (1) + share feedback (1) + attack feedback (1) = 4
-    public int TotalSensorCount => RayCount * 6 + 5 + SignalChannels + 2 + 4;
+    public int TotalSensorCount => RayCount * 6 + 5 + 1 + SignalChannels + 2 + 4;
 
     public static AgentConfig Default => new();
 }

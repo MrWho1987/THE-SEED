@@ -1,18 +1,73 @@
-import { useRef, useEffect, useCallback } from 'react';
+import { useRef, useEffect, useCallback, useState } from 'react';
 import type { WorldFrameDto } from '../types';
 
 interface Props {
   frame: WorldFrameDto | null;
   onSelectAgent: (index: number) => void;
   selectedAgentId?: number;
+  speed?: number;
 }
 
-const CANVAS_SIZE = 500;
+function drawWedge(
+  ctx: CanvasRenderingContext2D,
+  x: number, y: number,
+  heading: number, radius: number, color: string
+) {
+  const tipX = x + Math.cos(heading) * radius * 1.6;
+  const tipY = y + Math.sin(heading) * radius * 1.6;
+  const leftX = x + Math.cos(heading + 2.4) * radius;
+  const leftY = y + Math.sin(heading + 2.4) * radius;
+  const rightX = x + Math.cos(heading - 2.4) * radius;
+  const rightY = y + Math.sin(heading - 2.4) * radius;
+  const tailX = x - Math.cos(heading) * radius * 0.4;
+  const tailY = y - Math.sin(heading) * radius * 0.4;
 
-export function WorldView({ frame, onSelectAgent, selectedAgentId }: Props) {
+  ctx.beginPath();
+  ctx.moveTo(tipX, tipY);
+  ctx.quadraticCurveTo(
+    x + Math.cos(heading + 1.2) * radius * 1.1,
+    y + Math.sin(heading + 1.2) * radius * 1.1,
+    leftX, leftY
+  );
+  ctx.lineTo(tailX, tailY);
+  ctx.lineTo(rightX, rightY);
+  ctx.quadraticCurveTo(
+    x + Math.cos(heading - 1.2) * radius * 1.1,
+    y + Math.sin(heading - 1.2) * radius * 1.1,
+    tipX, tipY
+  );
+  ctx.closePath();
+  ctx.fillStyle = color;
+  ctx.fill();
+}
+
+export function WorldView({ frame, onSelectAgent, selectedAgentId, speed }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const selectedAgentRef = useRef<number>(selectedAgentId ?? -1);
   selectedAgentRef.current = selectedAgentId ?? -1;
+  const [canvasSize, setCanvasSize] = useState(500);
+
+  const interactionDecay = useRef<Map<number, { share: number; attack: number }>>(new Map());
+  const trailRef = useRef<{ x: number; y: number }[]>([]);
+  const prevSelectedRef = useRef<number>(-1);
+  const prevGenRound = useRef({ gen: -1, round: -1 });
+  const MAX_TRAIL = 60;
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const w = entry.contentRect.width;
+        if (w > 0) setCanvasSize(Math.floor(w));
+      }
+    });
+    observer.observe(container);
+    setCanvasSize(Math.floor(container.clientWidth));
+    return () => observer.disconnect();
+  }, []);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -21,181 +76,257 @@ export function WorldView({ frame, onSelectAgent, selectedAgentId }: Props) {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    const CS = canvasSize;
     const worldSize = Math.max(frame.worldWidth, frame.worldHeight);
-    const scale = CANVAS_SIZE / worldSize;
-    
-    // Clear with dark background
-    ctx.fillStyle = '#0a0e17';
-    ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+    const scale = CS / worldSize;
+    const light = frame.lightLevel ?? 1;
+    const currentSpeed = speed ?? 1;
 
-    // Draw grid
-    ctx.strokeStyle = '#1a2340';
+    // --- Buffer clearing on gen/round/selection change ---
+    if (frame.generation !== prevGenRound.current.gen ||
+        frame.worldIndex !== prevGenRound.current.round) {
+      trailRef.current = [];
+      interactionDecay.current.clear();
+      prevGenRound.current = { gen: frame.generation, round: frame.worldIndex };
+    }
+    if (selectedAgentRef.current !== prevSelectedRef.current) {
+      trailRef.current = [];
+      prevSelectedRef.current = selectedAgentRef.current;
+    }
+
+    // 1. Background
+    ctx.fillStyle = '#0a0e17';
+    ctx.fillRect(0, 0, CS, CS);
+
+    const gridAlpha = 0.15 + 0.35 * light;
+    ctx.strokeStyle = `rgba(26, 35, 64, ${gridAlpha})`;
     ctx.lineWidth = 0.5;
     const gridSize = 8;
     for (let i = 0; i <= worldSize; i += gridSize) {
-      // Vertical lines
       ctx.beginPath();
       ctx.moveTo(i * scale, 0);
-      ctx.lineTo(i * scale, CANVAS_SIZE);
+      ctx.lineTo(i * scale, CS);
       ctx.stroke();
-      // Horizontal lines
       ctx.beginPath();
       ctx.moveTo(0, i * scale);
-      ctx.lineTo(CANVAS_SIZE, i * scale);
+      ctx.lineTo(CS, i * scale);
       ctx.stroke();
     }
 
-    // Draw obstacles (dark gray rectangles)
+    // 2. Obstacles
     ctx.fillStyle = '#4b5563';
     ctx.strokeStyle = '#6b7280';
     ctx.lineWidth = 1;
     for (const obs of frame.obstacles) {
-      const rx = obs.x * scale;
-      const ry = obs.y * scale;
-      const rw = obs.width * scale;
-      const rh = obs.height * scale;
-      ctx.fillRect(rx, ry, rw, rh);
-      ctx.strokeRect(rx, ry, rw, rh);
+      ctx.fillRect(obs.x * scale, obs.y * scale, obs.width * scale, obs.height * scale);
+      ctx.strokeRect(obs.x * scale, obs.y * scale, obs.width * scale, obs.height * scale);
     }
 
-    // Draw hazards (red semi-transparent rectangles)
+    // 2b. Hazards
     ctx.fillStyle = 'rgba(239, 68, 68, 0.4)';
     ctx.strokeStyle = '#ef4444';
     ctx.lineWidth = 1;
     for (const haz of frame.hazards) {
-      const rx = haz.x * scale;
-      const ry = haz.y * scale;
-      const rw = haz.width * scale;
-      const rh = haz.height * scale;
-      ctx.fillRect(rx, ry, rw, rh);
-      ctx.strokeRect(rx, ry, rw, rh);
+      ctx.fillRect(haz.x * scale, haz.y * scale, haz.width * scale, haz.height * scale);
+      ctx.strokeRect(haz.x * scale, haz.y * scale, haz.width * scale, haz.height * scale);
     }
 
-    // Draw food (green glowing dots, modulated by energy oscillation)
+    // 3. Food
     const mult = frame.foodEnergyMultiplier ?? 1;
-    const glowAlpha = 0.4 + 0.4 * Math.min(mult, 1.4);
-    const coreGreen = Math.round(100 + 85 * Math.min(mult, 1.4));
     for (const food of frame.food) {
       const fx = food.x * scale;
       const fy = food.y * scale;
-      
-      const gradient = ctx.createRadialGradient(fx, fy, 0, fx, fy, 8);
-      gradient.addColorStop(0, `rgba(16, ${coreGreen}, 129, ${glowAlpha.toFixed(2)})`);
-      gradient.addColorStop(1, 'rgba(16, 185, 129, 0)');
-      ctx.fillStyle = gradient;
-      ctx.beginPath();
-      ctx.arc(fx, fy, 8, 0, Math.PI * 2);
-      ctx.fill();
-      
-      ctx.fillStyle = `rgb(16, ${coreGreen}, 129)`;
-      ctx.beginPath();
-      ctx.arc(fx, fy, 3, 0, Math.PI * 2);
-      ctx.fill();
+      const foodRadius = 2 + (food.value / 0.3) * 2;
+      const glowR = foodRadius + 5;
+      const glowAlpha = 0.3 + 0.4 * Math.min(mult, 1.4);
+
+      if (food.isCorpse) {
+        const grad = ctx.createRadialGradient(fx, fy, 0, fx, fy, glowR);
+        grad.addColorStop(0, `rgba(245, 158, 11, ${glowAlpha.toFixed(2)})`);
+        grad.addColorStop(1, 'rgba(245, 158, 11, 0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(fx, fy, glowR, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = 'rgb(245, 158, 11)';
+        ctx.beginPath();
+        ctx.arc(fx, fy, foodRadius, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        const coreGreen = Math.round(100 + 85 * Math.min(food.value / 0.25, 1.4));
+        const grad = ctx.createRadialGradient(fx, fy, 0, fx, fy, glowR);
+        grad.addColorStop(0, `rgba(16, ${coreGreen}, 129, ${glowAlpha.toFixed(2)})`);
+        grad.addColorStop(1, 'rgba(16, 185, 129, 0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(fx, fy, glowR, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = `rgb(16, ${coreGreen}, 129)`;
+        ctx.beginPath();
+        ctx.arc(fx, fy, foodRadius, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
 
-    // Draw agents
+    // 4. Selected agent trail (behind agents)
+    if (trailRef.current.length > 1) {
+      ctx.lineWidth = 1.5;
+      for (let i = 1; i < trailRef.current.length; i++) {
+        const alpha = i / trailRef.current.length;
+        ctx.strokeStyle = `rgba(6, 182, 212, ${(alpha * 0.6).toFixed(2)})`;
+        ctx.beginPath();
+        ctx.moveTo(trailRef.current[i - 1].x * scale, trailRef.current[i - 1].y * scale);
+        ctx.lineTo(trailRef.current[i].x * scale, trailRef.current[i].y * scale);
+        ctx.stroke();
+      }
+    }
+
+    // 5-6. Update interaction decay map
+    for (const agent of frame.agents) {
+      if (!agent.alive) continue;
+      const prev = interactionDecay.current.get(agent.id) || { share: 0, attack: 0 };
+      interactionDecay.current.set(agent.id, {
+        share: Math.max(agent.shareReceived, prev.share * 0.88),
+        attack: Math.max(agent.attackReceived, prev.attack * 0.88),
+      });
+    }
+
+    // 7. Agents
     for (const agent of frame.agents) {
       const ax = agent.x * scale;
       const ay = agent.y * scale;
-      const radius = 6;
       const isSelected = agent.id === selectedAgentRef.current;
-
-      // Species-based hue using golden angle for maximum separation
       const speciesHue = (agent.speciesId * 137.5) % 360;
       const speciesColor = `hsl(${speciesHue}, 70%, 55%)`;
 
+      // 8. Dead agents
       if (!agent.alive) {
-        ctx.globalAlpha = 0.2;
-        ctx.fillStyle = '#6b7280';
+        ctx.globalAlpha = 0.35;
+        ctx.strokeStyle = '#6b7280';
+        ctx.lineWidth = 1.5;
+        const s = 3;
         ctx.beginPath();
-        ctx.arc(ax, ay, radius, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.moveTo(ax - s, ay - s);
+        ctx.lineTo(ax + s, ay + s);
+        ctx.moveTo(ax + s, ay - s);
+        ctx.lineTo(ax - s, ay + s);
+        ctx.stroke();
         ctx.globalAlpha = 1.0;
         continue;
       }
 
-      // Glow (brighter for selected)
-      const glowRadius = isSelected ? radius * 3 : radius * 1.8;
-      const glowAlpha = isSelected ? 0.5 : 0.2;
-      const glowGradient = ctx.createRadialGradient(ax, ay, 0, ax, ay, glowRadius);
-      glowGradient.addColorStop(0, speciesColor.replace('55%)', `${glowAlpha * 100}%)`).replace('hsl', 'hsla').replace(')', `, ${glowAlpha})`));
-      glowGradient.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = glowGradient;
+      const energyFrac = 1 - 1 / (1 + agent.energy);
+      const radius = 4 + Math.min(energyFrac, 1) * 5;
+
+      // Trail push (world coords)
+      if (isSelected && agent.alive) {
+        trailRef.current.push({ x: agent.x, y: agent.y });
+        if (trailRef.current.length > MAX_TRAIL) trailRef.current.shift();
+      }
+
+      // Selected agent ray visualization
+      if (isSelected) {
+        const rayCount = 8;
+        const raySpread = Math.PI * 0.8;
+        const effectiveRayMax = 10 * (0.3 + 0.7 * light);
+        ctx.strokeStyle = 'rgba(6, 182, 212, 0.2)';
+        ctx.lineWidth = 1;
+        for (let r = 0; r < rayCount; r++) {
+          const rayAngle = agent.heading + (r - rayCount / 2) * raySpread / rayCount;
+          const rx = Math.cos(rayAngle) * effectiveRayMax * scale;
+          const ry = Math.sin(rayAngle) * effectiveRayMax * scale;
+          ctx.beginPath();
+          ctx.moveTo(ax, ay);
+          ctx.lineTo(ax + rx, ay + ry);
+          ctx.stroke();
+        }
+      }
+
+      // Glow
+      const glowRadius = isSelected ? radius * 3.5 : radius * 1.8;
+      const glowA = isSelected ? 0.5 : 0.2;
+      const glowGrad = ctx.createRadialGradient(ax, ay, 0, ax, ay, glowRadius);
+      glowGrad.addColorStop(0, `hsla(${speciesHue}, 70%, 55%, ${glowA})`);
+      glowGrad.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = glowGrad;
       ctx.beginPath();
       ctx.arc(ax, ay, glowRadius, 0, Math.PI * 2);
       ctx.fill();
 
-      // Body
-      ctx.fillStyle = speciesColor;
-      ctx.beginPath();
-      ctx.arc(ax, ay, radius, 0, Math.PI * 2);
-      ctx.fill();
+      // Wedge shape
+      drawWedge(ctx, ax, ay, agent.heading, radius, speciesColor);
 
-      // Border
-      ctx.strokeStyle = isSelected ? '#ffffff' : speciesColor;
-      ctx.lineWidth = isSelected ? 2.5 : 1;
-      ctx.stroke();
-
-      // Heading arrow
-      const headingX = Math.cos(agent.heading);
-      const headingY = Math.sin(agent.heading);
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(ax, ay);
-      ctx.lineTo(ax + headingX * radius * 1.8, ay + headingY * radius * 1.8);
-      ctx.stroke();
+      // Selection outline
+      if (isSelected) {
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
 
       // Signal ring
       const sigMag = Math.abs(agent.signal0) + Math.abs(agent.signal1);
       if (sigMag > 0.05) {
-        const ringRadius = radius + 4;
         const sigHue = ((agent.signal0 + 1) / 2) * 360;
         const sigSat = Math.min(Math.abs(agent.signal1) * 100, 100);
         ctx.strokeStyle = `hsla(${sigHue}, ${sigSat}%, 60%, ${Math.min(sigMag, 1)})`;
         ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.arc(ax, ay, ringRadius, 0, Math.PI * 2);
+        ctx.arc(ax, ay, radius + 4, 0, Math.PI * 2);
         ctx.stroke();
       }
 
-      // Interaction rings
-      if (agent.attackReceived > 0.001) {
-        ctx.strokeStyle = `rgba(255, 56, 100, ${Math.min(agent.attackReceived * 20, 0.9)})`;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(ax, ay, radius + 6, 0, Math.PI * 2);
-        ctx.stroke();
+      // Persistent interaction rings (from decay map)
+      const decay = interactionDecay.current.get(agent.id);
+      if (decay) {
+        if (decay.attack > 0.001) {
+          ctx.strokeStyle = `rgba(255, 56, 100, ${Math.min(decay.attack * 15, 0.9)})`;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(ax, ay, radius + 6, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        if (decay.share > 0.001) {
+          ctx.strokeStyle = `rgba(0, 246, 161, ${Math.min(decay.share * 15, 0.9)})`;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(ax, ay, radius + 8, 0, Math.PI * 2);
+          ctx.stroke();
+        }
       }
 
-      if (agent.shareReceived > 0.001) {
-        ctx.strokeStyle = `rgba(0, 246, 161, ${Math.min(agent.shareReceived * 20, 0.9)})`;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(ax, ay, radius + 8, 0, Math.PI * 2);
-        ctx.stroke();
-      }
+      // Energy bar
+      const barW = 12;
+      const barH = 2;
+      const barX = ax - barW / 2;
+      const barY = ay - radius - 5;
+      ctx.fillStyle = 'rgba(55, 65, 81, 0.6)';
+      ctx.fillRect(barX, barY, barW, barH);
+      const eHue = Math.floor(Math.min(energyFrac * 1.5, 1) * 120);
+      ctx.fillStyle = `hsl(${eHue}, 70%, 50%)`;
+      ctx.fillRect(barX, barY, barW * energyFrac, barH);
 
-      // Energy bar (only for selected agent)
-      if (isSelected) {
-        const barWidth = 20;
-        const barHeight = 3;
-        const barX = ax - barWidth / 2;
-        const barY = ay - radius - 8;
-        ctx.fillStyle = '#374151';
-        ctx.fillRect(barX, barY, barWidth, barHeight);
-        const energyHue = Math.floor(agent.energy * 120);
-        ctx.fillStyle = `hsl(${energyHue}, 70%, 50%)`;
-        ctx.fillRect(barX, barY, barWidth * Math.max(0, agent.energy), barHeight);
+      // Species label
+      if (isSelected || currentSpeed <= 0.25) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.font = '8px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(`S${agent.speciesId}`, ax, ay - radius - 8);
       }
     }
 
-    // World border
-    ctx.strokeStyle = '#06b6d4';
+    // 9. Night overlay
+    const nightAlpha = 0.55 * (1 - light);
+    if (nightAlpha > 0.01) {
+      ctx.fillStyle = `rgba(5, 5, 25, ${nightAlpha.toFixed(3)})`;
+      ctx.fillRect(0, 0, CS, CS);
+    }
+
+    // 10. World border
+    const borderBright = Math.round(40 + 170 * light);
+    ctx.strokeStyle = `rgb(6, ${borderBright}, ${Math.round(borderBright * 0.85)})`;
     ctx.lineWidth = 2;
     ctx.strokeRect(1, 1, frame.worldWidth * scale - 2, frame.worldHeight * scale - 2);
-
-  }, [frame]);
+  }, [frame, canvasSize, speed]);
 
   useEffect(() => {
     draw();
@@ -203,16 +334,14 @@ export function WorldView({ frame, onSelectAgent, selectedAgentId }: Props) {
 
   const handleClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
     if (!frame) return;
-    
     const canvas = canvasRef.current;
     if (!canvas) return;
-
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const scale = CANVAS_SIZE / Math.max(frame.worldWidth, frame.worldHeight);
-
-    // Check if clicked on an agent
+    const scaleRatio = canvasSize / canvas.clientWidth;
+    const x = (e.clientX - rect.left) * scaleRatio;
+    const y = (e.clientY - rect.top) * scaleRatio;
+    const worldSize = Math.max(frame.worldWidth, frame.worldHeight);
+    const scale = canvasSize / worldSize;
     for (const agent of frame.agents) {
       const ax = agent.x * scale;
       const ay = agent.y * scale;
@@ -222,23 +351,26 @@ export function WorldView({ frame, onSelectAgent, selectedAgentId }: Props) {
         return;
       }
     }
-  }, [frame, onSelectAgent]);
+  }, [frame, onSelectAgent, canvasSize]);
 
   if (!frame) {
     return (
-      <div className="w-[500px] h-[500px] bg-[var(--color-surface-alt)] rounded flex items-center justify-center text-[var(--color-text-muted)]">
+      <div ref={containerRef} className="w-full aspect-square bg-[var(--color-surface-alt)] rounded flex items-center justify-center text-[var(--color-text-muted)]">
         Waiting for simulation data...
       </div>
     );
   }
 
   return (
-    <canvas
-      ref={canvasRef}
-      width={CANVAS_SIZE}
-      height={CANVAS_SIZE}
-      onClick={handleClick}
-      className="rounded cursor-crosshair border border-[var(--color-border)]"
-    />
+    <div ref={containerRef} className="w-full">
+      <canvas
+        ref={canvasRef}
+        width={canvasSize}
+        height={canvasSize}
+        onClick={handleClick}
+        className="w-full rounded cursor-crosshair border border-[var(--color-border)]"
+        style={{ aspectRatio: '1 / 1' }}
+      />
+    </div>
   );
 }

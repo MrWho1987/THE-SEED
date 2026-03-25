@@ -12,6 +12,11 @@
   --color-danger: #ef4444;
   --color-warning: #f59e0b;
   --color-success: #10b981;
+  --color-corpse: #f59e0b;
+  --color-season-summer: #f59e0b;
+  --color-season-spring: #10b981;
+  --color-season-fall: #f97316;
+  --color-season-winter: #60a5fa;
 }
 
 body {

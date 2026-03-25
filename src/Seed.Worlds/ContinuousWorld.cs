@@ -46,9 +46,9 @@ public sealed class ContinuousWorld : IWorld
     public const float InteractionRadius = 2.0f;
     public const float ShareRate = 0.02f;
     public const float ShareEfficiency = 0.8f;
-    public const float AttackDrainRate = 0.015f;
-    public const float AttackCost = 0.003f;
-    public const float AttackEfficiency = 0.5f;
+    public const float AttackDrainRate = 0.03f;
+    public const float AttackCost = 0.002f;
+    public const float AttackEfficiency = 0.7f;
 
     // Actuator indices
     public const int ActuatorThrust = 0;     // [-1, 1] backward/forward
@@ -67,6 +67,7 @@ public sealed class ContinuousWorld : IWorld
     public float AgentSpeed => _agentSpeed;
     public float AgentEnergy => _agentEnergy;
     public bool AgentAlive => _agentAlive;
+    public float LightLevel => 1f;
     
     /// <summary>
     /// Get readonly list of food items for visualization.

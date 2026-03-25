@@ -100,12 +100,17 @@ public sealed class Evaluator
         var food = new int[agentCount];
         var spent = new float[agentCount];
         var instab = new float[agentCount];
+        var prevX = new float[agentCount];
+        var prevY = new float[agentCount];
+        var distanceTraveled = new float[agentCount];
 
         int actCount = ContinuousWorld.ActuatorCount;
         for (int i = 0; i < agentCount; i++)
         {
             sensorBuffers[i] = new float[bodies[i].SensorCount];
             allActions[i] = new float[actCount];
+            prevX[i] = arena.AgentX(i);
+            prevY[i] = arena.AgentY(i);
         }
 
         bool usePredictionErrorCuriosity = ablations.PredictionErrorCuriosity;
@@ -151,7 +156,15 @@ public sealed class Evaluator
                 brains[i].Learn(results[i].Modulators, new BrainLearnContext(tick));
                 bodies[i].ApplyWorldSignals(results[i].Signals);
 
-                if (arena.AgentAlive(i)) survival[i]++;
+                if (arena.AgentAlive(i))
+                {
+                    survival[i]++;
+                    float dx = arena.AgentX(i) - prevX[i];
+                    float dy = arena.AgentY(i) - prevY[i];
+                    distanceTraveled[i] += MathF.Sqrt(dx * dx + dy * dy);
+                    prevX[i] = arena.AgentX(i);
+                    prevY[i] = arena.AgentY(i);
+                }
                 netEnergy[i] += results[i].Signals.EnergyDelta;
                 food[i] += results[i].Signals.FoodCollectedThisStep;
                 if (results[i].Signals.EnergyDelta < 0)
@@ -166,9 +179,10 @@ public sealed class Evaluator
             float instPen = survival[i] > 0 ? instab[i] / survival[i] : 0f;
             float fitness = DeterministicHelpers.ComputeEpisodeFitness(
                 survival[i], netEnergy[i], food[i], spent[i], instPen,
-                runtimeBudget.MaxTicksPerEpisode);
+                distanceTraveled[i], runtimeBudget.MaxTicksPerEpisode);
             episodeMetrics[i] = new EpisodeMetrics(
-                survival[i], netEnergy[i], food[i], spent[i], instPen, fitness);
+                survival[i], netEnergy[i], food[i], spent[i], instPen,
+                distanceTraveled[i], fitness);
         }
         return episodeMetrics;
     }

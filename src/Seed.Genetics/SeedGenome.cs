@@ -404,8 +404,7 @@ public sealed record SeedGenome(
         excess = (genesA.Count - idxA) + (genesB.Count - idxB);
 
         float avgWeight = matchCount > 0 ? sumDiff / matchCount : 0f;
-        int n = Math.Max(genesA.Count, genesB.Count);
-        if (n < 20) n = 1;
+        int n = 1;
 
         return cfg.C1 * excess / n + cfg.C2 * disjoint / n + cfg.C3 * avgWeight;
     }

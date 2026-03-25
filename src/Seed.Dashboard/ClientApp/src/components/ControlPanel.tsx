@@ -72,17 +72,26 @@ export function ControlPanel({ status, controls }: Props) {
 
       {/* Speed Presets */}
       <div className="flex gap-1">
-        {[0.5, 1, 2, 5, 10].map((s) => (
+        {([
+          { value: 0.1, label: '0.1x', name: 'Observe' },
+          { value: 0.25, label: '0.25x', name: 'Slow' },
+          { value: 0.5, label: '0.5x' },
+          { value: 1, label: '1x' },
+          { value: 2, label: '2x' },
+          { value: 5, label: '5x' },
+          { value: 10, label: '10x' },
+        ] as const).map((s) => (
           <button
-            key={s}
-            onClick={() => handleSpeedChange(s)}
+            key={s.value}
+            onClick={() => handleSpeedChange(s.value)}
+            title={'name' in s ? s.name : undefined}
             className={`px-2 py-1 text-xs rounded transition-colors ${
-              speed === s 
-                ? 'bg-[var(--color-accent)] text-black' 
+              speed === s.value
+                ? 'bg-[var(--color-accent)] text-black'
                 : 'bg-[var(--color-surface-alt)] hover:bg-[var(--color-border)]'
             }`}
           >
-            {s}x
+            {s.label}
           </button>
         ))}
       </div>

@@ -150,7 +150,8 @@ public record struct FoodItem(
     float Radius,
     float EnergyValue,
     bool Consumed,
-    int RespawnTick = -1  // Tick at which this food respawns (-1 = not pending respawn)
+    int RespawnTick = -1,
+    bool IsCorpse = false
 );
 
 /// <summary>

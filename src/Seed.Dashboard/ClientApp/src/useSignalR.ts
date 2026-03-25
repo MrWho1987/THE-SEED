@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import * as signalR from '@microsoft/signalr';
-import type { WorldFrameDto, BrainSnapshotDto, SimulationStatusDto, GenerationStatsDto } from './types';
+import type { WorldFrameDto, BrainSnapshotDto, SimulationStatusDto, GenerationStatsDto, SelectedAgentDetailsDto, WorldOverrideDto } from './types';
 
 export interface SimulationState {
   status: SimulationStatusDto | null;
@@ -8,6 +8,8 @@ export interface SimulationState {
   brain: BrainSnapshotDto | null;
   history: GenerationStatsDto[];
   connected: boolean;
+  agentDetails: SelectedAgentDetailsDto | null;
+  worldOverrides: WorldOverrideDto | null;
 }
 
 export interface SimulationControls {
@@ -17,20 +19,27 @@ export interface SimulationControls {
   setSpeed: (speed: number) => void;
   selectAgent: (index: number) => void;
   reset: () => void;
+  applyWorldOverride: (dto: WorldOverrideDto) => void;
+  clearWorldOverride: () => void;
 }
 
 export function useSignalR(): [SimulationState, SimulationControls] {
   const connectionRef = useRef<signalR.HubConnection | null>(null);
   const [connected, setConnected] = useState(false);
   const [status, setStatus] = useState<SimulationStatusDto | null>(null);
-  const [frame, setFrame] = useState<WorldFrameDto | null>(null);
-  const [brain, setBrain] = useState<BrainSnapshotDto | null>(null);
   const [history, setHistory] = useState<GenerationStatsDto[]>([]);
+
+  // Large, high-frequency data stored in refs to avoid React 19 dev-mode
+  // DataCloneError (Performance.measure tries to serialize state)
+  const frameRef = useRef<WorldFrameDto | null>(null);
+  const brainRef = useRef<BrainSnapshotDto | null>(null);
+  const agentDetailsRef = useRef<SelectedAgentDetailsDto | null>(null);
+  const worldOverridesRef = useRef<WorldOverrideDto | null>(null);
+  const [tick, setTick] = useState(0);
 
   useEffect(() => {
     let isMounted = true;
     
-    // Connect directly to backend (avoid proxy issues with WebSocket)
     const hubUrl = import.meta.env.DEV 
       ? 'http://localhost:5000/hub/simulation' 
       : '/hub/simulation';
@@ -42,25 +51,39 @@ export function useSignalR(): [SimulationState, SimulationControls] {
       .build();
 
     connection.on('WorldFrame', (data: WorldFrameDto) => {
-      if (isMounted) setFrame(data);
+      if (isMounted) {
+        frameRef.current = data;
+        setTick(t => t + 1);
+      }
     });
 
     connection.on('BrainSnapshot', (data: BrainSnapshotDto) => {
-      if (isMounted) setBrain(data);
+      if (isMounted) {
+        brainRef.current = data;
+        setTick(t => t + 1);
+      }
     });
 
-    // Lightweight activation-only updates (don't recreate brain structure)
     connection.on('BrainActivations', (activations: number[]) => {
       if (isMounted) {
-        setBrain(prev => {
-          if (!prev) return prev;
-          // Update activations in-place without creating new node objects
-          const updatedNodes = prev.nodes.map((node, i) => ({
-            ...node,
-            activation: activations[node.id] ?? node.activation
-          }));
-          return { ...prev, nodes: updatedNodes };
-        });
+        const prev = brainRef.current;
+        if (prev) {
+          brainRef.current = {
+            ...prev,
+            nodes: prev.nodes.map((node) => ({
+              ...node,
+              activation: activations[node.id] ?? node.activation
+            }))
+          };
+          setTick(t => t + 1);
+        }
+      }
+    });
+
+    connection.on('SelectedAgentDetails', (data: SelectedAgentDetailsDto) => {
+      if (isMounted) {
+        agentDetailsRef.current = data;
+        setTick(t => t + 1);
       }
     });
 
@@ -70,6 +93,13 @@ export function useSignalR(): [SimulationState, SimulationControls] {
 
     connection.on('GenerationHistory', (data: GenerationStatsDto[]) => {
       if (isMounted) setHistory(data);
+    });
+
+    connection.on('WorldOverrides', (data: WorldOverrideDto) => {
+      if (isMounted) {
+        worldOverridesRef.current = data;
+        setTick(t => t + 1);
+      }
     });
 
     connection.onreconnected(() => {
@@ -124,9 +154,19 @@ export function useSignalR(): [SimulationState, SimulationControls] {
     connectionRef.current?.invoke('Reset');
   }, []);
 
+  const applyWorldOverride = useCallback((dto: WorldOverrideDto) => {
+    connectionRef.current?.invoke('ApplyWorldOverride', dto);
+  }, []);
+
+  const clearWorldOverride = useCallback(() => {
+    connectionRef.current?.invoke('ClearWorldOverride');
+  }, []);
+
+  // tick is read here to establish the render dependency (ref changes don't trigger re-renders alone)
+  void tick;
   return [
-    { status, frame, brain, history, connected },
-    { play, pause, step, setSpeed, selectAgent, reset }
+    { status, frame: frameRef.current, brain: brainRef.current, history, connected, agentDetails: agentDetailsRef.current, worldOverrides: worldOverridesRef.current },
+    { play, pause, step, setSpeed, selectAgent, reset, applyWorldOverride, clearWorldOverride }
   ];
 }
 

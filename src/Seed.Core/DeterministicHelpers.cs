@@ -136,16 +136,13 @@ public static class DeterministicHelpers
         int foodCollected,
         float energySpent,
         float instabilityPenalty,
+        float distanceTraveled,
         int maxTicks)
     {
         float survivalScore = (float)survivalTicks / maxTicks;
-        float foodScore = foodCollected * 10f;
-        float efficiencyScore = energySpent > 0.01f ? foodCollected / energySpent : 0f;
         float stabilityBonus = 1f - instabilityPenalty;
 
-        float result = survivalScore * 100f + 
-                      foodScore + 
-                      efficiencyScore * 10f + 
+        float result = survivalScore * 60f +
                       netEnergyDelta * 50f +
                       stabilityBonus * 10f;
         return float.IsNaN(result) || float.IsInfinity(result) ? 0f : result;

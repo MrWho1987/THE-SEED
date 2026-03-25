@@ -73,6 +73,7 @@ public readonly record struct EpisodeMetrics(
     int FoodCollected,
     float EnergySpent,
     float InstabilityPenalty,
+    float DistanceTraveled,
     float Fitness
 );
 

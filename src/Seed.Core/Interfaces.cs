@@ -104,6 +104,7 @@ public interface IWorld
     float AgentY { get; }
     float AgentHeading { get; }
     float AgentSpeed { get; }
+    float LightLevel { get; }
 }
 
 /// <summary>

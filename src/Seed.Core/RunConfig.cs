@@ -22,7 +22,7 @@ public sealed record RunConfig(
     /// </summary>
     public static RunConfig Default => new(
         RunSeed: 42UL,
-        MaxGenerations: 100,
+        MaxGenerations: 2000,
         Budgets: AllBudgets.Default,
         Speciation: SpeciationConfig.Default,
         Mutation: MutationConfig.Default,

@@ -50,14 +50,14 @@ public class ArenaTests
     }
 
     [Fact]
-    public void FoodScaling_MinimumFoodCount()
+    public void FoodScaling_RespectsBudget()
     {
         var arena = new SharedArena();
         var budget = new WorldBudget(64, 64, 0f, 0f, 5);
         arena.Reset(42, budget, 10);
 
         int foodCount = arena.GetFoodItems().Count;
-        Assert.True(foodCount >= 20, $"Expected >= 20 food items (max(5, 10*2)), got {foodCount}");
+        Assert.True(foodCount <= 5, $"Expected <= 5 food items (budget FoodCount), got {foodCount}");
     }
 
     [Fact]
@@ -160,9 +160,9 @@ public class ArenaTests
     }
 
     [Fact]
-    public void SensorCount_Is61()
+    public void SensorCount_Is62()
     {
-        Assert.Equal(61, AgentConfig.Default.TotalSensorCount);
+        Assert.Equal(62, AgentConfig.Default.TotalSensorCount);
     }
 
     [Fact]
@@ -481,18 +481,17 @@ public class ArenaTests
     }
 
     [Fact]
-    public void FoodEnergyOscillation_VariesOverTime()
+    public void SeasonalEnergyMultiplier_VariesOverTime()
     {
-        var oscBudget = new WorldBudget(64, 64, 0f, 0f, 50,
-            FoodEnergyAmplitude: 0.5f, FoodEnergyPeriod: 100);
-        var flatBudget = new WorldBudget(64, 64, 0f, 0f, 50,
-            FoodEnergyAmplitude: 0f, FoodEnergyPeriod: 100);
+        var seasonalBudget = new WorldBudget(64, 64, 0f, 0f, 50,
+            SeasonPeriod: 200);
+        var flatBudget = new WorldBudget(64, 64, 0f, 0f, 50);
 
-        float oscEnergy = CollectFoodEnergy(42, oscBudget, 4, 200);
+        float seasonalEnergy = CollectFoodEnergy(42, seasonalBudget, 4, 200);
         float flatEnergy = CollectFoodEnergy(42, flatBudget, 4, 200);
 
-        Assert.True(MathF.Abs(oscEnergy - flatEnergy) > 0.001f,
-            $"Oscillation energy ({oscEnergy:F4}) should differ from flat energy ({flatEnergy:F4})");
+        Assert.True(MathF.Abs(seasonalEnergy - flatEnergy) > 0.001f,
+            $"Seasonal energy ({seasonalEnergy:F4}) should differ from flat energy ({flatEnergy:F4})");
     }
 
     [Fact]
@@ -626,6 +625,117 @@ public class ArenaTests
             }
         }
         return totalFoodEnergy;
+    }
+
+    // --- Emergent Dynamics Tests ---
+
+    [Fact]
+    public void Decomposition_DeadAgentSpawnsCorpseFood()
+    {
+        var budget = new WorldBudget(16, 16, 0f, 2.0f, 0, CorpseEnergyBase: 0.3f);
+        var arena = new SharedArena();
+        arena.Reset(42, budget, 2);
+
+        int initialFood = arena.GetFoodItems().Count;
+
+        var actions = new float[2][];
+        for (int i = 0; i < 2; i++) actions[i] = new float[ContinuousWorld.ActuatorCount];
+
+        for (int t = 0; t < 10000; t++)
+        {
+            arena.StepAll(actions);
+            if (!arena.AgentAlive(0) || !arena.AgentAlive(1)) break;
+        }
+
+        bool anyDead = !arena.AgentAlive(0) || !arena.AgentAlive(1);
+        if (anyDead)
+        {
+            int foodAfter = arena.GetFoodItems().Count(f => !f.Consumed);
+            Assert.True(foodAfter > initialFood,
+                $"Dead agent should spawn corpse food. Before: {initialFood}, After: {foodAfter}");
+        }
+    }
+
+    [Fact]
+    public void LightLevel_CyclesWithDayNight()
+    {
+        var budget = new WorldBudget(32, 32, 0f, 0f, 10, DayNightPeriod: 100);
+        var arena = new SharedArena();
+        arena.Reset(42, budget, 2);
+
+        float initialLight = arena.LightLevel;
+        Assert.Equal(1f, initialLight, 3);
+
+        var actions = new float[2][];
+        for (int i = 0; i < 2; i++) actions[i] = new float[ContinuousWorld.ActuatorCount];
+
+        float minLight = 1f, maxLight = 0f;
+        for (int t = 0; t < 100; t++)
+        {
+            arena.StepAll(actions);
+            float light = arena.LightLevel;
+            if (light < minLight) minLight = light;
+            if (light > maxLight) maxLight = light;
+        }
+
+        Assert.True(maxLight - minLight > 0.5f,
+            $"Light should cycle significantly. Min: {minLight:F3}, Max: {maxLight:F3}");
+    }
+
+    [Fact]
+    public void AmbientEnergy_SlowsEnergyDecay()
+    {
+        var budgetNoAmbient = new WorldBudget(32, 32, 0f, 0f, 0);
+        var budgetAmbient = new WorldBudget(32, 32, 0f, 0f, 0, AmbientEnergyRate: 0.01f);
+
+        var arenaNo = new SharedArena();
+        arenaNo.Reset(42, budgetNoAmbient, 2);
+        var arenaYes = new SharedArena();
+        arenaYes.Reset(42, budgetAmbient, 2);
+
+        var actions = new float[2][];
+        for (int i = 0; i < 2; i++) actions[i] = new float[ContinuousWorld.ActuatorCount];
+
+        for (int t = 0; t < 100; t++)
+        {
+            arenaNo.StepAll(actions);
+            arenaYes.StepAll(actions);
+        }
+
+        int aliveNo = Enumerable.Range(0, 2).Count(i => arenaNo.AgentAlive(i));
+        int aliveYes = Enumerable.Range(0, 2).Count(i => arenaYes.AgentAlive(i));
+
+        float energyNo = Enumerable.Range(0, 2).Sum(i => arenaNo.AgentEnergy(i));
+        float energyYes = Enumerable.Range(0, 2).Sum(i => arenaYes.AgentEnergy(i));
+
+        Assert.True(energyYes >= energyNo,
+            $"Ambient energy agents should have >= energy. With: {energyYes:F4}, Without: {energyNo:F4}");
+    }
+
+    [Fact]
+    public void FoodQualityVariation_ProducesVariedEnergy()
+    {
+        var budget = new WorldBudget(64, 64, 0f, 0f, 50, FoodQualityVariation: 0.5f);
+        var arena = new SharedArena();
+        arena.Reset(42, budget, 2);
+
+        var energies = arena.GetFoodItems().Select(f => f.EnergyValue).Distinct().ToList();
+        Assert.True(energies.Count > 1,
+            $"Food quality variation should produce different energy values, got {energies.Count} distinct");
+    }
+
+    [Fact]
+    public void EnergyGain_RewardedRegardlessOfSource()
+    {
+        int maxTicks = 500;
+
+        float fitnessLowDelta = DeterministicHelpers.ComputeEpisodeFitness(
+            maxTicks, 0.1f, 5, 0.5f, 0f, 200f, maxTicks);
+        float fitnessHighDelta = DeterministicHelpers.ComputeEpisodeFitness(
+            maxTicks, 0.5f, 0, 0f, 0f, 0f, maxTicks);
+
+        Assert.True(fitnessHighDelta > fitnessLowDelta,
+            $"Higher energy delta ({fitnessHighDelta:F2}) should outscore lower delta ({fitnessLowDelta:F2}) regardless of food/distance");
     }
 
     private static float Distance(ArenaAgent a, ArenaAgent b)

@@ -18,6 +18,7 @@ export interface FoodDto {
   x: number;
   y: number;
   value: number;
+  isCorpse: boolean;
 }
 
 export interface ObstacleDto {
@@ -46,6 +47,7 @@ export interface WorldFrameDto {
   obstacles: ObstacleDto[];
   hazards: HazardDto[];
   foodEnergyMultiplier: number;
+  lightLevel: number;
 }
 
 export interface BrainNodeDto {
@@ -63,6 +65,9 @@ export interface BrainEdgeDto {
   weight: number;
   type: string;
   delay: number;
+  wSlow: number;
+  wFast: number;
+  plasticityGain: number;
 }
 
 export interface BrainSnapshotDto {
@@ -80,6 +85,10 @@ export interface GenerationStatsDto {
   populationSize: number;
   modulatoryEdgeCount: number;
   avgDelay: number;
+  avgDistanceTraveled: number;
+  avgFoodCollected: number;
+  avgSurvivalTicks: number;
+  speciesBreakdown: SpeciesInfoDto[] | null;
 }
 
 export interface SimulationStatusDto {
@@ -92,6 +101,50 @@ export interface SimulationStatusDto {
   populationSize: number;
   speciesCount: number;
   aliveCount: number;
+  maxTicksPerRound: number;
+  arenaRounds: number;
+  overridesActive: boolean;
 }
 
+export interface RoundMetricsDto {
+  round: number;
+  survivalTicks: number;
+  netEnergyDelta: number;
+  foodCollected: number;
+  distanceTraveled: number;
+  fitness: number;
+}
 
+export interface SelectedAgentDetailsDto {
+  agentId: number;
+  connectionCount: number;
+  hiddenNodeCount: number;
+  totalNodeCount: number;
+  survivalTicks: number;
+  foodCollected: number;
+  netEnergyDelta: number;
+  distanceTraveled: number;
+  instabilityPenalty: number;
+  modReward: number;
+  modPain: number;
+  modCuriosity: number;
+  roundHistory: RoundMetricsDto[];
+  aggregatedFitness: number | null;
+}
+
+export interface SpeciesInfoDto {
+  speciesId: number;
+  memberCount: number;
+  meanFitness: number;
+}
+
+export interface WorldOverrideDto {
+  foodCount?: number;
+  ambientEnergyRate?: number;
+  corpseEnergyBase?: number;
+  dayNightPeriod?: number;
+  seasonPeriod?: number;
+  hazardDamageMultiplier?: number;
+  foodQualityVariation?: number;
+  lightLevelOverride?: number;
+}
