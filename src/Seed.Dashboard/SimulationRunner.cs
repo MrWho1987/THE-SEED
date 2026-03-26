@@ -17,6 +17,7 @@ internal sealed class AgentEvalState
     public BrainRuntime Runtime { get; set; } = null!;
     public AgentBody Body { get; set; } = null!;
     public int CurrentTick { get; set; }
+    public int SpeciesId { get; set; } = -1;
 
     // Per-episode tracking
     public int SurvivalTicks { get; set; }
@@ -43,13 +44,21 @@ public sealed class SimulationRunner : BackgroundService
     private SpeciationManager _speciation = new();
 
     private SharedArena _arena = null!;
-    private AgentView[] _views = Array.Empty<AgentView>();
+    private List<AgentView> _views = new();
     private int _currentRound;
     private WorldBudget _currentWorldBudget;
 
     private int _selectedAgentIndex = 0;
     private int _generation;
     private float[] _selectedAgentModulators = new float[ModulatorIndex.Count];
+
+    // Terrarium mode
+    private bool _terrariumMode = true;
+    private int _terrariumTick;
+    private int _totalBirths, _totalDeaths;
+    private int _birthOrdinal;
+    private readonly List<TerrariumSnapshotDto> _terrariumHistory = new();
+    private bool[] _wasAlive = Array.Empty<bool>();
 
     private volatile bool _isRunning;
     private volatile bool _isPaused = true;
@@ -111,9 +120,14 @@ public sealed class SimulationRunner : BackgroundService
     public int CurrentGeneration => _generation;
     public int CurrentTick => _agentStates.Count > 0 ? _agentStates[0].CurrentTick : 0;
     public int SelectedAgentIndex => _selectedAgentIndex;
+    public bool TerrariumMode => _terrariumMode;
     public IReadOnlyList<GenerationStatsDto> GenerationHistory
     {
         get { lock (_lock) { return _generationHistory.ToArray(); } }
+    }
+    public IReadOnlyList<TerrariumSnapshotDto> TerrariumHistory
+    {
+        get { lock (_lock) { return _terrariumHistory.ToArray(); } }
     }
 
     public void Initialize(RunConfig? config = null)
@@ -127,10 +141,15 @@ public sealed class SimulationRunner : BackgroundService
 
             _agentStates.Clear();
             _generationHistory.Clear();
+            _terrariumHistory.Clear();
             _speciation = new SpeciationManager();
             _generation = 0;
             _selectedAgentIndex = 0;
             _currentRound = 0;
+            _terrariumTick = 0;
+            _totalBirths = 0;
+            _totalDeaths = 0;
+            _birthOrdinal = 0;
 
             int popSize = _config.Budgets.Population.PopulationSize;
 
@@ -147,8 +166,26 @@ public sealed class SimulationRunner : BackgroundService
             }
 
             InitializeRound(0);
+
+            if (_terrariumMode)
+            {
+                int n = _agentStates.Count;
+                _wasAlive = new bool[n * 4];
+                for (int i = 0; i < n; i++)
+                    _wasAlive[i] = _arena.AgentAlive(i);
+
+                var genomes = _agentStates.Select(a => (IGenome)a.Genome).ToList();
+                _speciation.Speciate(genomes, _config.Speciation);
+                for (int i = 0; i < n; i++)
+                    _agentStates[i].SpeciesId = _speciation.GetSpeciesId(_agentStates[i].Genome);
+            }
+
             _isRunning = true;
-            _logger.LogInformation("Arena evolution initialized with {Pop} agents", popSize);
+            _logger.LogInformation(
+                _terrariumMode
+                    ? "Terrarium mode initialized with {Pop} agents"
+                    : "Arena evolution initialized with {Pop} agents",
+                popSize);
         }
     }
 
@@ -159,7 +196,7 @@ public sealed class SimulationRunner : BackgroundService
         ulong arenaSeed = SeedDerivation.WorldSeed(_config.RunSeed, _generation, round, 0);
 
         var worldBudget = _config.Budgets.World;
-        if (worldBudget.RoundJitter > 0f)
+        if (worldBudget.RoundJitter > 0f && !_terrariumMode)
         {
             var jitterRng = new Rng64(arenaSeed ^ 0xB00B1E5);
             worldBudget = worldBudget.Jitter(ref jitterRng);
@@ -169,12 +206,13 @@ public sealed class SimulationRunner : BackgroundService
         _arena = new SharedArena();
         _arena.Reset(arenaSeed, worldBudget, n);
 
-        _views = new AgentView[n];
+        _views.Clear();
         for (int i = 0; i < n; i++)
         {
             var state = _agentStates[i];
-            _views[i] = new AgentView(_arena, i);
-            state.Body = new AgentBody(_views[i]);
+            var view = new AgentView(_arena, i);
+            _views.Add(view);
+            state.Body = new AgentBody(view);
             state.Runtime = new BrainRuntime(
                 state.Brain, state.Genome.Learn, state.Genome.Stable,
                 _config.Budgets.Runtime.MicroStepsPerTick);
@@ -212,6 +250,15 @@ public sealed class SimulationRunner : BackgroundService
     }
 
     public void Reset() { Initialize(_config); }
+
+    public void SetMode(string mode)
+    {
+        lock (_lock)
+        {
+            _terrariumMode = string.Equals(mode, "terrarium", StringComparison.OrdinalIgnoreCase);
+            Initialize(_config);
+        }
+    }
 
     public void ApplyWorldOverride(WorldOverrideDto dto)
     {
@@ -294,19 +341,27 @@ public sealed class SimulationRunner : BackgroundService
                 ? Enumerable.Range(0, _arena.AgentCount).Count(i => _arena.AgentAlive(i))
                 : 0;
 
+            int speciesCount = _terrariumMode
+                ? _agentStates.Where((s, i) => i < _arena.AgentCount && _arena.AgentAlive(i))
+                    .Select(s => s.SpeciesId).Distinct().Count()
+                : _speciation.Species.Count;
+
             return new SimulationStatusDto(
                 IsRunning: _isRunning,
                 IsPaused: _isPaused,
                 CurrentGeneration: _generation,
-                CurrentTick: CurrentTick,
+                CurrentTick: _terrariumMode ? _terrariumTick : CurrentTick,
                 CurrentRound: _currentRound,
                 Speed: _speed,
                 PopulationSize: _agentStates.Count,
-                SpeciesCount: _speciation.Species.Count,
+                SpeciesCount: speciesCount,
                 AliveCount: aliveCount,
                 MaxTicksPerRound: _config.Budgets.Runtime.MaxTicksPerEpisode,
                 ArenaRounds: _config.Budgets.Population.ArenaRounds,
-                OverridesActive: _overridesActive
+                OverridesActive: _overridesActive,
+                TerrariumMode: _terrariumMode,
+                TotalBirths: _totalBirths,
+                TotalDeaths: _totalDeaths
             );
         }
     }
@@ -440,9 +495,18 @@ public sealed class SimulationRunner : BackgroundService
                 if (_historyUpdated)
                 {
                     _historyUpdated = false;
-                    GenerationStatsDto[] historyCopy;
-                    lock (_lock) { historyCopy = _generationHistory.ToArray(); }
-                    await _hub.Clients.All.SendAsync("GenerationHistory", historyCopy, stoppingToken);
+                    if (_terrariumMode)
+                    {
+                        TerrariumSnapshotDto[] terrCopy;
+                        lock (_lock) { terrCopy = _terrariumHistory.ToArray(); }
+                        await _hub.Clients.All.SendAsync("TerrariumHistory", terrCopy, stoppingToken);
+                    }
+                    else
+                    {
+                        GenerationStatsDto[] historyCopy;
+                        lock (_lock) { historyCopy = _generationHistory.ToArray(); }
+                        await _hub.Clients.All.SendAsync("GenerationHistory", historyCopy, stoppingToken);
+                    }
                 }
 
                 int delayMs = (int)(33 / _speed);
@@ -513,10 +577,22 @@ public sealed class SimulationRunner : BackgroundService
         if (_isRecording && _replayBuffer.Count < MaxReplayFrames)
             _replayBuffer.Add(BuildWorldFrame());
 
-        bool allDead = n == 0 || !Enumerable.Range(0, n).Any(i => _arena.AgentAlive(i));
-        int tick = n > 0 ? _agentStates[0].CurrentTick : 0;
-        if (allDead || tick >= _config.Budgets.Runtime.MaxTicksPerEpisode)
-            CompleteRound();
+        if (_terrariumMode)
+        {
+            _terrariumTick++;
+            TrackDeaths();
+            HandleReproduction();
+            if (_terrariumTick % 5000 == 0) RespeciateLivingPopulation();
+            if (_terrariumTick % 100 == 0) RecordTerrariumSnapshot();
+            if (CountAlive() == 0) ReseedExtinction();
+        }
+        else
+        {
+            bool allDead = n == 0 || !Enumerable.Range(0, n).Any(i => _arena.AgentAlive(i));
+            int tick = n > 0 ? _agentStates[0].CurrentTick : 0;
+            if (allDead || tick >= _config.Budgets.Runtime.MaxTicksPerEpisode)
+                CompleteRound();
+        }
     }
 
     private void CompleteRound()
@@ -662,7 +738,7 @@ public sealed class SimulationRunner : BackgroundService
                 }
             }
 
-            for (int i = elitesCopied; i < offspring; i++)
+            for (int i = elitesCopied; i < offspring && newGenomes.Count < popSize; i++)
             {
                 ulong mutSeed = SeedDerivation.MutationSeed(
                     _config.RunSeed, _generation + 1, species.SpeciesId, childOrdinal++);
@@ -737,15 +813,224 @@ public sealed class SimulationRunner : BackgroundService
         return best;
     }
 
+    // --- Terrarium mode methods ---
+
+    private int CountAlive()
+    {
+        int count = 0;
+        for (int i = 0; i < _arena.AgentCount; i++)
+            if (_arena.AgentAlive(i)) count++;
+        return count;
+    }
+
+    private int SpawnOffspring(int parentIdx, float x, float y, float heading,
+        SeedGenome childGenome, BrainGraph childBrain)
+    {
+        int childIdx = _arena.SpawnAgent(x, y, heading, ContinuousWorld.OffspringEnergy);
+
+        var runtime = new BrainRuntime(childBrain, childGenome.Learn, childGenome.Stable,
+            _config.Budgets.Runtime.MicroStepsPerTick);
+        runtime.Reset();
+
+        var view = new AgentView(_arena, childIdx);
+        var body = new AgentBody(view);
+        body.Reset(new BodyResetContext(SeedDerivation.AgentSeed(
+            _config.RunSeed, _terrariumTick, childIdx)));
+
+        int speciesId = parentIdx >= 0 ? _agentStates[parentIdx].SpeciesId : -1;
+        var state = new AgentEvalState
+        {
+            Genome = childGenome, Brain = childBrain,
+            Runtime = runtime, Body = body, CurrentTick = 0,
+            SpeciesId = speciesId,
+            PrevX = x, PrevY = y
+        };
+
+        bool reusedSlot = childIdx < _agentStates.Count;
+        if (reusedSlot)
+        {
+            _agentStates[childIdx] = state;
+            _views[childIdx] = view;
+        }
+        else
+        {
+            _agentStates.Add(state);
+            _views.Add(view);
+        }
+
+        return childIdx;
+    }
+
+    private void HandleReproduction()
+    {
+        int births = 0;
+        int n = _arena.AgentCount;
+
+        for (int i = 0; i < n && births < ContinuousWorld.MaxBirthsPerTick; i++)
+        {
+            if (!_arena.AgentAlive(i)) continue;
+            if (_arena.AgentEnergy(i) < ContinuousWorld.ReproductionThreshold) continue;
+            if (_arena.AgentAge(i) < ContinuousWorld.MinReproductionAge) continue;
+            if (_terrariumTick - _arena.AgentLastReproTick(i) < ContinuousWorld.ReproductionCooldown) continue;
+
+            if (!FindSpawnPosition(i, out float spawnX, out float spawnY)) continue;
+
+            ulong mutSeed = SeedDerivation.MutationSeed(
+                _config.RunSeed, _terrariumTick, i, _birthOrdinal++);
+            var rng = new Rng64(mutSeed);
+            var childGenome = (SeedGenome)_agentStates[i].Genome.CloneGenome();
+            var mutCtx = new MutationContext(_config.RunSeed, _terrariumTick,
+                _config.Mutation, _innovations, rng);
+            childGenome = (SeedGenome)childGenome.Mutate(mutCtx);
+
+            var devCtx = new DevelopmentContext(_config.RunSeed, _terrariumTick);
+            var brain = _developer.CompileGraph(childGenome, _config.Budgets.Development, devCtx);
+
+            float heading = _arena.AgentHeading(i) + (rng.NextFloat01() - 0.5f) * MathF.PI;
+            SpawnOffspring(i, spawnX, spawnY, heading, childGenome, brain);
+
+            _arena.DeductEnergy(i, ContinuousWorld.ReproductionCost);
+            _totalBirths++;
+            births++;
+        }
+    }
+
+    private bool FindSpawnPosition(int parentIdx, out float x, out float y)
+    {
+        float px = _arena.AgentX(parentIdx), py = _arena.AgentY(parentIdx);
+        float dist = ContinuousWorld.AgentRadius * 3f;
+        for (int attempt = 0; attempt < 5; attempt++)
+        {
+            float angle = MathF.PI * 2f * attempt / 5f + _arena.AgentHeading(parentIdx);
+            x = px + MathF.Cos(angle) * dist;
+            y = py + MathF.Sin(angle) * dist;
+            if (_arena.IsValidSpawnPosition(x, y)) return true;
+        }
+        x = y = 0;
+        return false;
+    }
+
+    private void TrackDeaths()
+    {
+        int n = _arena.AgentCount;
+        if (_wasAlive.Length < n) Array.Resize(ref _wasAlive, n * 2);
+
+        for (int i = 0; i < n; i++)
+        {
+            bool aliveNow = _arena.AgentAlive(i);
+            if (_wasAlive[i] && !aliveNow)
+            {
+                _totalDeaths++;
+                if (i == _selectedAgentIndex)
+                    AutoReselectAgent();
+            }
+            _wasAlive[i] = aliveNow;
+        }
+    }
+
+    private void AutoReselectAgent()
+    {
+        for (int i = 0; i < _arena.AgentCount; i++)
+        {
+            if (_arena.AgentAlive(i)) { _selectedAgentIndex = i; return; }
+        }
+        _selectedAgentIndex = 0;
+    }
+
+    private void RespeciateLivingPopulation()
+    {
+        var livingGenomes = new List<IGenome>();
+        var livingIndices = new List<int>();
+        for (int i = 0; i < _arena.AgentCount; i++)
+        {
+            if (_arena.AgentAlive(i) && i < _agentStates.Count)
+            {
+                livingGenomes.Add(_agentStates[i].Genome);
+                livingIndices.Add(i);
+            }
+        }
+
+        if (livingGenomes.Count == 0) return;
+
+        _speciation.Speciate(livingGenomes, _config.Speciation);
+        for (int k = 0; k < livingGenomes.Count; k++)
+        {
+            int idx = livingIndices[k];
+            _agentStates[idx].SpeciesId = _speciation.GetSpeciesId(_agentStates[idx].Genome);
+        }
+    }
+
+    private void ReseedExtinction()
+    {
+        _logger.LogWarning("Total extinction at tick {Tick}. Reseeding with 8 random genomes.", _terrariumTick);
+        for (int i = 0; i < 8; i++)
+        {
+            var rng = new Rng64(SeedDerivation.AgentSeed(_config.RunSeed, _terrariumTick, i));
+            var genome = SeedGenome.CreateRandom(rng);
+            var devCtx = new DevelopmentContext(_config.RunSeed, _terrariumTick);
+            var brain = _developer.CompileGraph(genome, _config.Budgets.Development, devCtx);
+            float x = rng.NextFloat(3f, _currentWorldBudget.WorldWidth - 3f);
+            float y = rng.NextFloat(3f, _currentWorldBudget.WorldHeight - 3f);
+            SpawnOffspring(-1, x, y, rng.NextFloat(0f, MathF.PI * 2f), genome, brain);
+        }
+    }
+
+    private void RecordTerrariumSnapshot()
+    {
+        int alive = 0;
+        float energySum = 0f, maxEnergy = 0f;
+        for (int i = 0; i < _arena.AgentCount; i++)
+        {
+            if (_arena.AgentAlive(i))
+            {
+                alive++;
+                float e = _arena.AgentEnergy(i);
+                energySum += e;
+                if (e > maxEnergy) maxEnergy = e;
+            }
+        }
+
+        var speciesCountMap = new Dictionary<int, int>();
+        for (int i = 0; i < _arena.AgentCount; i++)
+        {
+            if (_arena.AgentAlive(i) && i < _agentStates.Count)
+            {
+                int sid = _agentStates[i].SpeciesId;
+                speciesCountMap[sid] = speciesCountMap.GetValueOrDefault(sid) + 1;
+            }
+        }
+
+        int foodCount = 0;
+        foreach (var f in _arena.GetFoodItems())
+            if (!f.Consumed) foodCount++;
+
+        var breakdown = speciesCountMap.Select(kv =>
+            new SpeciesInfoDto(kv.Key, kv.Value, 0f)).ToArray();
+
+        _terrariumHistory.Add(new TerrariumSnapshotDto(
+            Tick: _terrariumTick,
+            AliveCount: alive,
+            TotalBirths: _totalBirths,
+            TotalDeaths: _totalDeaths,
+            SpeciesCount: speciesCountMap.Count,
+            FoodCount: foodCount,
+            MeanEnergy: alive > 0 ? energySum / alive : 0f,
+            MaxEnergy: maxEnergy,
+            SpeciesBreakdown: breakdown
+        ));
+        _historyUpdated = true;
+    }
+
     private WorldFrameDto BuildWorldFrame()
     {
         int n = _arena.AgentCount;
+        var agentSpan = _arena.Agents;
         var agents = new AgentDto[n];
         for (int i = 0; i < n; i++)
         {
-            int speciesId = i < _agentStates.Count
-                ? _speciation.GetSpeciesId(_agentStates[i].Genome)
-                : -1;
+            int speciesId = _terrariumMode
+                ? (i < _agentStates.Count ? _agentStates[i].SpeciesId : -1)
+                : (i < _agentStates.Count ? _speciation.GetSpeciesId(_agentStates[i].Genome) : -1);
 
             agents[i] = new AgentDto(
                 Id: i,
@@ -756,10 +1041,11 @@ public sealed class SimulationRunner : BackgroundService
                 Alive: _arena.AgentAlive(i),
                 Speed: _arena.AgentSpeed(i),
                 SpeciesId: speciesId,
-                Signal0: _arena.Agents[i].Signal0,
-                Signal1: _arena.Agents[i].Signal1,
-                ShareReceived: _arena.Agents[i].ShareReceived,
-                AttackReceived: _arena.Agents[i].AttackReceived
+                Signal0: agentSpan[i].Signal0,
+                Signal1: agentSpan[i].Signal1,
+                ShareReceived: agentSpan[i].ShareReceived,
+                AttackReceived: agentSpan[i].AttackReceived,
+                Age: agentSpan[i].Age
             );
         }
 
@@ -775,7 +1061,7 @@ public sealed class SimulationRunner : BackgroundService
             .ToArray();
 
         return new WorldFrameDto(
-            Tick: _agentStates.Count > 0 ? _agentStates[0].CurrentTick : 0,
+            Tick: _terrariumMode ? _terrariumTick : (_agentStates.Count > 0 ? _agentStates[0].CurrentTick : 0),
             Generation: _generation,
             WorldIndex: _currentRound,
             WorldWidth: _currentWorldBudget.WorldWidth,

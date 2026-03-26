@@ -55,6 +55,30 @@ export function ControlPanel({ status, controls }: Props) {
         </button>
       </div>
 
+      {/* Mode Toggle */}
+      <div className="flex items-center gap-1 px-1 py-1 bg-[var(--color-surface-alt)] rounded">
+        <button
+          onClick={() => controls.setMode('terrarium')}
+          className={`px-3 py-1.5 text-xs font-mono rounded transition-colors ${
+            status?.terrariumMode
+              ? 'bg-[var(--color-primary)] text-[var(--color-bg)] font-semibold'
+              : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
+          }`}
+        >
+          Terrarium
+        </button>
+        <button
+          onClick={() => controls.setMode('arena')}
+          className={`px-3 py-1.5 text-xs font-mono rounded transition-colors ${
+            !status?.terrariumMode
+              ? 'bg-[var(--color-accent)] text-[var(--color-bg)] font-semibold'
+              : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)]'
+          }`}
+        >
+          Arena EA
+        </button>
+      </div>
+
       {/* Speed Control */}
       <div className="flex items-center gap-3">
         <span className="text-sm text-[var(--color-text-muted)]">Speed:</span>

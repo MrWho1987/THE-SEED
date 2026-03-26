@@ -31,8 +31,11 @@ public sealed class SimulationHub : Hub
             await Clients.Caller.SendAsync("WorldFrame", frame);
         }
         
-        // Send generation history
-        await Clients.Caller.SendAsync("GenerationHistory", _runner.GenerationHistory);
+        // Send history
+        if (_runner.TerrariumMode)
+            await Clients.Caller.SendAsync("TerrariumHistory", _runner.TerrariumHistory);
+        else
+            await Clients.Caller.SendAsync("GenerationHistory", _runner.GenerationHistory);
 
         var overrides = _runner.GetWorldOverrides();
         if (overrides != null)
@@ -135,6 +138,11 @@ public sealed class SimulationHub : Hub
     public void ClearWorldOverride()
     {
         _runner.ClearWorldOverride();
+    }
+
+    public void SetMode(string mode)
+    {
+        _runner.SetMode(mode);
     }
 }
 

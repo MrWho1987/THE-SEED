@@ -61,6 +61,14 @@ public sealed class ContinuousWorld : IWorld
 
     public const float SignalHearingRadius = 15f;
 
+    // Terrarium reproduction constants
+    public const float ReproductionThreshold = 2.0f;
+    public const float ReproductionCost = 1.2f;
+    public const float OffspringEnergy = 0.8f;
+    public const int MinReproductionAge = 100;
+    public const int ReproductionCooldown = 150;
+    public const int MaxBirthsPerTick = 3;
+
     public float AgentX => _agentX;
     public float AgentY => _agentY;
     public float AgentHeading => _agentHeading;

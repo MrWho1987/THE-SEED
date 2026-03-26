@@ -8,12 +8,15 @@ public struct ArenaAgent
     public bool Alive;
     public float Signal0, Signal1;
     public float ShareReceived, AttackReceived;
+    public int Age;
+    public int LastReproductionTick;
 }
 
 public sealed class SharedArena
 {
     private WorldBudget _budget;
     private ArenaAgent[] _agents = Array.Empty<ArenaAgent>();
+    private int _agentCount;
     private List<AABB> _obstacles = new();
     private List<AABB> _hazards = new();
     private List<FoodItem> _food = new();
@@ -38,7 +41,8 @@ public sealed class SharedArena
     private float _energyMultiplier = 1f;
     private int _nextCorpseId;
 
-    public int AgentCount => _agents.Length;
+    public int AgentCount => _agentCount;
+    public int Tick => _tick;
     public float LightLevel => _lightLevel;
     public float FoodEnergyMultiplier => _energyMultiplier;
     public float HazardDamageMultiplier { get; set; } = 1.0f;
@@ -50,8 +54,10 @@ public sealed class SharedArena
     public float AgentSpeed(int i) => _agents[i].Speed;
     public float AgentEnergy(int i) => _agents[i].Energy;
     public bool AgentAlive(int i) => _agents[i].Alive;
+    public int AgentAge(int i) => _agents[i].Age;
+    public int AgentLastReproTick(int i) => _agents[i].LastReproductionTick;
 
-    public ReadOnlySpan<ArenaAgent> Agents => _agents;
+    public ReadOnlySpan<ArenaAgent> Agents => _agents.AsSpan(0, _agentCount);
     public IReadOnlyList<FoodItem> GetFoodItems() => _food;
     public IReadOnlyList<AABB> GetObstacles() => _obstacles;
     public IReadOnlyList<AABB> GetHazards() => _hazards;
@@ -65,27 +71,29 @@ public sealed class SharedArena
     {
         _budget = budget;
         _tick = 0;
+        _agentCount = agentCount;
 
         var rng = new Rng64(seed);
         GenerateWorld(ref rng, agentCount);
         PlaceAgents(ref rng, agentCount);
         _worldRng = rng;
 
+        int capacity = _agents.Length;
         _grid = new SpatialGrid(_budget.WorldWidth, _budget.WorldHeight, 10f);
-        _grid.Rebuild(_agents);
+        _grid.Rebuild(Agents);
 
         _nextCorpseId = _food.Count > 0 ? _food.Max(f => f.Id) + 1 : 10000;
 
-        if (_results.Length != agentCount)
+        if (_results.Length < capacity)
         {
-            _results = new WorldStepResult[agentCount];
-            _hazardPenalties = new float[agentCount];
-            _foodCollected = new int[agentCount];
-            _foodEnergy = new float[agentCount];
-            _interactionGain = new float[agentCount];
-            _interactionLoss = new float[agentCount];
-            _modulators = new float[agentCount][];
-            for (int i = 0; i < agentCount; i++)
+            _results = new WorldStepResult[capacity];
+            _hazardPenalties = new float[capacity];
+            _foodCollected = new int[capacity];
+            _foodEnergy = new float[capacity];
+            _interactionGain = new float[capacity];
+            _interactionLoss = new float[capacity];
+            _modulators = new float[capacity][];
+            for (int i = 0; i < capacity; i++)
                 _modulators[i] = new float[ModulatorIndex.Count];
         }
 
@@ -123,7 +131,7 @@ public sealed class SharedArena
 
     public WorldStepResult[] StepAll(float[][] actionsPerAgent)
     {
-        int n = _agents.Length;
+        int n = _agentCount;
 
         // 1. Apply thrust/turn + signal extraction per agent
         for (int i = 0; i < n; i++)
@@ -186,7 +194,7 @@ public sealed class SharedArena
         }
 
         // Rebuild spatial grid after movement + obstacle push (before agent-agent collision)
-        _grid.Rebuild(_agents);
+        _grid.Rebuild(Agents);
 
         // 3. Resolve agent-agent collisions (2 passes, grid-accelerated)
         float minDist = ContinuousWorld.AgentRadius * 2f;
@@ -393,6 +401,11 @@ public sealed class SharedArena
                 Signals: new WorldSignals(energyDelta, _foodCollected[i], _hazardPenalties[i]),
                 Modulators: _modulators[i],
                 Info: new WorldStepInfo());
+        }
+
+        for (int i = 0; i < n; i++)
+        {
+            if (_agents[i].Alive) _agents[i].Age++;
         }
 
         _tick++;
@@ -611,6 +624,65 @@ public sealed class SharedArena
         return DeterministicHelpers.Clamp(count / 4f, 0f, 1f);
     }
 
+    private void EnsureCapacity(int required)
+    {
+        if (_agents.Length >= required) return;
+        int newCap = Math.Max(required, _agents.Length * 2);
+        Array.Resize(ref _agents, newCap);
+        Array.Resize(ref _results, newCap);
+        Array.Resize(ref _hazardPenalties, newCap);
+        Array.Resize(ref _foodCollected, newCap);
+        Array.Resize(ref _foodEnergy, newCap);
+        Array.Resize(ref _interactionGain, newCap);
+        Array.Resize(ref _interactionLoss, newCap);
+        var newMod = new float[newCap][];
+        Array.Copy(_modulators, newMod, _modulators.Length);
+        for (int i = _modulators.Length; i < newCap; i++)
+            newMod[i] = new float[ModulatorIndex.Count];
+        _modulators = newMod;
+    }
+
+    public int SpawnAgent(float x, float y, float heading, float energy)
+    {
+        for (int i = 0; i < _agentCount; i++)
+        {
+            if (!_agents[i].Alive)
+            {
+                _agents[i] = new ArenaAgent
+                {
+                    X = x, Y = y, Heading = heading,
+                    Speed = 0f, Energy = energy, Alive = true,
+                    Age = 0, LastReproductionTick = _tick - ContinuousWorld.ReproductionCooldown
+                };
+                return i;
+            }
+        }
+        EnsureCapacity(_agentCount + 1);
+        int idx = _agentCount++;
+        _agents[idx] = new ArenaAgent
+        {
+            X = x, Y = y, Heading = heading,
+            Speed = 0f, Energy = energy, Alive = true,
+            Age = 0, LastReproductionTick = _tick - ContinuousWorld.ReproductionCooldown
+        };
+        return idx;
+    }
+
+    public void DeductEnergy(int agentIndex, float amount)
+    {
+        _agents[agentIndex].Energy -= amount;
+        _agents[agentIndex].LastReproductionTick = _tick;
+    }
+
+    public bool IsValidSpawnPosition(float x, float y)
+    {
+        if (x < ContinuousWorld.AgentRadius || x > _budget.WorldWidth - ContinuousWorld.AgentRadius) return false;
+        if (y < ContinuousWorld.AgentRadius || y > _budget.WorldHeight - ContinuousWorld.AgentRadius) return false;
+        foreach (var obs in _obstacles)
+            if (obs.OverlapsCircle(x, y, ContinuousWorld.AgentRadius + 0.5f)) return false;
+        return true;
+    }
+
     private void GenerateWorld(ref Rng64 rng, int agentCount)
     {
         _obstacles.Clear();
@@ -730,7 +802,8 @@ public sealed class SharedArena
 
     private void PlaceAgents(ref Rng64 rng, int agentCount)
     {
-        _agents = new ArenaAgent[agentCount];
+        int capacity = Math.Max(agentCount * 4, 16);
+        _agents = new ArenaAgent[capacity];
         float margin = 3f;
         float fullSep = ContinuousWorld.AgentRadius * 3f;
         float relaxedSep = ContinuousWorld.AgentRadius * 2f;
@@ -750,7 +823,8 @@ public sealed class SharedArena
                     {
                         X = x, Y = y,
                         Heading = rng.NextFloat(0f, MathF.PI * 2f),
-                        Speed = 0f, Energy = ContinuousWorld.InitialEnergy, Alive = true
+                        Speed = 0f, Energy = ContinuousWorld.InitialEnergy, Alive = true,
+                        LastReproductionTick = -ContinuousWorld.ReproductionCooldown
                     };
                     placed = true;
                 }
@@ -767,7 +841,8 @@ public sealed class SharedArena
                     {
                         X = x, Y = y,
                         Heading = rng.NextFloat(0f, MathF.PI * 2f),
-                        Speed = 0f, Energy = ContinuousWorld.InitialEnergy, Alive = true
+                        Speed = 0f, Energy = ContinuousWorld.InitialEnergy, Alive = true,
+                        LastReproductionTick = -ContinuousWorld.ReproductionCooldown
                     };
                     placed = true;
                 }
@@ -782,7 +857,8 @@ public sealed class SharedArena
                 {
                     X = x, Y = y,
                     Heading = rng.NextFloat(0f, MathF.PI * 2f),
-                    Speed = 0f, Energy = ContinuousWorld.InitialEnergy, Alive = true
+                    Speed = 0f, Energy = ContinuousWorld.InitialEnergy, Alive = true,
+                    LastReproductionTick = -ContinuousWorld.ReproductionCooldown
                 };
             }
         }

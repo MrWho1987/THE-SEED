@@ -11,6 +11,7 @@ export interface AgentDto {
   signal1: number;
   shareReceived: number;
   attackReceived: number;
+  age: number;
 }
 
 export interface FoodDto {
@@ -104,6 +105,9 @@ export interface SimulationStatusDto {
   maxTicksPerRound: number;
   arenaRounds: number;
   overridesActive: boolean;
+  terrariumMode: boolean;
+  totalBirths: number;
+  totalDeaths: number;
 }
 
 export interface RoundMetricsDto {
@@ -136,6 +140,18 @@ export interface SpeciesInfoDto {
   speciesId: number;
   memberCount: number;
   meanFitness: number;
+}
+
+export interface TerrariumSnapshotDto {
+  tick: number;
+  aliveCount: number;
+  totalBirths: number;
+  totalDeaths: number;
+  speciesCount: number;
+  foodCount: number;
+  meanEnergy: number;
+  maxEnergy: number;
+  speciesBreakdown: SpeciesInfoDto[] | null;
 }
 
 export interface WorldOverrideDto {

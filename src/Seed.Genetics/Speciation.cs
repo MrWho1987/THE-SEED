@@ -146,17 +146,33 @@ public sealed class SpeciationManager
         foreach (var sp in _species.OrderBy(s => s.SpeciesId))
         {
             int count = (int)(sp.AdjustedFitnessSum / totalAdjusted * totalOffspring);
-            count = Math.Max(1, count); // Ensure at least 1 offspring
+            count = Math.Max(0, count);
             allocation[sp.SpeciesId] = count;
             allocated += count;
         }
 
+        var sortedSpecies = _species.OrderByDescending(s => s.AdjustedFitnessSum).ToList();
+
         // Distribute remainder to top species
         int remainder = totalOffspring - allocated;
-        var sortedSpecies = _species.OrderByDescending(s => s.AdjustedFitnessSum).ToList();
         for (int i = 0; i < remainder && i < sortedSpecies.Count; i++)
         {
             allocation[sortedSpecies[i].SpeciesId]++;
+            allocated++;
+        }
+
+        // Trim overcap from lowest-fitness species
+        while (allocated > totalOffspring)
+        {
+            for (int i = sortedSpecies.Count - 1; i >= 0 && allocated > totalOffspring; i--)
+            {
+                int sid = sortedSpecies[i].SpeciesId;
+                if (allocation[sid] > 0)
+                {
+                    allocation[sid]--;
+                    allocated--;
+                }
+            }
         }
 
         return allocation;

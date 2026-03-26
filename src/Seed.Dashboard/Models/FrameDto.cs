@@ -15,7 +15,8 @@ public sealed record AgentDto(
     float Signal0,
     float Signal1,
     float ShareReceived,
-    float AttackReceived
+    float AttackReceived,
+    int Age = 0
 );
 
 /// <summary>
@@ -118,7 +119,10 @@ public sealed record SimulationStatusDto(
     int AliveCount,
     int MaxTicksPerRound = 300,
     int ArenaRounds = 4,
-    bool OverridesActive = false
+    bool OverridesActive = false,
+    bool TerrariumMode = false,
+    int TotalBirths = 0,
+    int TotalDeaths = 0
 );
 
 public sealed record RoundMetricsDto(
@@ -158,4 +162,16 @@ public sealed record WorldOverrideDto(
     float? HazardDamageMultiplier = null,
     float? FoodQualityVariation = null,
     float? LightLevelOverride = null
+);
+
+public sealed record TerrariumSnapshotDto(
+    int Tick,
+    int AliveCount,
+    int TotalBirths,
+    int TotalDeaths,
+    int SpeciesCount,
+    int FoodCount,
+    float MeanEnergy,
+    float MaxEnergy,
+    SpeciesInfoDto[]? SpeciesBreakdown = null
 );

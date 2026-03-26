@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import * as signalR from '@microsoft/signalr';
-import type { WorldFrameDto, BrainSnapshotDto, SimulationStatusDto, GenerationStatsDto, SelectedAgentDetailsDto, WorldOverrideDto } from './types';
+import type { WorldFrameDto, BrainSnapshotDto, SimulationStatusDto, GenerationStatsDto, SelectedAgentDetailsDto, WorldOverrideDto, TerrariumSnapshotDto } from './types';
 
 export interface SimulationState {
   status: SimulationStatusDto | null;
   frame: WorldFrameDto | null;
   brain: BrainSnapshotDto | null;
   history: GenerationStatsDto[];
+  terrariumHistory: TerrariumSnapshotDto[];
   connected: boolean;
   agentDetails: SelectedAgentDetailsDto | null;
   worldOverrides: WorldOverrideDto | null;
@@ -19,6 +20,7 @@ export interface SimulationControls {
   setSpeed: (speed: number) => void;
   selectAgent: (index: number) => void;
   reset: () => void;
+  setMode: (mode: string) => void;
   applyWorldOverride: (dto: WorldOverrideDto) => void;
   clearWorldOverride: () => void;
 }
@@ -28,6 +30,7 @@ export function useSignalR(): [SimulationState, SimulationControls] {
   const [connected, setConnected] = useState(false);
   const [status, setStatus] = useState<SimulationStatusDto | null>(null);
   const [history, setHistory] = useState<GenerationStatsDto[]>([]);
+  const [terrariumHistory, setTerrariumHistory] = useState<TerrariumSnapshotDto[]>([]);
 
   // Large, high-frequency data stored in refs to avoid React 19 dev-mode
   // DataCloneError (Performance.measure tries to serialize state)
@@ -95,6 +98,10 @@ export function useSignalR(): [SimulationState, SimulationControls] {
       if (isMounted) setHistory(data);
     });
 
+    connection.on('TerrariumHistory', (data: TerrariumSnapshotDto[]) => {
+      if (isMounted) setTerrariumHistory(data);
+    });
+
     connection.on('WorldOverrides', (data: WorldOverrideDto) => {
       if (isMounted) {
         worldOverridesRef.current = data;
@@ -154,6 +161,10 @@ export function useSignalR(): [SimulationState, SimulationControls] {
     connectionRef.current?.invoke('Reset');
   }, []);
 
+  const setMode = useCallback((mode: string) => {
+    connectionRef.current?.invoke('SetMode', mode);
+  }, []);
+
   const applyWorldOverride = useCallback((dto: WorldOverrideDto) => {
     connectionRef.current?.invoke('ApplyWorldOverride', dto);
   }, []);
@@ -165,8 +176,8 @@ export function useSignalR(): [SimulationState, SimulationControls] {
   // tick is read here to establish the render dependency (ref changes don't trigger re-renders alone)
   void tick;
   return [
-    { status, frame: frameRef.current, brain: brainRef.current, history, connected, agentDetails: agentDetailsRef.current, worldOverrides: worldOverridesRef.current },
-    { play, pause, step, setSpeed, selectAgent, reset, applyWorldOverride, clearWorldOverride }
+    { status, frame: frameRef.current, brain: brainRef.current, history, terrariumHistory, connected, agentDetails: agentDetailsRef.current, worldOverrides: worldOverridesRef.current },
+    { play, pause, step, setSpeed, selectAgent, reset, setMode, applyWorldOverride, clearWorldOverride }
   ];
 }
 

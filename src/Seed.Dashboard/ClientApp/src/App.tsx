@@ -159,7 +159,11 @@ function App() {
       {/* Charts Section */}
       <section className="px-3 pb-3">
         <div className="bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] p-3">
-          <FitnessChart history={state.history} />
+          <FitnessChart
+            history={state.history}
+            terrariumHistory={state.terrariumHistory}
+            terrariumMode={state.status?.terrariumMode ?? false}
+          />
         </div>
       </section>
     </div>
