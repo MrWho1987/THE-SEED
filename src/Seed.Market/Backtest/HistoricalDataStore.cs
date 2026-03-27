@@ -81,9 +81,11 @@ public sealed class HistoricalDataStore
     /// Convert candle array to SignalSnapshot array.
     /// Technical indicators are pre-computed in O(n) across the full history,
     /// then assembled per-bar and normalized.
+    /// Optional enrichment data fills additional signal slots (macro, on-chain, etc.).
     /// </summary>
     public static (SignalSnapshot[] snapshots, float[] prices) CandlesToSignals(
-        TechnicalIndicators.Candle[] candles)
+        TechnicalIndicators.Candle[] candles,
+        Dictionary<int, float[]>? enrichment = null)
     {
         int n = candles.Length;
         var normalizer = new SignalNormalizer();
@@ -153,6 +155,15 @@ public sealed class HistoricalDataStore
             var timeSignals = TimeEncoding.Compute(c.Time);
             foreach (var (idx, val) in timeSignals)
                 raw[idx] = val;
+
+            if (enrichment != null)
+            {
+                foreach (var (slot, arr) in enrichment)
+                {
+                    if (i < arr.Length && arr[i] != 0f)
+                        raw[slot] = arr[i];
+                }
+            }
 
             snapshots[i] = normalizer.Normalize(raw, c.Time, i);
         }

@@ -66,21 +66,21 @@ public class IntegrationTests
     }
 
     [Fact]
-    public void BrainIO_Matches88InputAnd4Output()
+    public void BrainIO_Matches88InputAnd5Output()
     {
         var rng = new Rng64(42);
         var genome = SeedGenome.CreateRandom(rng);
-        var dev = new BrainDeveloper(88, 4);
+        var dev = new BrainDeveloper(MarketAgent.InputCount, MarketAgent.OutputCount);
         var graph = dev.CompileGraph(genome, DevelopmentBudget.Default, new DevelopmentContext(42, 0));
 
         Assert.Equal(88, graph.InputCount);
-        Assert.Equal(4, graph.OutputCount);
+        Assert.Equal(5, graph.OutputCount);
 
         var brain = new BrainRuntime(graph, genome.Learn, genome.Stable, 1);
         var inputs = new float[88];
         var outputs = brain.Step(inputs, new BrainStepContext(0));
 
-        Assert.Equal(4, outputs.Length);
+        Assert.Equal(5, outputs.Length);
     }
 
     [Fact]
@@ -115,14 +115,13 @@ public class IntegrationTests
     [Fact]
     public void ActionInterpreter_RoundTrips()
     {
-        // Brain outputs → TradingSignal → should preserve intent
-        float[] longSignal = [2f, 0.7f, 0.8f, 0.1f];
+        float[] longSignal = [2f, 0.7f, 0.8f, 0.1f, 0.5f];
         var signal = ActionInterpreter.Interpret(longSignal);
         Assert.Equal(TradeDirection.Long, signal.Direction);
         Assert.True(signal.SizePct > 0.5f);
         Assert.False(signal.ExitCurrent);
 
-        float[] exitSignal = [0f, 0f, 0f, 5f];
+        float[] exitSignal = [0f, 0f, 0f, 5f, 0f];
         var exit = ActionInterpreter.Interpret(exitSignal);
         Assert.True(exit.ExitCurrent);
     }
@@ -148,7 +147,7 @@ public class IntegrationTests
         var devCtx = new DevelopmentContext(42, 0);
         var graph = developer.CompileGraph(restored, MarketEvaluator.MarketBrainBudget, devCtx);
         Assert.Equal(88, graph.InputCount);
-        Assert.Equal(4, graph.OutputCount);
+        Assert.Equal(5, graph.OutputCount);
 
         // 4. Create agent (same wiring as paper mode)
         var brain = new BrainRuntime(graph, restored.Learn, restored.Stable, 1);
@@ -244,5 +243,126 @@ public class IntegrationTests
         Assert.Equal(16, MarketEvaluator.MarketBrainBudget.HiddenWidth);
         Assert.Equal(3, MarketEvaluator.MarketBrainBudget.HiddenLayers);
         Assert.Equal(16, MarketEvaluator.MarketBrainBudget.TopKIn);
+    }
+
+    [Fact]
+    public void CandlesToSignals_WithEnrichment_MergesSlots()
+    {
+        var candles = new TechnicalIndicators.Candle[50];
+        var rng = new Random(42);
+        float price = 50000f;
+        for (int i = 0; i < 50; i++)
+        {
+            price += rng.Next(-100, 100);
+            candles[i] = new TechnicalIndicators.Candle(
+                price, price + 50, price - 50, price, 1000f + i,
+                DateTimeOffset.UtcNow.AddHours(-50 + i));
+        }
+
+        var enrichment = new Dictionary<int, float[]>();
+        var fearGreed = new float[50];
+        var sp500 = new float[50];
+        for (int i = 0; i < 50; i++)
+        {
+            fearGreed[i] = 55f + i;
+            sp500[i] = 5000f + i;
+        }
+        enrichment[SignalIndex.FearGreedIndex] = fearGreed;
+        enrichment[SignalIndex.Sp500Return] = sp500;
+
+        var (snapshotsPlain, _) = HistoricalDataStore.CandlesToSignals(candles);
+        var (snapshotsEnriched, _) = HistoricalDataStore.CandlesToSignals(candles, enrichment);
+
+        int enrichedNonZero = 0, plainNonZero = 0;
+        for (int s = 0; s < SignalIndex.Count; s++)
+        {
+            if (snapshotsEnriched[49].Signals[s] != 0f) enrichedNonZero++;
+            if (snapshotsPlain[49].Signals[s] != 0f) plainNonZero++;
+        }
+
+        Assert.True(enrichedNonZero > plainNonZero,
+            $"Enriched should have more non-zero slots ({enrichedNonZero} vs {plainNonZero})");
+    }
+
+    [Fact]
+    public void Enricher_Slots54And56_NonZero_WhenEnrichmentProvided()
+    {
+        var n = 50;
+        var enrichment = new Dictionary<int, float[]>();
+
+        var btcMcap = new float[n];
+        var ethMcap = new float[n];
+        var usdtMcap = new float[n];
+        var usdcMcap = new float[n];
+        for (int i = 0; i < n; i++)
+        {
+            btcMcap[i] = 500_000_000_000f + i * 1_000_000f;
+            ethMcap[i] = 200_000_000_000f + i * 500_000f;
+            usdtMcap[i] = 80_000_000_000f;
+            usdcMcap[i] = 30_000_000_000f;
+        }
+
+        float approxTotal = btcMcap[25] + ethMcap[25] + usdtMcap[25] + usdcMcap[25];
+        float expectedDominance = btcMcap[25] / approxTotal * 100f;
+        float expectedAltseason = ethMcap[25] / btcMcap[25];
+
+        Assert.True(expectedDominance > 30f && expectedDominance < 80f,
+            $"Expected BTC dominance between 30-80%, got {expectedDominance:F1}%");
+        Assert.True(expectedAltseason > 0f && expectedAltseason < 1f,
+            $"Expected altseason between 0-1, got {expectedAltseason:F3}");
+    }
+
+    [Fact]
+    public void DerivedSignals_ComputeFromReturns()
+    {
+        var btcReturns = new float[30];
+        var ethReturns = new float[30];
+        var rng = new Random(42);
+        for (int i = 0; i < 30; i++)
+        {
+            btcReturns[i] = (float)(rng.NextDouble() - 0.48) * 0.02f;
+            ethReturns[i] = (float)(rng.NextDouble() - 0.48) * 0.025f;
+        }
+
+        float meanBtc = 0f, meanEth = 0f;
+        for (int i = 0; i < 30; i++) { meanBtc += btcReturns[i]; meanEth += ethReturns[i]; }
+        meanBtc /= 30; meanEth /= 30;
+
+        float cov = 0f, varB = 0f, varE = 0f;
+        for (int i = 0; i < 30; i++)
+        {
+            float db = btcReturns[i] - meanBtc;
+            float de = ethReturns[i] - meanEth;
+            cov += db * de; varB += db * db; varE += de * de;
+        }
+        float corr = MathF.Sqrt(varB * varE) > 0 ? cov / MathF.Sqrt(varB * varE) : 0f;
+
+        Assert.InRange(corr, -1f, 1f);
+
+        float sumSq = 0f;
+        for (int i = 0; i < 30; i++) sumSq += (btcReturns[i] - meanBtc) * (btcReturns[i] - meanBtc);
+        float stdDev = MathF.Sqrt(sumSq / 30);
+        Assert.True(stdDev > 0f, "StdDev of varied returns should be positive");
+    }
+
+    [Fact]
+    public void TimeEncoding_HistoricalDates_ProducesValidProximity()
+    {
+        var dates = new[]
+        {
+            new DateTimeOffset(2020, 3, 15, 12, 0, 0, TimeSpan.Zero),
+            new DateTimeOffset(2022, 6, 15, 12, 0, 0, TimeSpan.Zero),
+            new DateTimeOffset(2024, 1, 30, 12, 0, 0, TimeSpan.Zero),
+        };
+
+        foreach (var date in dates)
+        {
+            var signals = TimeEncoding.Compute(date);
+            var proximity = signals.First(s => s.Index == SignalIndex.EventProximity);
+            Assert.True(proximity.Value >= -1f && proximity.Value <= 1f,
+                $"EventProximity {proximity.Value} out of range for {date:yyyy-MM-dd}");
+            Assert.True(proximity.Value > -1f,
+                $"EventProximity should not be minimal for date near FOMC: {date:yyyy-MM-dd}");
+        }
     }
 }

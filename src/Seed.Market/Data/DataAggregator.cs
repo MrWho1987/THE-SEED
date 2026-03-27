@@ -19,6 +19,15 @@ public sealed class DataAggregator : IDisposable
     private long _tick;
     private readonly object _lock = new();
 
+    public DateTimeOffset LastTickTime { get; private set; }
+
+    private readonly Queue<float> _btcReturns = new();
+    private readonly Queue<float> _ethReturns = new();
+    private readonly Queue<float> _spxReturns = new();
+    private readonly Queue<float> _btcPrices = new();
+    private readonly Queue<float> _ethPrices = new();
+    private const int DerivedWindow = 30;
+
     public DataAggregator(MarketConfig? config = null)
     {
         _client = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
@@ -45,6 +54,7 @@ public sealed class DataAggregator : IDisposable
     public async Task<SignalSnapshot> TickAsync(CancellationToken ct = default)
     {
         var now = DateTimeOffset.UtcNow;
+        LastTickTime = now;
         var tasks = new List<Task<(int feedIdx, FeedResult result)>>();
 
         for (int i = 0; i < _feeds.Length; i++)
@@ -95,6 +105,8 @@ public sealed class DataAggregator : IDisposable
                 var timeSignals = TimeEncoding.Compute(now);
                 foreach (var (index, value) in timeSignals)
                     _rawSignals[index] = value;
+
+                ComputeDerivedSignals();
             }
         }
 
@@ -174,6 +186,78 @@ public sealed class DataAggregator : IDisposable
             _normalizer.Reset();
             _tick = 0;
         }
+    }
+
+    private void ComputeDerivedSignals()
+    {
+        float btcRet = _rawSignals[SignalIndex.BtcReturn1h];
+        float ethRet = _rawSignals[SignalIndex.EthReturn1h];
+        float spxRet = _rawSignals[SignalIndex.Sp500Return];
+        float btcPrice = _rawSignals[SignalIndex.BtcPrice];
+        float ethPrice = _rawSignals[SignalIndex.EthPrice];
+
+        _btcReturns.Enqueue(btcRet); if (_btcReturns.Count > DerivedWindow) _btcReturns.Dequeue();
+        _ethReturns.Enqueue(ethRet); if (_ethReturns.Count > DerivedWindow) _ethReturns.Dequeue();
+        _spxReturns.Enqueue(spxRet); if (_spxReturns.Count > DerivedWindow) _spxReturns.Dequeue();
+        _btcPrices.Enqueue(btcPrice); if (_btcPrices.Count > DerivedWindow) _btcPrices.Dequeue();
+        _ethPrices.Enqueue(ethPrice); if (_ethPrices.Count > DerivedWindow) _ethPrices.Dequeue();
+
+        if (_btcReturns.Count < 2) return;
+
+        var btcArr = _btcReturns.ToArray();
+        var ethArr = _ethReturns.ToArray();
+        var spxArr = _spxReturns.ToArray();
+
+        _rawSignals[SignalIndex.BtcSp500Correlation] = PearsonCorrelation(btcArr, spxArr);
+        _rawSignals[SignalIndex.BtcEthCorrelation] = PearsonCorrelation(btcArr, ethArr);
+        _rawSignals[SignalIndex.BtcVolatility] = StdDev(btcArr);
+        _rawSignals[SignalIndex.EthVolatility] = StdDev(ethArr);
+        _rawSignals[SignalIndex.VolatilityRatio] = _rawSignals[SignalIndex.EthVolatility] > 0
+            ? _rawSignals[SignalIndex.BtcVolatility] / _rawSignals[SignalIndex.EthVolatility] : 1f;
+
+        _rawSignals[SignalIndex.BtcEthSpread] = btcPrice > 0 && ethPrice > 0
+            ? ethPrice / btcPrice : 0f;
+
+        if (_btcPrices.Count >= 24)
+        {
+            var btcP = _btcPrices.ToArray();
+            var ethP = _ethPrices.ToArray();
+            int lookback = Math.Min(24, btcP.Length);
+            float btcOld = btcP[btcP.Length - lookback];
+            float ethOld = ethP[ethP.Length - lookback];
+            _rawSignals[SignalIndex.BtcMomentum] = btcOld > 0 ? (btcPrice - btcOld) / btcOld : 0f;
+            _rawSignals[SignalIndex.EthMomentum] = ethOld > 0 ? (ethPrice - ethOld) / ethOld : 0f;
+        }
+        _rawSignals[SignalIndex.MomentumDivergence] =
+            _rawSignals[SignalIndex.BtcMomentum] - _rawSignals[SignalIndex.EthMomentum];
+    }
+
+    private static float PearsonCorrelation(float[] a, float[] b)
+    {
+        int n = Math.Min(a.Length, b.Length);
+        if (n < 2) return 0f;
+        float meanA = 0f, meanB = 0f;
+        for (int i = 0; i < n; i++) { meanA += a[i]; meanB += b[i]; }
+        meanA /= n; meanB /= n;
+        float cov = 0f, varA = 0f, varB = 0f;
+        for (int i = 0; i < n; i++)
+        {
+            float da = a[i] - meanA, db = b[i] - meanB;
+            cov += da * db; varA += da * da; varB += db * db;
+        }
+        float denom = MathF.Sqrt(varA * varB);
+        return denom > 0 ? cov / denom : 0f;
+    }
+
+    private static float StdDev(float[] arr)
+    {
+        if (arr.Length < 2) return 0f;
+        float mean = 0f;
+        for (int i = 0; i < arr.Length; i++) mean += arr[i];
+        mean /= arr.Length;
+        float sumSq = 0f;
+        for (int i = 0; i < arr.Length; i++) sumSq += (arr[i] - mean) * (arr[i] - mean);
+        return MathF.Sqrt(sumSq / arr.Length);
     }
 
     public void Dispose()

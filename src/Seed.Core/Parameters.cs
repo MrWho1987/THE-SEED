@@ -11,7 +11,10 @@ public sealed record DevelopmentParams(
     int MaxOutMax = 24,
     float ConnectionThreshold = 0.20f,
     float InitialWeightScale = 1.0f,
-    float GlobalSampleRate = 0.02f
+    float GlobalSampleRate = 0.02f,
+    int SubstrateWidth = 16,
+    int SubstrateHeight = 16,
+    int SubstrateLayers = 3
 )
 {
     public static DevelopmentParams Default => new();
@@ -27,7 +30,8 @@ public sealed record LearningParams(
     float AlphaPain = -1.0f,                // αP (negative to convert pain to punishment)
     float AlphaCuriosity = 0.25f,           // αC
     float BetaConsolidate = 0.01f,          // β (slow weight update rate)
-    float GammaRecall = 0.01f               // γ (fast weight recall from slow)
+    float GammaRecall = 0.01f,              // γ (fast weight recall from slow)
+    int CriticalPeriodTicks = 1000          // ticks over which Eta decays to 10%
 )
 {
     public static LearningParams Default => new();
@@ -105,9 +109,12 @@ public sealed record AblationConfig(
     bool HomeostasisEnabled = true,
     bool EvolutionEnabled = true,
     bool RandomActionsEnabled = false,
-    bool PredictionErrorCuriosity = false
+    bool PredictionErrorCuriosity = false,
+    bool ModulatoryEdgesEnabled = true,
+    bool SynapticDelaysEnabled = true,
+    bool RecurrenceEnabled = true
 )
 {
-    public static AblationConfig Default => new(true, true, true, true, false, false);
+    public static AblationConfig Default => new();
 }
 

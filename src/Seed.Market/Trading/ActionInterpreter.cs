@@ -10,7 +10,7 @@ namespace Seed.Market.Trading;
 /// </summary>
 public static class ActionInterpreter
 {
-    public const int OutputCount = 4;
+    public const int OutputCount = 5;
     public const float ExitThreshold = 0.6f;
     public const float DirectionDeadzone = 0.15f;
 
@@ -20,6 +20,7 @@ public static class ActionInterpreter
         float rawSize = outputs.Length > 1 ? Sigmoid(outputs[1]) : 0f;
         float rawUrgency = outputs.Length > 2 ? Sigmoid(outputs[2]) : 0f;
         float rawExit = outputs.Length > 3 ? Sigmoid(outputs[3]) : 0f;
+        // outputs[4] = price direction prediction (used for curiosity, not for trading)
 
         var direction = TradeDirection.Flat;
         if (rawDir > DirectionDeadzone) direction = TradeDirection.Long;

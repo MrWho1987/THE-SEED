@@ -14,6 +14,7 @@ public sealed class CheckpointState
     public float BestFitness { get; init; }
     public DateTimeOffset Timestamp { get; init; }
     public List<string> GenomeJsons { get; init; } = [];
+    public List<int> SpeciesIds { get; init; } = [];
 
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
@@ -36,14 +37,16 @@ public sealed class CheckpointState
     }
 
     public static CheckpointState FromPopulation(
-        IReadOnlyList<IGenome> population, int generation, float bestFitness)
+        IReadOnlyList<IGenome> population, int generation, float bestFitness,
+        IReadOnlyList<int>? speciesIds = null)
     {
         return new CheckpointState
         {
             Generation = generation,
             BestFitness = bestFitness,
             Timestamp = DateTimeOffset.UtcNow,
-            GenomeJsons = population.Select(g => g.ToJson()).ToList()
+            GenomeJsons = population.Select(g => g.ToJson()).ToList(),
+            SpeciesIds = speciesIds?.ToList() ?? []
         };
     }
 

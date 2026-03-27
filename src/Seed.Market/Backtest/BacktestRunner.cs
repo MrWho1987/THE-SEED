@@ -24,12 +24,23 @@ public sealed class BacktestRunner
 
     /// <summary>
     /// Load historical data for the given date range and return evaluation-ready arrays.
+    /// When enrich=true, downloads supplemental data (macro, on-chain, sentiment, etc.).
     /// </summary>
     public async Task<(SignalSnapshot[] snapshots, float[] prices)> LoadData(
-        string symbol, DateTimeOffset start, DateTimeOffset end)
+        string symbol, DateTimeOffset start, DateTimeOffset end, bool enrich = false)
     {
         var candles = await _store.FetchCandles(symbol, start, end);
-        return HistoricalDataStore.CandlesToSignals(candles);
+
+        Dictionary<int, float[]>? enrichment = null;
+        if (enrich)
+        {
+            var enricher = new HistoricalSignalEnricher(
+                Path.Combine(_config.OutputDirectory, "data_cache"),
+                _config.CoinGeckoApiKey);
+            enrichment = await enricher.EnrichAsync(candles, start, end);
+        }
+
+        return HistoricalDataStore.CandlesToSignals(candles, enrichment);
     }
 
     /// <summary>

@@ -55,6 +55,7 @@ public sealed class PortfolioState
     public decimal InitialBalance { get; init; }
     public List<Position> OpenPositions { get; } = [];
     public List<ClosedTrade> TradeHistory { get; } = [];
+    public List<float> EquityCurve { get; } = [];
     public decimal DailyPnl { get; set; }
     public decimal MaxEquity { get; set; }
     public decimal MaxDrawdown { get; set; }
@@ -69,11 +70,23 @@ public sealed class PortfolioState
         return Balance + unrealized;
     }
 
+    public void RecordEquity(decimal currentPrice)
+    {
+        EquityCurve.Add((float)Equity(currentPrice));
+    }
+
     public decimal TotalPnl => Balance - InitialBalance;
     public int TotalTrades => TradeHistory.Count;
     public int WinningTrades => TradeHistory.Count(t => t.Pnl > 0);
     public float WinRate => TotalTrades > 0 ? (float)WinningTrades / TotalTrades : 0f;
 }
+
+public readonly record struct TickContext(
+    decimal Price,
+    decimal HourlyVolume,
+    float FundingRate,
+    int TickIndex
+);
 
 public readonly record struct ClosedTrade(
     string Symbol,

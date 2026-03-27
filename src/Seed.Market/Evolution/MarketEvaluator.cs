@@ -27,11 +27,13 @@ public sealed class MarketEvaluator
 
     private readonly MarketConfig _config;
     private readonly BrainDeveloper _developer;
+    private readonly IFitnessFunction _fitnessFunction;
 
-    public MarketEvaluator(MarketConfig config)
+    public MarketEvaluator(MarketConfig config, IFitnessFunction? fitnessFunction = null)
     {
         _config = config;
         _developer = new BrainDeveloper(MarketAgent.InputCount, MarketAgent.OutputCount);
+        _fitnessFunction = fitnessFunction ?? new DefaultFitnessFunction(config);
     }
 
     /// <summary>
@@ -48,16 +50,20 @@ public sealed class MarketEvaluator
             throw new ArgumentException("History and prices must not be empty");
 
         var devCtx = new DevelopmentContext(_config.RunSeed, generationIndex);
-        var devBudget = MarketBrainBudget;
 
-        // Compile all brains in parallel
         var entries = new (IGenome Genome, BrainGraph Graph)[population.Count];
         Parallel.For(0, population.Count,
             new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount },
             i =>
             {
                 var sg = (SeedGenome)population[i];
-                entries[i] = (sg, _developer.CompileGraph(sg, devBudget, devCtx));
+                var genomeBudget = MarketBrainBudget with
+                {
+                    HiddenWidth = sg.Dev.SubstrateWidth,
+                    HiddenHeight = sg.Dev.SubstrateHeight,
+                    HiddenLayers = sg.Dev.SubstrateLayers
+                };
+                entries[i] = (sg, _developer.CompileGraph(sg, genomeBudget, devCtx));
             });
 
         // Run each agent through the historical window
@@ -75,6 +81,24 @@ public sealed class MarketEvaluator
         return dict;
     }
 
+    /// <summary>
+    /// Evaluate a single genome (used for periodic validation checks).
+    /// </summary>
+    public MarketEvalResult EvaluateSingle(
+        IGenome genome, SignalSnapshot[] history, float[] rawPrices, int generationIndex)
+    {
+        var devCtx = new DevelopmentContext(_config.RunSeed, generationIndex);
+        var sg = (SeedGenome)genome;
+        var genomeBudget = MarketBrainBudget with
+        {
+            HiddenWidth = sg.Dev.SubstrateWidth,
+            HiddenHeight = sg.Dev.SubstrateHeight,
+            HiddenLayers = sg.Dev.SubstrateLayers
+        };
+        var graph = _developer.CompileGraph(sg, genomeBudget, devCtx);
+        return RunAgent((sg, graph), history, rawPrices);
+    }
+
     private MarketEvalResult RunAgent(
         (IGenome Genome, BrainGraph Graph) entry,
         SignalSnapshot[] history,
@@ -89,14 +113,20 @@ public sealed class MarketEvaluator
         {
             decimal price = (decimal)rawPrices[t];
             if (price <= 0) continue;
-            agent.ProcessTick(history[t], price);
+
+            float rawVol = history[t].Signals[Signals.SignalIndex.BtcVolume1h];
+            float rawFunding = history[t].Signals[Signals.SignalIndex.FundingRate];
+            var ctx = new TickContext(price, (decimal)(rawVol > 0 ? rawVol : 0f), rawFunding, t);
+
+            agent.ProcessTick(history[t], ctx);
+            agent.Portfolio.RecordEquity(price);
         }
 
         // Close any remaining positions at final price
         decimal finalPrice = (decimal)rawPrices[^1];
         trader.CloseAllPositions(agent.Portfolio, finalPrice, agent.Tick);
 
-        var breakdown = MarketFitness.ComputeDetailed(agent.Portfolio, finalPrice);
+        var breakdown = _fitnessFunction.ComputeDetailed(agent.Portfolio, finalPrice);
         return new MarketEvalResult(sg.GenomeId, breakdown);
     }
 }

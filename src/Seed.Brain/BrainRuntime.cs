@@ -2,48 +2,53 @@ using Seed.Core;
 
 namespace Seed.Brain;
 
+public readonly record struct BrainDiagnostics(
+    float MeanAbsActivation,
+    float SaturationRate,
+    float MeanAbsWeightFast,
+    float MeanAbsWeightSlow,
+    int ActiveEdgeCount,
+    int TotalEdges
+);
+
 /// <summary>
 /// Runtime execution of a sparse recurrent brain with modulated learning,
-/// modulatory edges, and synaptic delays.
+/// modulatory edges, synaptic delays, and ablation support.
 /// </summary>
 public sealed class BrainRuntime : IBrain
 {
     private readonly BrainGraph _graph;
     private readonly LearningParams _learn;
     private readonly StabilityParams _stable;
+    private readonly AblationConfig _ablation;
     private readonly int _microStepsPerTick;
 
-    // Runtime state
     private readonly float[] _activations;
     private readonly float[] _prevActivations;
-    private readonly float[][] _eligibility; // per destination, aligned with incoming edges
-    private readonly float[] _wFast;         // flat array of fast weights
-    private readonly float[] _wSlow;         // flat array of slow weights
-    private readonly int[] _edgeOffsets;     // start index in flat arrays per destination
+    private readonly float[][] _eligibility;
+    private readonly float[] _wFast;
+    private readonly float[] _wSlow;
+    private readonly int[] _edgeOffsets;
 
-    // Time constants for leaky integration (tau >= 1; tau=1 means instant)
     private readonly float[] _tau;
-
-    // Modulatory edge state: per-node local modulation signal in [-1, 1]
     private readonly float[] _localModulation;
 
-    // Synaptic delay state: circular buffer of past activations
     private readonly float[][] _activationHistory;
     private int _historyHead;
     private readonly int _maxDelay;
 
-    // Homeostasis state
     private readonly float[] _meanAbsActivation;
 
-    // Stability tracking
     private int _saturatedCount;
     private int _totalActivations;
 
-    public BrainRuntime(BrainGraph graph, LearningParams learn, StabilityParams stable, int microStepsPerTick = 3)
+    public BrainRuntime(BrainGraph graph, LearningParams learn, StabilityParams stable,
+        int microStepsPerTick = 3, AblationConfig? ablation = null)
     {
         _graph = graph;
         _learn = learn;
         _stable = stable;
+        _ablation = ablation ?? AblationConfig.Default;
         _microStepsPerTick = microStepsPerTick;
 
         int nodeCount = graph.Nodes.Count;
@@ -56,7 +61,6 @@ public sealed class BrainRuntime : IBrain
         for (int i = 0; i < nodeCount; i++)
             _tau[graph.Nodes[i].NodeId] = graph.Nodes[i].Meta.TimeConstant;
 
-        // Count total edges, build offset map, and find max delay
         int totalEdges = 0;
         int maxDelay = 0;
         _edgeOffsets = new int[nodeCount + 1];
@@ -79,7 +83,6 @@ public sealed class BrainRuntime : IBrain
         _wSlow = new float[totalEdges];
         _eligibility = new float[nodeCount][];
 
-        // Initialize weights from graph
         foreach (var node in graph.Nodes)
         {
             int offset = _edgeOffsets[node.NodeId];
@@ -98,7 +101,6 @@ public sealed class BrainRuntime : IBrain
             }
         }
 
-        // Allocate delay buffer only if any edge has delay > 0
         _maxDelay = maxDelay;
         if (_maxDelay > 0)
         {
@@ -113,9 +115,6 @@ public sealed class BrainRuntime : IBrain
         _historyHead = 0;
     }
 
-    /// <summary>
-    /// Get current node activations for visualization.
-    /// </summary>
     public ReadOnlySpan<float> GetActivations() => _activations;
     
     public void Reset()
@@ -125,19 +124,14 @@ public sealed class BrainRuntime : IBrain
         Array.Clear(_meanAbsActivation);
         Array.Clear(_localModulation);
 
-        // Reset eligibility traces
         foreach (var e in _eligibility)
         {
             if (e != null) Array.Clear(e);
         }
 
-        // Reset weights to initial (wSlow)
         for (int i = 0; i < _wFast.Length; i++)
-        {
             _wFast[i] = _wSlow[i];
-        }
 
-        // Reset delay buffer
         if (_maxDelay > 0)
         {
             for (int i = 0; i < _activationHistory.Length; i++)
@@ -151,32 +145,23 @@ public sealed class BrainRuntime : IBrain
 
     public ReadOnlySpan<float> Step(ReadOnlySpan<float> inputs, in BrainStepContext ctx)
     {
-        // Copy previous activations
         Array.Copy(_activations, _prevActivations, _activations.Length);
 
-        // Set input activations
         for (int i = 0; i < _graph.InputCount && i < inputs.Length; i++)
-        {
             _activations[i] = inputs[i];
-        }
 
-        // Multi-step recurrent update
-        for (int micro = 0; micro < _microStepsPerTick; micro++)
-        {
+        int steps = _ablation.RecurrenceEnabled ? _microStepsPerTick : 1;
+        for (int micro = 0; micro < steps; micro++)
             UpdateActivations();
-        }
 
-        // Track stability
         TrackStability();
 
-        // Save end-of-tick snapshot to delay buffer
         if (_maxDelay > 0)
         {
             Array.Copy(_activations, _activationHistory[_historyHead], _activations.Length);
             _historyHead = (_historyHead + 1) % _activationHistory.Length;
         }
 
-        // Return output activations
         int outputStart = _graph.InputCount + 
             (_graph.NodeCount - _graph.InputCount - _graph.OutputCount);
         
@@ -197,15 +182,14 @@ public sealed class BrainRuntime : IBrain
             float modSum = 0f;
             int offset = _edgeOffsets[node.NodeId];
 
-            // Compute homeostasis scale
             float scale = 1f;
-            if (_stable.HomeostasisStrength > 0 && _meanAbsActivation[node.NodeId] > 0)
+            if (_ablation.HomeostasisEnabled &&
+                _stable.HomeostasisStrength > 0 && _meanAbsActivation[node.NodeId] > 0)
             {
                 float diff = _meanAbsActivation[node.NodeId] - _stable.ActivationTarget;
                 scale = MathF.Exp(-_stable.HomeostasisStrength * diff);
             }
 
-            // Optional incoming normalization (only over normal edges for stability)
             float normFactor = 1f;
             if (_stable.EnableIncomingNormalization && edges.Count > 0)
             {
@@ -224,10 +208,9 @@ public sealed class BrainRuntime : IBrain
                 float w = _wFast[offset + i] * scale * normFactor;
                 int srcId = edges[i].SrcNodeId;
 
-                // Source activation: delayed or current
                 float srcAct;
                 int delay = edges[i].Meta.Delay;
-                if (delay > 0 && _maxDelay > 0)
+                if (_ablation.SynapticDelaysEnabled && delay > 0 && _maxDelay > 0)
                 {
                     int histIdx = ((_historyHead - delay) % _activationHistory.Length + _activationHistory.Length) % _activationHistory.Length;
                     srcAct = _activationHistory[histIdx][srcId];
@@ -237,15 +220,14 @@ public sealed class BrainRuntime : IBrain
                     srcAct = _activations[srcId];
                 }
 
-                if (edges[i].Meta.EdgeType == EdgeType.Modulatory)
+                if (_ablation.ModulatoryEdgesEnabled && edges[i].Meta.EdgeType == EdgeType.Modulatory)
                     modSum += srcAct * w;
                 else
                     sum += srcAct * w;
             }
 
-            _localModulation[node.NodeId] = MathF.Tanh(modSum);
+            _localModulation[node.NodeId] = _ablation.ModulatoryEdgesEnabled ? MathF.Tanh(modSum) : 0f;
 
-            // Tanh activation with optional leaky integration
             float raw = MathF.Tanh(sum);
             float t = _tau[node.NodeId];
             if (t > 1f)
@@ -277,7 +259,9 @@ public sealed class BrainRuntime : IBrain
 
     public void Learn(ReadOnlySpan<float> modulators, in BrainLearnContext ctx)
     {
-        // Compute combined global modulator
+        if (!_ablation.LearningEnabled)
+            return;
+
         float M = 0f;
         if (modulators.Length > ModulatorIndex.Reward)
             M += _learn.AlphaReward * modulators[ModulatorIndex.Reward];
@@ -286,7 +270,10 @@ public sealed class BrainRuntime : IBrain
         if (modulators.Length > ModulatorIndex.Curiosity)
             M += _learn.AlphaCuriosity * modulators[ModulatorIndex.Curiosity];
 
-        // Update eligibility and weights
+        float etaScale = _learn.CriticalPeriodTicks > 0
+            ? MathF.Max(0.1f, 1f - (float)ctx.Tick / _learn.CriticalPeriodTicks)
+            : 1f;
+
         foreach (var node in _graph.Nodes)
         {
             if (node.Type == BrainNodeType.Input)
@@ -304,17 +291,23 @@ public sealed class BrainRuntime : IBrain
                 int srcId = edges[i].SrcNodeId;
                 float ai = _activations[srcId];
 
-                // Update eligibility trace
                 float product = DeterministicHelpers.Clamp(ai * aj, -1f, 1f);
                 _eligibility[node.NodeId][i] = 
                     _learn.EligibilityDecay * _eligibility[node.NodeId][i] + product;
 
-                // Effective modulator: normal edges get local modulation, modulatory edges use raw M
-                float effectiveM = edges[i].Meta.EdgeType == EdgeType.Modulatory
-                    ? M
-                    : M * (1f + localMod);
+                float effectiveM;
+                if (_ablation.ModulatoryEdgesEnabled)
+                {
+                    effectiveM = edges[i].Meta.EdgeType == EdgeType.Modulatory
+                        ? M
+                        : M * (1f + localMod);
+                }
+                else
+                {
+                    effectiveM = M;
+                }
 
-                float dw = _learn.Eta * effectiveM * _eligibility[node.NodeId][i] * edges[i].PlasticityGain;
+                float dw = _learn.Eta * etaScale * effectiveM * _eligibility[node.NodeId][i] * edges[i].PlasticityGain;
                 if (float.IsNaN(dw) || float.IsInfinity(dw)) dw = 0f;
                 _wFast[offset + i] = DeterministicHelpers.Clamp(
                     _wFast[offset + i] + dw,
@@ -324,7 +317,6 @@ public sealed class BrainRuntime : IBrain
             }
         }
 
-        // Two-speed consolidation
         for (int i = 0; i < _wFast.Length; i++)
         {
             float slow = (1f - _learn.BetaConsolidate) * _wSlow[i] + 
@@ -334,6 +326,52 @@ public sealed class BrainRuntime : IBrain
             _wSlow[i] = float.IsNaN(slow) ? 0f : slow;
             _wFast[i] = float.IsNaN(fast) ? 0f : fast;
         }
+    }
+
+    public int PruneWeakEdges(float threshold)
+    {
+        int pruned = 0;
+        for (int i = 0; i < _wFast.Length; i++)
+        {
+            if (MathF.Abs(_wFast[i]) < threshold)
+            {
+                _wFast[i] = 0f;
+                pruned++;
+            }
+        }
+        return pruned;
+    }
+
+    public BrainDiagnostics GetDiagnostics()
+    {
+        int hiddenCount = Math.Max(1, _graph.NodeCount - _graph.InputCount);
+        float sumAct = 0f;
+        int satCount = 0;
+        foreach (var node in _graph.Nodes)
+        {
+            if (node.Type == BrainNodeType.Input) continue;
+            float abs = MathF.Abs(_activations[node.NodeId]);
+            sumAct += abs;
+            if (abs > 0.95f) satCount++;
+        }
+
+        float sumWf = 0f, sumWs = 0f;
+        int active = 0;
+        for (int i = 0; i < _wFast.Length; i++)
+        {
+            sumWf += MathF.Abs(_wFast[i]);
+            sumWs += MathF.Abs(_wSlow[i]);
+            if (MathF.Abs(_wFast[i]) > 1e-6f) active++;
+        }
+
+        return new BrainDiagnostics(
+            MeanAbsActivation: sumAct / hiddenCount,
+            SaturationRate: (float)satCount / hiddenCount,
+            MeanAbsWeightFast: _wFast.Length > 0 ? sumWf / _wFast.Length : 0f,
+            MeanAbsWeightSlow: _wSlow.Length > 0 ? sumWs / _wSlow.Length : 0f,
+            ActiveEdgeCount: active,
+            TotalEdges: _wFast.Length
+        );
     }
 
     public IBrainGraph ExportGraph()

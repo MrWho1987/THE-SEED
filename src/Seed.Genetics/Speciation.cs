@@ -110,7 +110,8 @@ public sealed class SpeciationManager
         IReadOnlyDictionary<Guid, float> rawFitnesses,
         int totalOffspring,
         PopulationBudget budget,
-        SpeciationConfig config)
+        SpeciationConfig config,
+        int minOffspringPerSpecies = 0)
     {
         var allocation = new Dictionary<int, int>();
 
@@ -130,32 +131,43 @@ public sealed class SpeciationManager
             totalAdjusted += sp.AdjustedFitnessSum;
         }
 
-        if (totalAdjusted <= 0)
+        // Floor allocation: guarantee minimum offspring for viable species
+        int floorTotal = 0;
+        foreach (var sp in _species)
         {
-            // Equal allocation if all fitness is zero/negative
-            int perSpecies = totalOffspring / Math.Max(1, _species.Count);
-            foreach (var sp in _species)
+            int floor = (sp.Members.Count >= 2 && minOffspringPerSpecies > 0) ? minOffspringPerSpecies : 0;
+            allocation[sp.SpeciesId] = floor;
+            floorTotal += floor;
+        }
+
+        int remaining = Math.Max(0, totalOffspring - floorTotal);
+
+        if (totalAdjusted <= 0 || remaining == 0)
+        {
+            if (remaining > 0)
             {
-                allocation[sp.SpeciesId] = perSpecies;
+                int perSpecies = remaining / Math.Max(1, _species.Count);
+                foreach (var sp in _species)
+                    allocation[sp.SpeciesId] += perSpecies;
             }
             return allocation;
         }
 
-        // Proportional allocation
-        int allocated = 0;
+        // Proportional allocation of remaining budget
+        int allocated = floorTotal;
         foreach (var sp in _species.OrderBy(s => s.SpeciesId))
         {
-            int count = (int)(sp.AdjustedFitnessSum / totalAdjusted * totalOffspring);
+            int count = (int)(sp.AdjustedFitnessSum / totalAdjusted * remaining);
             count = Math.Max(0, count);
-            allocation[sp.SpeciesId] = count;
+            allocation[sp.SpeciesId] += count;
             allocated += count;
         }
 
         var sortedSpecies = _species.OrderByDescending(s => s.AdjustedFitnessSum).ToList();
 
         // Distribute remainder to top species
-        int remainder = totalOffspring - allocated;
-        for (int i = 0; i < remainder && i < sortedSpecies.Count; i++)
+        int gap = totalOffspring - allocated;
+        for (int i = 0; i < gap && i < sortedSpecies.Count; i++)
         {
             allocation[sortedSpecies[i].SpeciesId]++;
             allocated++;
@@ -167,7 +179,7 @@ public sealed class SpeciationManager
             for (int i = sortedSpecies.Count - 1; i >= 0 && allocated > totalOffspring; i--)
             {
                 int sid = sortedSpecies[i].SpeciesId;
-                if (allocation[sid] > 0)
+                if (allocation[sid] > (minOffspringPerSpecies > 0 && _species.First(s => s.SpeciesId == sid).Members.Count >= 2 ? minOffspringPerSpecies : 0))
                 {
                     allocation[sid]--;
                     allocated--;

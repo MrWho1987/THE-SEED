@@ -19,6 +19,7 @@ public sealed record MarketConfig
     public decimal MaxDailyLossPct { get; init; } = 0.05m;
     public decimal KillSwitchDrawdownPct { get; init; } = 0.15m;
     public int MaxConcurrentPositions { get; init; } = 3;
+    public decimal MaxDailyVaRPct { get; init; } = 0.05m;
 
     // ── Evolution ──
     public int PopulationSize { get; init; } = 50;
@@ -26,8 +27,26 @@ public sealed record MarketConfig
     public int TrainingWindowHours { get; init; } = 720;
     public int ValidationWindowHours { get; init; } = 168;
     public int EvalWindowHours { get; init; } = 500;
+    public int EvalWindowCount { get; init; } = 3;
     public int RollingStepHours { get; init; } = 24;
     public ulong RunSeed { get; init; } = 42;
+
+    // ── Fitness ──
+    public float ShrinkageK { get; init; } = 10f;
+    public float FitnessSharpeWeight { get; init; } = 0.45f;
+    public float FitnessSortinoWeight { get; init; } = 0.15f;
+    public float FitnessReturnWeight { get; init; } = 0.20f;
+    public float FitnessDrawdownDurationWeight { get; init; } = 0.10f;
+    public float FitnessCVaRWeight { get; init; } = 0.10f;
+
+    // ── Species Diversity ──
+    public int TargetSpeciesMin { get; init; } = 10;
+    public int TargetSpeciesMax { get; init; } = 50;
+    public float CompatibilityAdjustRate { get; init; } = 0.1f;
+    public int MinOffspringPerSpecies { get; init; } = 1;
+    public int StagnationLimit { get; init; } = 25;
+    public float DiversityBonusScale { get; init; } = 0.02f;
+    public int DiversityKNeighbors { get; init; } = 5;
 
     // ── Brain Development ──
     public int MaxBrainNodes { get; init; } = 200;
@@ -40,6 +59,9 @@ public sealed record MarketConfig
     public int OnChainPollMs { get; init; } = 3_600_000;
     public int MacroPollMs { get; init; } = 3_600_000;
 
+    // ── API Keys (optional) ──
+    public string? CoinGeckoApiKey { get; init; }
+
     // ── Execution Mode ──
     [JsonConverter(typeof(JsonStringEnumConverter))]
     public ExecutionMode Mode { get; init; } = ExecutionMode.Backtest;
@@ -47,6 +69,14 @@ public sealed record MarketConfig
 
     // ── Output ──
     public string OutputDirectory { get; init; } = "output_market";
+
+    // ── Validation ──
+    public int ValidationIntervalGens { get; init; } = 10;
+    public int EarlyStopPatience { get; init; } = 5;
+    public bool EarlyStopEnabled { get; init; } = false;
+    public bool WalkForwardEnabled { get; init; } = true;
+    public float WalkForwardMinValFitness { get; init; } = -0.05f;
+    public int WalkForwardMaxStallGens { get; init; } = 50;
 
     // ── Paper Trading ──
     public string? GenomePath { get; init; }
@@ -85,5 +115,11 @@ public enum ExecutionMode
 {
     Backtest,
     Paper,
-    Live
+    Live,
+    Compare,
+    Ablation,
+    StressTest,
+    MonteCarlo,
+    Ensemble,
+    NeuroAblation
 }

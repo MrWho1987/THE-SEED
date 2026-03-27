@@ -212,7 +212,13 @@ public sealed record SeedGenome(
             InitialWeightScale = DeterministicHelpers.Clamp(
                 p.InitialWeightScale + rng.NextGaussian(0f, cfg.SigmaParam), 0.1f, 3f),
             GlobalSampleRate = DeterministicHelpers.Clamp(
-                p.GlobalSampleRate + rng.NextGaussian(0f, cfg.SigmaParam * 0.1f), 0.001f, 0.1f)
+                p.GlobalSampleRate + rng.NextGaussian(0f, cfg.SigmaParam * 0.1f), 0.001f, 0.1f),
+            SubstrateWidth = Math.Clamp(
+                p.SubstrateWidth + (rng.NextFloat01() < 0.1f ? (rng.NextFloat01() < 0.5f ? -2 : 2) : 0), 4, 32),
+            SubstrateHeight = Math.Clamp(
+                p.SubstrateHeight + (rng.NextFloat01() < 0.1f ? (rng.NextFloat01() < 0.5f ? -2 : 2) : 0), 4, 32),
+            SubstrateLayers = Math.Clamp(
+                p.SubstrateLayers + (rng.NextFloat01() < 0.05f ? (rng.NextFloat01() < 0.5f ? -1 : 1) : 0), 1, 5)
         };
     }
 
@@ -339,8 +345,12 @@ public sealed record SeedGenome(
 
         var childCppn = new CppnNetwork(childNodes, childConns, nextNodeId);
 
-        // Parameters: Dev from fitter, Learn and Stable randomly from either
-        var childDev = fitter.Dev;
+        var childDev = fitter.Dev with
+        {
+            SubstrateWidth = rng.NextFloat01() < 0.5f ? fitter.Dev.SubstrateWidth : other.Dev.SubstrateWidth,
+            SubstrateHeight = rng.NextFloat01() < 0.5f ? fitter.Dev.SubstrateHeight : other.Dev.SubstrateHeight,
+            SubstrateLayers = rng.NextFloat01() < 0.5f ? fitter.Dev.SubstrateLayers : other.Dev.SubstrateLayers,
+        };
         var childLearn = rng.NextFloat01() < 0.5f ? fitter.Learn : other.Learn;
         var childStable = rng.NextFloat01() < 0.5f ? fitter.Stable : other.Stable;
 

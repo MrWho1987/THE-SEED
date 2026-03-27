@@ -1,10 +1,10 @@
 namespace Seed.Market.Trading;
 
 /// <summary>
-/// Simulated trade execution with realistic slippage and fee modeling.
-/// Used for backtesting and paper trading modes.
+/// Simulated trade execution with realistic slippage (volume-dependent),
+/// funding rate costs, and fee modeling.
 /// </summary>
-public sealed class PaperTrader
+public sealed class PaperTrader : ITrader
 {
     private readonly MarketConfig _config;
     private readonly RiskManager _risk;
@@ -23,66 +23,62 @@ public sealed class PaperTrader
         LastResetDay = DateTimeOffset.UtcNow
     };
 
-    /// <summary>
-    /// Process a trading signal against the current portfolio state.
-    /// Returns the trade result (may be no-op if risk limits block it).
-    /// </summary>
     public TradeResult ProcessSignal(
         TradingSignal signal, PortfolioState portfolio, decimal currentPrice, int currentTick)
     {
-        // Daily reset check
+        return ProcessSignal(signal, portfolio,
+            new TickContext(currentPrice, 0m, 0f, currentTick));
+    }
+
+    public TradeResult ProcessSignal(
+        TradingSignal signal, PortfolioState portfolio, TickContext ctx)
+    {
         if ((DateTimeOffset.UtcNow - portfolio.LastResetDay).TotalHours >= 24)
             _risk.ResetDaily(portfolio);
 
-        _risk.UpdateWatermark(portfolio, currentPrice);
+        _risk.UpdateWatermark(portfolio, ctx.Price);
 
-        // Handle exit signal first
+        ApplyFundingRates(portfolio, ctx);
+
         if (signal.ExitCurrent && portfolio.OpenPositions.Count > 0)
-            return ClosePosition(portfolio, portfolio.OpenPositions[0], currentPrice, currentTick);
+            return ClosePosition(portfolio, portfolio.OpenPositions[0], ctx);
 
-        // If signal is flat or exit-only, no new trade
         if (signal.Direction == TradeDirection.Flat)
             return new TradeResult(false, 0, 0, 0, 0);
 
-        // Check if we already have a position in the opposite direction
         var existing = portfolio.OpenPositions.FirstOrDefault(p =>
             p.Direction != signal.Direction && p.Direction != TradeDirection.Flat);
         if (existing != null)
         {
-            var closeResult = ClosePosition(portfolio, existing, currentPrice, currentTick);
+            var closeResult = ClosePosition(portfolio, existing, ctx);
             if (!closeResult.Executed) return closeResult;
         }
 
-        // Check if already holding same direction
         if (portfolio.OpenPositions.Any(p => p.Direction == signal.Direction))
             return new TradeResult(false, 0, 0, 0, 0);
 
-        // Risk check
-        var (allowed, reason) = _risk.CheckTrade(signal, portfolio, currentPrice);
+        var (allowed, reason) = _risk.CheckTrade(signal, portfolio, ctx.Price);
         if (!allowed)
             return new TradeResult(false, 0, 0, 0, 0, reason);
 
-        // Open new position
-        return OpenPosition(signal, portfolio, currentPrice, currentTick);
+        return OpenPosition(signal, portfolio, ctx);
     }
 
     private TradeResult OpenPosition(
-        TradingSignal signal, PortfolioState portfolio, decimal currentPrice, int currentTick)
+        TradingSignal signal, PortfolioState portfolio, TickContext ctx)
     {
-        decimal notional = _risk.ComputePositionSize(signal, portfolio, currentPrice);
+        decimal notional = _risk.ComputePositionSize(signal, portfolio, ctx.Price);
         if (notional <= 0)
             return new TradeResult(false, 0, 0, 0, 0, "Position size too small");
 
-        decimal size = notional / currentPrice;
+        decimal size = notional / ctx.Price;
 
-        // Apply slippage
-        decimal slippagePct = _config.SlippageBps / 10000m;
-        decimal slippage = currentPrice * slippagePct;
+        decimal dynamicSlippageBps = ComputeDynamicSlippage(notional, ctx.HourlyVolume);
+        decimal slippage = ctx.Price * dynamicSlippageBps / 10000m;
         decimal fillPrice = signal.Direction == TradeDirection.Long
-            ? currentPrice + slippage
-            : currentPrice - slippage;
+            ? ctx.Price + slippage
+            : ctx.Price - slippage;
 
-        // Apply fee (taker for market, maker for limit based on urgency)
         decimal feeRate = signal.Urgency > 0.5f ? _config.TakerFee : _config.MakerFee;
         decimal fee = fillPrice * size * feeRate;
 
@@ -96,20 +92,20 @@ public sealed class PaperTrader
             EntryPrice = fillPrice,
             Size = size,
             OpenTime = DateTimeOffset.UtcNow,
-            OpenTick = currentTick
+            OpenTick = ctx.TickIndex
         });
 
         return new TradeResult(true, fillPrice, size, fee, slippage);
     }
 
     private TradeResult ClosePosition(
-        PortfolioState portfolio, Position position, decimal currentPrice, int currentTick)
+        PortfolioState portfolio, Position position, TickContext ctx)
     {
-        decimal slippagePct = _config.SlippageBps / 10000m;
-        decimal slippage = currentPrice * slippagePct;
+        decimal dynamicSlippageBps = ComputeDynamicSlippage(position.Size * ctx.Price, ctx.HourlyVolume);
+        decimal slippage = ctx.Price * dynamicSlippageBps / 10000m;
         decimal fillPrice = position.Direction == TradeDirection.Long
-            ? currentPrice - slippage
-            : currentPrice + slippage;
+            ? ctx.Price - slippage
+            : ctx.Price + slippage;
 
         decimal feeRate = _config.TakerFee;
         decimal fee = fillPrice * position.Size * feeRate;
@@ -132,7 +128,7 @@ public sealed class PaperTrader
             position.Size,
             pnl,
             fee,
-            currentTick - position.OpenTick,
+            ctx.TickIndex - position.OpenTick,
             position.OpenTime,
             DateTimeOffset.UtcNow
         ));
@@ -140,12 +136,35 @@ public sealed class PaperTrader
         return new TradeResult(true, fillPrice, position.Size, fee, slippage);
     }
 
-    /// <summary>
-    /// Force-close all open positions (used by kill switch or end-of-backtest).
-    /// </summary>
+    private decimal ComputeDynamicSlippage(decimal orderNotional, decimal hourlyVolume)
+    {
+        if (hourlyVolume <= 0)
+            return _config.SlippageBps;
+
+        decimal participation = orderNotional / (hourlyVolume * 0.01m);
+        return _config.SlippageBps * (1m + participation * participation);
+    }
+
+    private void ApplyFundingRates(PortfolioState portfolio, TickContext ctx)
+    {
+        if (ctx.TickIndex <= 0 || ctx.TickIndex % 8 != 0 || ctx.FundingRate == 0f)
+            return;
+
+        foreach (var pos in portfolio.OpenPositions)
+        {
+            decimal fundingCost = pos.Size * pos.EntryPrice * (decimal)ctx.FundingRate;
+            if (pos.Direction == TradeDirection.Long)
+                portfolio.Balance -= fundingCost;
+            else
+                portfolio.Balance += fundingCost;
+            portfolio.DailyPnl -= (pos.Direction == TradeDirection.Long ? fundingCost : -fundingCost);
+        }
+    }
+
     public void CloseAllPositions(PortfolioState portfolio, decimal currentPrice, int currentTick)
     {
+        var ctx = new TickContext(currentPrice, 0m, 0f, currentTick);
         foreach (var pos in portfolio.OpenPositions.ToList())
-            ClosePosition(portfolio, pos, currentPrice, currentTick);
+            ClosePosition(portfolio, pos, ctx);
     }
 }
