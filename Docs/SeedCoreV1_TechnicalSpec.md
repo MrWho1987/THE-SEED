@@ -1,5 +1,28 @@
 # SEED — Seed Core v1 Technical Spec (Implementation-Grade)
 
+> **Document status (March 2026):**
+> This is the implementation-grade reference for the shared core engine. The data structures, algorithms, and formulas defined here are **the active implementation** used by both the original 2D terrarium (now on the `Legacy` branch) and the current market evolution system (`Seed.Market`).
+>
+> **Sections that are legacy (2D-world only):**
+> - Section 2.2 interfaces `IAgentBody`, `IWorld`, `IEvaluator` — the market system uses `MarketAgent`, `DataAggregator`, and `MarketEvaluator` instead
+> - Section 2.2.1 context records `BodyResetContext`, `BodyState`, `WorldSignals`, `WorldStepResult`, `WorldStepInfo`, `EpisodeMetrics`, `EvaluationContext` — replaced by market-specific types in `Seed.Market.Trading` and `Seed.Market.Evolution`
+> - Section 6 (Deterministic parallel evaluation pseudocode) — the market evaluator uses its own replay-based evaluation loop
+> - Section 12 (Fitness aggregation) — market fitness is net-profit-based (see `MarketFitness.cs`)
+>
+> **Sections that remain authoritative (active code):**
+> - Section 1 (Versioning, determinism, numeric types)
+> - Section 2.1 (Budgets) — `DevelopmentBudget` used directly by `MarketEvaluator`
+> - Section 2.2 interfaces `IGenome`, `IDeveloper`, `IBrain`, `IObservatory` — still the core contracts
+> - Section 2.3 (SeedGenome model) — unchanged
+> - Section 2.4-2.5 (BrainGraph, BrainState) — unchanged
+> - Sections 3-4 (JSON formats) — unchanged
+> - Section 5 (Deterministic RNG) — unchanged
+> - Section 7 (Development compiler) — unchanged
+> - Section 8 (Learning engine) — unchanged
+> - Section 9 (Speciation and selection) — reused by `MarketEvolution`
+> - Section 10 (Mutation operators) — unchanged
+> - Section 11 (Config defaults) — market system uses `MarketConfig` for market-specific params, but core defaults still apply
+
 This document is the **implementation-grade** technical specification for **Seed Core v1 + V2-ready contract** described in `Docs/TheSeed.md`.
 
 Core constraints:

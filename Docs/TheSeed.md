@@ -1,5 +1,22 @@
 # SEED — Seed Core v1 + V2-Ready Contract (Implementation Specification)
 
+> **Document status (March 2026):**
+> This spec was written for the original 2D terrarium world. The core engine it describes — genome (CPPN-NEAT), development compiler, brain runtime, learning engine, evolution, speciation, and budget scaling — **remains active and unchanged** in the current market evolution system (`Seed.Market`).
+>
+> **Sections that are legacy (2D-world only):**
+> - Section 5 (World Specification) — replaced by `Seed.Market.Data` feeds
+> - Section 6 (Body) — replaced by `Seed.Market.Agents.MarketAgent`
+> - Section 12 (Evaluation Protocol) — replaced by `Seed.Market.Evolution.MarketEvaluator`
+> - Section 13 (Observatory) — partially applicable; market-specific observability TBD
+> - Section 19 (Project Layout) — projects `Seed.Worlds`, `Seed.Agents`, `Seed.Evolution`, `Seed.App`, `Seed.Dashboard` have been removed from main (preserved on the `Legacy` branch)
+>
+> **Sections that remain authoritative:**
+> - Sections 0-4 (Definition, Aim, Design Principles, Kernel & Determinism)
+> - Sections 7-11 (Genome, Development, Brain Runtime, Learning, Evolution Engine)
+> - Part B (V2-Ready Contract, Budget Model, Reserved Channels)
+>
+> For the market-specific architecture, see `Docs/MarketEvolution_DraftPaper.md`.
+
 * **Seed Core v1** = minimal, working Evo-Devo loop that reliably produces insect-level adaptive agents.
 * **V2-Ready Contract** = stable interfaces + reserved channels so V2 modules can be added **without rewrites**.
 
