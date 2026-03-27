@@ -23,8 +23,9 @@ public sealed record MarketConfig
     // ── Evolution ──
     public int PopulationSize { get; init; } = 50;
     public int Generations { get; init; } = 100;
-    public int TrainingWindowHours { get; init; } = 720; // 30 days
-    public int ValidationWindowHours { get; init; } = 168; // 7 days
+    public int TrainingWindowHours { get; init; } = 720;
+    public int ValidationWindowHours { get; init; } = 168;
+    public int EvalWindowHours { get; init; } = 500;
     public int RollingStepHours { get; init; } = 24;
     public ulong RunSeed { get; init; } = 42;
 
@@ -46,6 +47,17 @@ public sealed record MarketConfig
 
     // ── Output ──
     public string OutputDirectory { get; init; } = "output_market";
+
+    // ── Paper Trading ──
+    public string? GenomePath { get; init; }
+    public string? TradeLogPath { get; init; }
+    public int DisplayIntervalMs { get; init; } = 10_000;
+    public int CheckpointIntervalGens { get; init; } = 10;
+
+    public string ResolvedGenomePath =>
+        GenomePath ?? Path.Combine(OutputDirectory, "best_market_genome.json");
+    public string ResolvedTradeLogPath =>
+        TradeLogPath ?? Path.Combine(OutputDirectory, "trades.jsonl");
 
     private static readonly JsonSerializerOptions JsonOpts = new()
     {

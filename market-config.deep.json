@@ -3,27 +3,32 @@
   "makerFee": 0.0004,
   "takerFee": 0.0006,
   "slippageBps": 5,
-  "symbols": ["BTCUSDT", "ETHUSDT"],
+  "symbols": ["BTCUSDT"],
   "maxPositionPct": 0.25,
   "maxDailyLossPct": 0.05,
   "killSwitchDrawdownPct": 0.15,
   "maxConcurrentPositions": 3,
-  "populationSize": 50,
-  "generations": 100,
-  "trainingWindowHours": 720,
-  "validationWindowHours": 168,
-  "rollingStepHours": 24,
-  "runSeed": 42,
+
+  "populationSize": 150,
+  "generations": 1000,
+  "trainingWindowHours": 65000,
+  "validationWindowHours": 8760,
+  "evalWindowHours": 2000,
+  "rollingStepHours": 168,
+  "runSeed": 7,
+
   "maxBrainNodes": 200,
   "maxBrainEdges": 2000,
+
   "spotPollMs": 5000,
   "futuresPollMs": 15000,
   "sentimentPollMs": 300000,
   "onChainPollMs": 3600000,
   "macroPollMs": 3600000,
+
   "mode": "Backtest",
   "confirmLive": false,
-  "outputDirectory": "output_market",
+  "outputDirectory": "output_deep",
   "displayIntervalMs": 10000,
-  "checkpointIntervalGens": 10
+  "checkpointIntervalGens": 25
 }

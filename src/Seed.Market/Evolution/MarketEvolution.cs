@@ -48,6 +48,15 @@ public sealed class MarketEvolution
     }
 
     /// <summary>
+    /// Resume from a checkpoint: restore a previously saved population at a given generation.
+    /// </summary>
+    public void InitializeFrom(List<IGenome> restoredPopulation, int generation)
+    {
+        _population = restoredPopulation;
+        Generation = generation;
+    }
+
+    /// <summary>
     /// Run one generation: evaluate on the given data window, speciate, select, reproduce.
     /// </summary>
     public GenerationReport RunGeneration(SignalSnapshot[] history, float[] prices)

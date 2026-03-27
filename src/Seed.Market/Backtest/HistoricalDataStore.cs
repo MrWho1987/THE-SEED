@@ -79,51 +79,82 @@ public sealed class HistoricalDataStore
 
     /// <summary>
     /// Convert candle array to SignalSnapshot array.
-    /// Technical indicators are computed from the candle history.
-    /// Only fills price/volume and technical indicator slots.
+    /// Technical indicators are pre-computed in O(n) across the full history,
+    /// then assembled per-bar and normalized.
     /// </summary>
     public static (SignalSnapshot[] snapshots, float[] prices) CandlesToSignals(
         TechnicalIndicators.Candle[] candles)
     {
+        int n = candles.Length;
         var normalizer = new SignalNormalizer();
-        var snapshots = new SignalSnapshot[candles.Length];
-        var prices = new float[candles.Length];
+        var snapshots = new SignalSnapshot[n];
+        var prices = new float[n];
 
-        float prevClose = 0;
+        var closes = new float[n];
+        var highs = new float[n];
+        var lows = new float[n];
+        var volumes = new float[n];
 
-        for (int i = 0; i < candles.Length; i++)
+        for (int i = 0; i < n; i++)
+        {
+            closes[i] = candles[i].Close;
+            highs[i] = candles[i].High;
+            lows[i] = candles[i].Low;
+            volumes[i] = candles[i].Volume;
+            prices[i] = candles[i].Close;
+        }
+
+        var ema12 = TechnicalIndicators.ComputeEmaArray(closes, 12);
+        var ema26 = TechnicalIndicators.ComputeEmaArray(closes, 26);
+        var macdLine = new float[n];
+        for (int i = 0; i < n; i++) macdLine[i] = ema12[i] - ema26[i];
+        var macdSignalArr = TechnicalIndicators.ComputeEmaArray(macdLine, 9);
+        var rsiArr = TechnicalIndicators.ComputeRsiArray(closes, 14);
+        var atrArr = TechnicalIndicators.ComputeAtrArray(highs, lows, closes, 14);
+        var bbArr = TechnicalIndicators.ComputeBollingerArray(closes, 20, 2f);
+        var obvSlopeArr = TechnicalIndicators.ComputeObvSlopeArray(closes, volumes, 14);
+        var vwapArr = TechnicalIndicators.ComputeVwapArray(candles, 24);
+
+        for (int i = 0; i < n; i++)
         {
             var raw = new float[SignalIndex.Count];
             var c = candles[i];
-            prices[i] = c.Close;
 
             raw[SignalIndex.BtcPrice] = c.Close;
-            raw[SignalIndex.BtcReturn1h] = prevClose > 0 ? (c.Close - prevClose) / prevClose : 0f;
+            raw[SignalIndex.BtcReturn1h] = i > 0 && closes[i - 1] > 0
+                ? (c.Close - closes[i - 1]) / closes[i - 1] : 0f;
             raw[SignalIndex.BtcVolume1h] = c.Volume;
 
             if (i >= 4)
-                raw[SignalIndex.BtcReturn4h] = candles[i - 4].Close > 0
-                    ? (c.Close - candles[i - 4].Close) / candles[i - 4].Close : 0f;
+                raw[SignalIndex.BtcReturn4h] = closes[i - 4] > 0
+                    ? (c.Close - closes[i - 4]) / closes[i - 4] : 0f;
             if (i >= 24)
-                raw[SignalIndex.BtcReturn24h] = candles[i - 24].Close > 0
-                    ? (c.Close - candles[i - 24].Close) / candles[i - 24].Close : 0f;
+                raw[SignalIndex.BtcReturn24h] = closes[i - 24] > 0
+                    ? (c.Close - closes[i - 24]) / closes[i - 24] : 0f;
 
-            // Technical indicators from candle history
             if (i >= 26)
             {
-                var slice = candles.AsSpan(0, i + 1);
-                var techSignals = TechnicalIndicators.Compute(slice);
-                foreach (var (idx, val) in techSignals)
-                    raw[idx] = val;
+                raw[SignalIndex.Rsi14] = rsiArr[i];
+                raw[SignalIndex.Ema12] = ema12[i];
+                raw[SignalIndex.Ema26] = ema26[i];
+                raw[SignalIndex.MacdLine] = macdLine[i];
+                raw[SignalIndex.MacdSignal] = macdSignalArr[i];
+                raw[SignalIndex.BollingerUpper] = bbArr[i].Upper;
+                raw[SignalIndex.BollingerLower] = bbArr[i].Lower;
+                raw[SignalIndex.BollingerWidth] = c.Close > 0
+                    ? (bbArr[i].Upper - bbArr[i].Lower) / c.Close : 0f;
+                raw[SignalIndex.Atr14] = atrArr[i];
+                raw[SignalIndex.Vwap] = vwapArr[i];
+                raw[SignalIndex.VwapDeviation] = vwapArr[i] > 0
+                    ? (c.Close - vwapArr[i]) / vwapArr[i] : 0f;
+                raw[SignalIndex.ObvSlope] = obvSlopeArr[i];
             }
 
-            // Time encoding
             var timeSignals = TimeEncoding.Compute(c.Time);
             foreach (var (idx, val) in timeSignals)
                 raw[idx] = val;
 
             snapshots[i] = normalizer.Normalize(raw, c.Time, i);
-            prevClose = c.Close;
         }
 
         return (snapshots, prices);

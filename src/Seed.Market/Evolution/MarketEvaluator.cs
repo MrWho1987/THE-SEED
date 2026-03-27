@@ -15,6 +15,16 @@ namespace Seed.Market.Evolution;
 /// </summary>
 public sealed class MarketEvaluator
 {
+    public static readonly DevelopmentBudget MarketBrainBudget = new(
+        HiddenWidth: 16,
+        HiddenHeight: 16,
+        HiddenLayers: 3,
+        TopKIn: 16,
+        MaxOut: 20,
+        LocalNeighborhoodRadius: 3,
+        GlobalCandidateSamplesPerNeuron: 24,
+        MaxSynapticDelay: 3);
+
     private readonly MarketConfig _config;
     private readonly BrainDeveloper _developer;
 
@@ -38,16 +48,7 @@ public sealed class MarketEvaluator
             throw new ArgumentException("History and prices must not be empty");
 
         var devCtx = new DevelopmentContext(_config.RunSeed, generationIndex);
-        // Market brains need larger substrate: 88 inputs demand wider hidden layers
-        var devBudget = new DevelopmentBudget(
-            HiddenWidth: 16,
-            HiddenHeight: 16,
-            HiddenLayers: 3,
-            TopKIn: 16,
-            MaxOut: 20,
-            LocalNeighborhoodRadius: 3,
-            GlobalCandidateSamplesPerNeuron: 24,
-            MaxSynapticDelay: 3);
+        var devBudget = MarketBrainBudget;
 
         // Compile all brains in parallel
         var entries = new (IGenome Genome, BrainGraph Graph)[population.Count];
