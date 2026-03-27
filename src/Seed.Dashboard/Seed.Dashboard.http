@@ -1,6 +1,0 @@
-@Seed.Dashboard_HostAddress = http://localhost:5174
-
-GET {{Seed.Dashboard_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###

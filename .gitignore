@@ -53,11 +53,15 @@ $RECYCLE.BIN/
 
 # User-specific config overrides
 config.json
-!config.default.json
+market-config.json
+!market-config.default.json
 
-# Node (Dashboard ClientApp)
-**/node_modules/
-**/dist/
+# Cached market data
+data_cache/
+
+# Run outputs
+output/
+output_*/
 
 # Test results
 [Tt]est[Rr]esult*/
