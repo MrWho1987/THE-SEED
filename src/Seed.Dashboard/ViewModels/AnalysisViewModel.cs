@@ -204,9 +204,9 @@ public partial class AnalysisViewModel : ObservableObject
                 ResultText =
                     $"Neuro ablation (placeholder){Environment.NewLine}" +
                     $"Genome: {name}{Environment.NewLine}" +
-                    "Layer prune 10% edges    Δfitness -0.019{Environment.NewLine}" +
-                    "Layer prune 25% edges    Δfitness -0.047{Environment.NewLine}" +
-                    "Drop attention block     Δfitness -0.063{Environment.NewLine}";
+                    $"Layer prune 10% edges    Δfitness -0.019{Environment.NewLine}" +
+                    $"Layer prune 25% edges    Δfitness -0.047{Environment.NewLine}" +
+                    $"Drop attention block     Δfitness -0.063{Environment.NewLine}";
                 InterpretationText =
                     "Placeholder neural component study; implementation will slice the brain graph per genome.";
                 break;

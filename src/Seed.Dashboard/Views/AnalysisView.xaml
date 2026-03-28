@@ -28,31 +28,41 @@
                     <TextBlock Text="MODE" FontSize="10" FontWeight="Bold"
                                Foreground="{StaticResource SeedTextSecondaryBrush}" Margin="0,0,0,8" />
 
-                    <RadioButton GroupName="Mode" IsChecked="True" Margin="0,2" Foreground="{StaticResource SeedTextPrimaryBrush}">
+                    <RadioButton GroupName="Mode" IsChecked="True" Margin="0,2"
+                                 Foreground="{StaticResource SeedTextPrimaryBrush}"
+                                 Command="{Binding SelectModeCommand}" CommandParameter="Compare">
                         <StackPanel Margin="4,0">
                             <TextBlock Text="Compare" FontWeight="SemiBold" FontSize="12" Foreground="{StaticResource SeedTextPrimaryBrush}" />
                             <TextBlock Text="Test against 4 baseline strategies" FontSize="10" Foreground="{StaticResource SeedTextSecondaryBrush}" />
                         </StackPanel>
                     </RadioButton>
-                    <RadioButton GroupName="Mode" Margin="0,2" Foreground="{StaticResource SeedTextPrimaryBrush}">
+                    <RadioButton GroupName="Mode" Margin="0,2"
+                                 Foreground="{StaticResource SeedTextPrimaryBrush}"
+                                 Command="{Binding SelectModeCommand}" CommandParameter="Ablation">
                         <StackPanel Margin="4,0">
                             <TextBlock Text="Ablation" FontWeight="SemiBold" FontSize="12" Foreground="{StaticResource SeedTextPrimaryBrush}" />
                             <TextBlock Text="Which brain components matter?" FontSize="10" Foreground="{StaticResource SeedTextSecondaryBrush}" />
                         </StackPanel>
                     </RadioButton>
-                    <RadioButton GroupName="Mode" Margin="0,2" Foreground="{StaticResource SeedTextPrimaryBrush}">
+                    <RadioButton GroupName="Mode" Margin="0,2"
+                                 Foreground="{StaticResource SeedTextPrimaryBrush}"
+                                 Command="{Binding SelectModeCommand}" CommandParameter="StressTest">
                         <StackPanel Margin="4,0">
                             <TextBlock Text="Stress Test" FontWeight="SemiBold" FontSize="12" Foreground="{StaticResource SeedTextPrimaryBrush}" />
                             <TextBlock Text="Handle 2x-5x higher costs?" FontSize="10" Foreground="{StaticResource SeedTextSecondaryBrush}" />
                         </StackPanel>
                     </RadioButton>
-                    <RadioButton GroupName="Mode" Margin="0,2" Foreground="{StaticResource SeedTextPrimaryBrush}">
+                    <RadioButton GroupName="Mode" Margin="0,2"
+                                 Foreground="{StaticResource SeedTextPrimaryBrush}"
+                                 Command="{Binding SelectModeCommand}" CommandParameter="MonteCarlo">
                         <StackPanel Margin="4,0">
                             <TextBlock Text="Monte Carlo" FontWeight="SemiBold" FontSize="12" Foreground="{StaticResource SeedTextPrimaryBrush}" />
                             <TextBlock Text="Bootstrap 10K confidence intervals" FontSize="10" Foreground="{StaticResource SeedTextSecondaryBrush}" />
                         </StackPanel>
                     </RadioButton>
-                    <RadioButton GroupName="Mode" Margin="0,2" Foreground="{StaticResource SeedTextPrimaryBrush}">
+                    <RadioButton GroupName="Mode" Margin="0,2"
+                                 Foreground="{StaticResource SeedTextPrimaryBrush}"
+                                 Command="{Binding SelectModeCommand}" CommandParameter="NeuroAblation">
                         <StackPanel Margin="4,0">
                             <TextBlock Text="Neuro Ablation" FontWeight="SemiBold" FontSize="12" Foreground="{StaticResource SeedTextPrimaryBrush}" />
                             <TextBlock Text="Which learning channels matter?" FontSize="10" Foreground="{StaticResource SeedTextSecondaryBrush}" />
