@@ -1,0 +1,293 @@
+<UserControl x:Class="Seed.Dashboard.Views.SettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:conv="clr-namespace:Seed.Dashboard.Converters">
+    <UserControl.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolVis" />
+        <conv:PnlColorConverter x:Key="PnlColor" />
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{StaticResource SeedTextSecondaryBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0,0,12,0" />
+        </Style>
+        <Style x:Key="FieldInput" TargetType="TextBox">
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Background" Value="{StaticResource SeedSurfaceElevatedBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource SeedTextPrimaryBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource SeedSurfaceElevatedBrush}" />
+            <Setter Property="CaretBrush" Value="{StaticResource SeedTextPrimaryBrush}" />
+        </Style>
+    </UserControl.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="24,16">
+        <StackPanel MaxWidth="820" HorizontalAlignment="Center">
+
+            <!-- Mode Toggle -->
+            <DockPanel Margin="0,0,0,16">
+                <TextBlock Text="SETTINGS" FontSize="10" FontWeight="Bold"
+                           Foreground="{StaticResource SeedTextSecondaryBrush}" VerticalAlignment="Center" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Style="{StaticResource ActionCardButton}" Padding="14,6" Margin="0,0,4,0"
+                            Command="{Binding SetUiModeCommand}" CommandParameter="Basic">
+                        <TextBlock Text="Basic" FontSize="12" Foreground="{StaticResource SeedTextPrimaryBrush}" />
+                    </Button>
+                    <Button Style="{StaticResource ActionCardButton}" Padding="14,6"
+                            Command="{Binding SetUiModeCommand}" CommandParameter="Advanced">
+                        <TextBlock Text="Advanced" FontSize="12" Foreground="{StaticResource SeedTextPrimaryBrush}" />
+                    </Button>
+                </StackPanel>
+            </DockPanel>
+
+            <!-- Presets -->
+            <Border Background="{StaticResource SeedSurfaceBrush}" CornerRadius="8" Padding="20,16" Margin="0,0,0,12">
+                <StackPanel>
+                    <TextBlock Text="TRAINING PRESETS" FontSize="10" FontWeight="Bold"
+                               Foreground="{StaticResource SeedTextSecondaryBrush}" Margin="0,0,0,10" />
+                    <WrapPanel>
+                        <Button Style="{StaticResource ActionCardButton}" Padding="16,10" Margin="0,0,8,4"
+                                Command="{Binding QuickTestCommand}">
+                            <StackPanel>
+                                <TextBlock Text="Quick Test" FontWeight="SemiBold" FontSize="12" Foreground="{StaticResource SeedTextPrimaryBrush}" />
+                                <TextBlock Text="100 gens, 50 pop, ~30 min" FontSize="10" Foreground="{StaticResource SeedTextSecondaryBrush}" />
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource ActionCardButton}" Padding="16,10" Margin="0,0,8,4"
+                                Command="{Binding StandardCommand}">
+                            <StackPanel>
+                                <TextBlock Text="Standard" FontWeight="SemiBold" FontSize="12" Foreground="{StaticResource SeedTextPrimaryBrush}" />
+                                <TextBlock Text="1000 gens, 150 pop, ~9 hours" FontSize="10" Foreground="{StaticResource SeedTextSecondaryBrush}" />
+                            </StackPanel>
+                        </Button>
+                        <Button Style="{StaticResource ActionCardButton}" Padding="16,10" Margin="0,0,8,4"
+                                Command="{Binding DeepV2Command}">
+                            <StackPanel>
+                                <TextBlock Text="Deep V2" FontWeight="SemiBold" FontSize="12" Foreground="{StaticResource SeedTextPrimaryBrush}" />
+                                <TextBlock Text="1500 gens, 100 pop, ~18h" FontSize="10" Foreground="{StaticResource SeedTextSecondaryBrush}" />
+                            </StackPanel>
+                        </Button>
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Basic Fields (always visible) -->
+            <Border Background="{StaticResource SeedSurfaceBrush}" CornerRadius="8" Padding="20,16" Margin="0,0,0,12">
+                <StackPanel>
+                    <TextBlock Text="BASIC" FontSize="10" FontWeight="Bold"
+                               Foreground="{StaticResource SeedTextSecondaryBrush}" Margin="0,0,0,12" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="170" /><ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="36" /><RowDefinition Height="36" /><RowDefinition Height="36" />
+                            <RowDefinition Height="36" /><RowDefinition Height="36" /><RowDefinition Height="36" />
+                            <RowDefinition Height="36" /><RowDefinition Height="36" />
+                        </Grid.RowDefinitions>
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Starting Capital ($)" Style="{StaticResource FieldLabel}" />
+                        <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding InitialCapital}" Style="{StaticResource FieldInput}" />
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Trading Pair" Style="{StaticResource FieldLabel}" />
+                        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding SymbolsText}" Style="{StaticResource FieldInput}" />
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Generations" Style="{StaticResource FieldLabel}" />
+                        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding Generations}" Style="{StaticResource FieldInput}" />
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Population Size" Style="{StaticResource FieldLabel}" />
+                        <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding PopulationSize}" Style="{StaticResource FieldInput}" />
+                        <TextBlock Grid.Row="4" Grid.Column="0" Text="Kill Switch Drawdown" Style="{StaticResource FieldLabel}" />
+                        <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding KillSwitchDrawdownPct}" Style="{StaticResource FieldInput}" />
+                        <TextBlock Grid.Row="5" Grid.Column="0" Text="CoinGecko API Key" Style="{StaticResource FieldLabel}" />
+                        <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding CoinGeckoApiKey}" Style="{StaticResource FieldInput}" />
+                        <TextBlock Grid.Row="6" Grid.Column="0" Text="Output Directory" Style="{StaticResource FieldLabel}" />
+                        <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding OutputDirectory}" Style="{StaticResource FieldInput}" />
+                        <TextBlock Grid.Row="7" Grid.Column="0" Text="Run Seed" Style="{StaticResource FieldLabel}" />
+                        <TextBox Grid.Row="7" Grid.Column="1" Text="{Binding RunSeedText}" Style="{StaticResource FieldInput}" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Advanced Sections (visible when IsAdvancedMode) -->
+            <StackPanel Visibility="{Binding IsAdvancedMode, Converter={StaticResource BoolVis}}">
+
+                <!-- Capital & Fees -->
+                <Border Background="{StaticResource SeedSurfaceBrush}" CornerRadius="8" Padding="20,16" Margin="0,0,0,12">
+                    <StackPanel>
+                        <TextBlock Text="CAPITAL &amp; FEES" FontSize="10" FontWeight="Bold"
+                                   Foreground="{StaticResource SeedTextSecondaryBrush}" Margin="0,0,0,12" />
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="170" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions><RowDefinition Height="36" /><RowDefinition Height="36" /><RowDefinition Height="36" /></Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Maker Fee" Style="{StaticResource FieldLabel}" />
+                            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding MakerFee}" Style="{StaticResource FieldInput}" />
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Taker Fee" Style="{StaticResource FieldLabel}" />
+                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding TakerFee}" Style="{StaticResource FieldInput}" />
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Slippage (bps)" Style="{StaticResource FieldLabel}" />
+                            <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding SlippageBps}" Style="{StaticResource FieldInput}" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- Risk -->
+                <Border Background="{StaticResource SeedSurfaceBrush}" CornerRadius="8" Padding="20,16" Margin="0,0,0,12">
+                    <StackPanel>
+                        <TextBlock Text="RISK MANAGEMENT" FontSize="10" FontWeight="Bold"
+                                   Foreground="{StaticResource SeedTextSecondaryBrush}" Margin="0,0,0,12" />
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="170" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions><RowDefinition Height="36" /><RowDefinition Height="36" /><RowDefinition Height="36" /><RowDefinition Height="36" /></Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Max Position %" Style="{StaticResource FieldLabel}" />
+                            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding MaxPositionPct}" Style="{StaticResource FieldInput}" />
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Max Daily Loss %" Style="{StaticResource FieldLabel}" />
+                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding MaxDailyLossPct}" Style="{StaticResource FieldInput}" />
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Max Concurrent Pos" Style="{StaticResource FieldLabel}" />
+                            <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding MaxConcurrentPositions}" Style="{StaticResource FieldInput}" />
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Max Daily VaR %" Style="{StaticResource FieldLabel}" />
+                            <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding MaxDailyVaRPct}" Style="{StaticResource FieldInput}" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- Evolution -->
+                <Border Background="{StaticResource SeedSurfaceBrush}" CornerRadius="8" Padding="20,16" Margin="0,0,0,12">
+                    <StackPanel>
+                        <TextBlock Text="EVOLUTION" FontSize="10" FontWeight="Bold"
+                                   Foreground="{StaticResource SeedTextSecondaryBrush}" Margin="0,0,0,12" />
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="170" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions><RowDefinition Height="36" /><RowDefinition Height="36" /><RowDefinition Height="36" /><RowDefinition Height="36" /><RowDefinition Height="36" /></Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Training Window (h)" Style="{StaticResource FieldLabel}" />
+                            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding TrainingWindowHours}" Style="{StaticResource FieldInput}" />
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Validation Window (h)" Style="{StaticResource FieldLabel}" />
+                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ValidationWindowHours}" Style="{StaticResource FieldInput}" />
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Eval Window (h)" Style="{StaticResource FieldLabel}" />
+                            <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding EvalWindowHours}" Style="{StaticResource FieldInput}" />
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Eval Window Count" Style="{StaticResource FieldLabel}" />
+                            <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding EvalWindowCount}" Style="{StaticResource FieldInput}" />
+                            <TextBlock Grid.Row="4" Grid.Column="0" Text="Rolling Step (h)" Style="{StaticResource FieldLabel}" />
+                            <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding RollingStepHours}" Style="{StaticResource FieldInput}" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- Fitness Weights -->
+                <Border Background="{StaticResource SeedSurfaceBrush}" CornerRadius="8" Padding="20,16" Margin="0,0,0,12">
+                    <StackPanel>
+                        <DockPanel Margin="0,0,0,12">
+                            <TextBlock Text="FITNESS WEIGHTS" FontSize="10" FontWeight="Bold"
+                                       Foreground="{StaticResource SeedTextSecondaryBrush}" />
+                            <TextBlock HorizontalAlignment="Right" FontSize="11"
+                                       Foreground="{Binding IsFitnessWeightsValid, Converter={StaticResource PnlColor}, FallbackValue={StaticResource SeedTextSecondaryBrush}}">
+                                <Run Text="{Binding FitnessWeightsStatusMessage, Mode=OneWay}" />
+                            </TextBlock>
+                        </DockPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="170" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions><RowDefinition Height="36" /><RowDefinition Height="36" /><RowDefinition Height="36" /><RowDefinition Height="36" /><RowDefinition Height="36" /><RowDefinition Height="36" /></Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Shrinkage K" Style="{StaticResource FieldLabel}" />
+                            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding ShrinkageK}" Style="{StaticResource FieldInput}" />
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Sharpe Weight" Style="{StaticResource FieldLabel}" />
+                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding FitnessSharpeWeight}" Style="{StaticResource FieldInput}" />
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Sortino Weight" Style="{StaticResource FieldLabel}" />
+                            <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding FitnessSortinoWeight}" Style="{StaticResource FieldInput}" />
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Return Weight" Style="{StaticResource FieldLabel}" />
+                            <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding FitnessReturnWeight}" Style="{StaticResource FieldInput}" />
+                            <TextBlock Grid.Row="4" Grid.Column="0" Text="Drawdown Duration W." Style="{StaticResource FieldLabel}" />
+                            <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding FitnessDrawdownDurationWeight}" Style="{StaticResource FieldInput}" />
+                            <TextBlock Grid.Row="5" Grid.Column="0" Text="CVaR Weight" Style="{StaticResource FieldLabel}" />
+                            <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding FitnessCVaRWeight}" Style="{StaticResource FieldInput}" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- Species -->
+                <Border Background="{StaticResource SeedSurfaceBrush}" CornerRadius="8" Padding="20,16" Margin="0,0,0,12">
+                    <StackPanel>
+                        <TextBlock Text="SPECIES DIVERSITY" FontSize="10" FontWeight="Bold"
+                                   Foreground="{StaticResource SeedTextSecondaryBrush}" Margin="0,0,0,12" />
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="170" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions><RowDefinition Height="36" /><RowDefinition Height="36" /><RowDefinition Height="36" /><RowDefinition Height="36" /><RowDefinition Height="36" /><RowDefinition Height="36" /><RowDefinition Height="36" /></Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Target Species Min" Style="{StaticResource FieldLabel}" />
+                            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding TargetSpeciesMin}" Style="{StaticResource FieldInput}" />
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Target Species Max" Style="{StaticResource FieldLabel}" />
+                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding TargetSpeciesMax}" Style="{StaticResource FieldInput}" />
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Compat. Adjust Rate" Style="{StaticResource FieldLabel}" />
+                            <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding CompatibilityAdjustRate}" Style="{StaticResource FieldInput}" />
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Min Offspring/Species" Style="{StaticResource FieldLabel}" />
+                            <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding MinOffspringPerSpecies}" Style="{StaticResource FieldInput}" />
+                            <TextBlock Grid.Row="4" Grid.Column="0" Text="Stagnation Limit" Style="{StaticResource FieldLabel}" />
+                            <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding StagnationLimit}" Style="{StaticResource FieldInput}" />
+                            <TextBlock Grid.Row="5" Grid.Column="0" Text="Diversity Bonus Scale" Style="{StaticResource FieldLabel}" />
+                            <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding DiversityBonusScale}" Style="{StaticResource FieldInput}" />
+                            <TextBlock Grid.Row="6" Grid.Column="0" Text="Diversity K Neighbors" Style="{StaticResource FieldLabel}" />
+                            <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding DiversityKNeighbors}" Style="{StaticResource FieldInput}" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- Brain + Feed + Validation + Paths -->
+                <Border Background="{StaticResource SeedSurfaceBrush}" CornerRadius="8" Padding="20,16" Margin="0,0,0,12">
+                    <StackPanel>
+                        <TextBlock Text="BRAIN LIMITS" FontSize="10" FontWeight="Bold"
+                                   Foreground="{StaticResource SeedTextSecondaryBrush}" Margin="0,0,0,12" />
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="170" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions><RowDefinition Height="36" /><RowDefinition Height="36" /></Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Max Brain Nodes" Style="{StaticResource FieldLabel}" />
+                            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding MaxBrainNodes}" Style="{StaticResource FieldInput}" />
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Max Brain Edges" Style="{StaticResource FieldLabel}" />
+                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding MaxBrainEdges}" Style="{StaticResource FieldInput}" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <Border Background="{StaticResource SeedSurfaceBrush}" CornerRadius="8" Padding="20,16" Margin="0,0,0,12">
+                    <StackPanel>
+                        <TextBlock Text="VALIDATION &amp; WALK-FORWARD" FontSize="10" FontWeight="Bold"
+                                   Foreground="{StaticResource SeedTextSecondaryBrush}" Margin="0,0,0,12" />
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="170" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions><RowDefinition Height="36" /><RowDefinition Height="36" /><RowDefinition Height="36" /><RowDefinition Height="36" /><RowDefinition Height="36" /></Grid.RowDefinitions>
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="Validation Interval" Style="{StaticResource FieldLabel}" />
+                            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding ValidationIntervalGens}" Style="{StaticResource FieldInput}" />
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Walk-Forward Enabled" Style="{StaticResource FieldLabel}" />
+                            <CheckBox Grid.Row="1" Grid.Column="1" IsChecked="{Binding WalkForwardEnabled}" VerticalAlignment="Center" />
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="WF Min Val Fitness" Style="{StaticResource FieldLabel}" />
+                            <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding WalkForwardMinValFitness}" Style="{StaticResource FieldInput}" />
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="WF Max Stall Gens" Style="{StaticResource FieldLabel}" />
+                            <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding WalkForwardMaxStallGens}" Style="{StaticResource FieldInput}" />
+                            <TextBlock Grid.Row="4" Grid.Column="0" Text="Checkpoint Interval" Style="{StaticResource FieldLabel}" />
+                            <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding CheckpointIntervalGens}" Style="{StaticResource FieldInput}" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <!-- Action Bar -->
+            <Border Background="{StaticResource SeedSurfaceBrush}" CornerRadius="8" Padding="16,12" Margin="0,8,0,24">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                        <Button Style="{StaticResource ActionCardButton}" Padding="16,8" Margin="0,0,8,0"
+                                Command="{Binding LoadCommand}">
+                            <TextBlock Text="Load..." Foreground="{StaticResource SeedTextPrimaryBrush}" FontSize="12" />
+                        </Button>
+                        <Button Style="{StaticResource ActionCardButton}" Padding="16,8"
+                                Command="{Binding ResetCommand}">
+                            <TextBlock Text="Reset to Defaults" Foreground="{StaticResource SeedTextSecondaryBrush}" FontSize="12" />
+                        </Button>
+                    </StackPanel>
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                        <Button Style="{StaticResource ActionCardButton}" Padding="16,8" Margin="0,0,8,0"
+                                Command="{Binding SaveAsCommand}">
+                            <TextBlock Text="Save As..." Foreground="{StaticResource SeedTextPrimaryBrush}" FontSize="12" />
+                        </Button>
+                        <Button Style="{StaticResource PrimaryButton}" Padding="20,8"
+                                Command="{Binding SaveCommand}">
+                            <TextBlock Text="Save" Foreground="#0B0E13" FontWeight="SemiBold" FontSize="12" />
+                        </Button>
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

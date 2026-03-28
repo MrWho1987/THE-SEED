@@ -1,0 +1,9 @@
+<UserControl x:Class="Seed.Dashboard.Controls.WalkForwardTimeline"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="{StaticResource SeedBackgroundBrush}"
+             ClipToBounds="True">
+    <Border Background="{StaticResource SeedBackgroundBrush}" ClipToBounds="True" Padding="0,4">
+        <Canvas x:Name="TimelineCanvas" MinHeight="72" ClipToBounds="True" />
+    </Border>
+</UserControl>

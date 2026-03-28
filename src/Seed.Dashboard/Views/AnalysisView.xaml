@@ -1,0 +1,83 @@
+<UserControl x:Class="Seed.Dashboard.Views.AnalysisView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:oxy="http://oxyplot.org/wpf"
+             xmlns:conv="clr-namespace:Seed.Dashboard.Converters">
+    <UserControl.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolVis" />
+    </UserControl.Resources>
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="300" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <!-- Left Setup -->
+        <Border Grid.Column="0" Background="{StaticResource SeedSurfaceBrush}"
+                BorderBrush="{StaticResource SeedSurfaceElevatedBrush}" BorderThickness="0,0,1,0">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="16,12">
+                <StackPanel>
+                    <TextBlock Text="ANALYSIS SETUP" FontSize="10" FontWeight="Bold"
+                               Foreground="{StaticResource SeedTextSecondaryBrush}" Margin="0,0,0,10" />
+
+                    <TextBlock Text="Genome" Style="{StaticResource MetricLabel}" Margin="0,0,0,4" />
+                    <ComboBox ItemsSource="{Binding AvailableGenomes}" SelectedItem="{Binding SelectedGenome}"
+                              Style="{StaticResource SeedComboBox}" Margin="0,0,0,16" />
+
+                    <TextBlock Text="MODE" FontSize="10" FontWeight="Bold"
+                               Foreground="{StaticResource SeedTextSecondaryBrush}" Margin="0,0,0,8" />
+
+                    <RadioButton GroupName="Mode" IsChecked="True" Margin="0,2" Foreground="{StaticResource SeedTextPrimaryBrush}">
+                        <StackPanel Margin="4,0">
+                            <TextBlock Text="Compare" FontWeight="SemiBold" FontSize="12" Foreground="{StaticResource SeedTextPrimaryBrush}" />
+                            <TextBlock Text="Test against 4 baseline strategies" FontSize="10" Foreground="{StaticResource SeedTextSecondaryBrush}" />
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton GroupName="Mode" Margin="0,2" Foreground="{StaticResource SeedTextPrimaryBrush}">
+                        <StackPanel Margin="4,0">
+                            <TextBlock Text="Ablation" FontWeight="SemiBold" FontSize="12" Foreground="{StaticResource SeedTextPrimaryBrush}" />
+                            <TextBlock Text="Which brain components matter?" FontSize="10" Foreground="{StaticResource SeedTextSecondaryBrush}" />
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton GroupName="Mode" Margin="0,2" Foreground="{StaticResource SeedTextPrimaryBrush}">
+                        <StackPanel Margin="4,0">
+                            <TextBlock Text="Stress Test" FontWeight="SemiBold" FontSize="12" Foreground="{StaticResource SeedTextPrimaryBrush}" />
+                            <TextBlock Text="Handle 2x-5x higher costs?" FontSize="10" Foreground="{StaticResource SeedTextSecondaryBrush}" />
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton GroupName="Mode" Margin="0,2" Foreground="{StaticResource SeedTextPrimaryBrush}">
+                        <StackPanel Margin="4,0">
+                            <TextBlock Text="Monte Carlo" FontWeight="SemiBold" FontSize="12" Foreground="{StaticResource SeedTextPrimaryBrush}" />
+                            <TextBlock Text="Bootstrap 10K confidence intervals" FontSize="10" Foreground="{StaticResource SeedTextSecondaryBrush}" />
+                        </StackPanel>
+                    </RadioButton>
+                    <RadioButton GroupName="Mode" Margin="0,2" Foreground="{StaticResource SeedTextPrimaryBrush}">
+                        <StackPanel Margin="4,0">
+                            <TextBlock Text="Neuro Ablation" FontWeight="SemiBold" FontSize="12" Foreground="{StaticResource SeedTextPrimaryBrush}" />
+                            <TextBlock Text="Which learning channels matter?" FontSize="10" Foreground="{StaticResource SeedTextSecondaryBrush}" />
+                        </StackPanel>
+                    </RadioButton>
+
+                    <Button Style="{StaticResource PrimaryButton}" Padding="0,10" Margin="0,16,0,0"
+                            Command="{Binding RunAnalysisCommand}">
+                        <TextBlock Text="Run Analysis" Foreground="#0B0E13" FontWeight="SemiBold" FontSize="13" />
+                    </Button>
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <!-- Right Results -->
+        <Grid Grid.Column="1" Margin="12">
+            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                <materialDesign:PackIcon Kind="Microscope" Width="48" Height="48"
+                                        Foreground="{StaticResource SeedTextSecondaryBrush}" HorizontalAlignment="Center" Opacity="0.4" />
+                <TextBlock Text="Select a mode and run analysis" FontSize="15" Margin="0,12,0,0"
+                           Foreground="{StaticResource SeedTextSecondaryBrush}" HorizontalAlignment="Center" />
+                <TextBlock Text="Results will appear here with charts and interpretation"
+                           FontSize="12" Margin="0,4,0,0"
+                           Foreground="{StaticResource SeedTextSecondaryBrush}" HorizontalAlignment="Center" Opacity="0.6" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</UserControl>

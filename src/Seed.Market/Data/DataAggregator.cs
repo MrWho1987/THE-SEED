@@ -21,6 +21,9 @@ public sealed class DataAggregator : IDisposable
 
     public DateTimeOffset LastTickTime { get; private set; }
 
+    /// <summary>Raw (un-normalized) BTC price from the last tick — for portfolio tracking in paper/live mode.</summary>
+    public float LastRawBtcPrice { get; private set; }
+
     private readonly Queue<float> _btcReturns = new();
     private readonly Queue<float> _ethReturns = new();
     private readonly Queue<float> _spxReturns = new();
@@ -113,6 +116,7 @@ public sealed class DataAggregator : IDisposable
         SignalSnapshot snapshot;
         lock (_lock)
         {
+            LastRawBtcPrice = _rawSignals[SignalIndex.BtcPrice];
             var health = EvaluateHealth();
             snapshot = _normalizer.Normalize(_rawSignals, now, _tick++);
             snapshot = new SignalSnapshot(snapshot.Signals, snapshot.Timestamp, snapshot.TickNumber, health);

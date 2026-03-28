@@ -114,9 +114,8 @@ public sealed class MarketEvaluator
             decimal price = (decimal)rawPrices[t];
             if (price <= 0) continue;
 
-            float rawVol = history[t].Signals[Signals.SignalIndex.BtcVolume1h];
             float rawFunding = history[t].Signals[Signals.SignalIndex.FundingRate];
-            var ctx = new TickContext(price, (decimal)(rawVol > 0 ? rawVol : 0f), rawFunding, t);
+            var ctx = new TickContext(price, 0m, rawFunding, t);
 
             agent.ProcessTick(history[t], ctx);
             agent.Portfolio.RecordEquity(price);

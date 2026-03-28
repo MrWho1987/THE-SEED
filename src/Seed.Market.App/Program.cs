@@ -347,7 +347,7 @@ static async Task RunPaper(MarketConfig config)
         try
         {
             var snapshot = await aggregator.TickAsync(cts.Token);
-            decimal price = (decimal)snapshot.Signals[SignalIndex.BtcPrice];
+            decimal price = (decimal)aggregator.LastRawBtcPrice;
 
             if (price <= 0)
             {

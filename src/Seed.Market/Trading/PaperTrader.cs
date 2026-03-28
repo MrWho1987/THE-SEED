@@ -138,11 +138,19 @@ public sealed class PaperTrader : ITrader
 
     private decimal ComputeDynamicSlippage(decimal orderNotional, decimal hourlyVolume)
     {
-        if (hourlyVolume <= 0)
+        if (hourlyVolume <= 0m)
             return _config.SlippageBps;
 
-        decimal participation = orderNotional / (hourlyVolume * 0.01m);
-        return _config.SlippageBps * (1m + participation * participation);
+        try
+        {
+            decimal participation = orderNotional / (hourlyVolume * 0.01m);
+            if (participation > 100m) participation = 100m;
+            return _config.SlippageBps * (1m + participation * participation);
+        }
+        catch (OverflowException)
+        {
+            return _config.SlippageBps * 100m;
+        }
     }
 
     private void ApplyFundingRates(PortfolioState portfolio, TickContext ctx)

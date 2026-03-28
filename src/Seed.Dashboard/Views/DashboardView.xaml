@@ -1,0 +1,204 @@
+<UserControl x:Class="Seed.Dashboard.Views.DashboardView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialDesign="http://materialdesigninxaml.net/winfx/xaml/themes"
+             xmlns:conv="clr-namespace:Seed.Dashboard.Converters">
+    <UserControl.Resources>
+        <conv:BoolToVisibilityConverter x:Key="BoolVis" />
+    </UserControl.Resources>
+
+    <Grid>
+        <!-- Welcome Overlay -->
+        <Border Panel.ZIndex="50" Background="#DD0B0E13"
+                Visibility="{Binding ShowWelcome, Converter={StaticResource BoolVis}}">
+            <Border Background="{StaticResource SeedSurfaceBrush}" CornerRadius="12"
+                    HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Padding="48,36" MaxWidth="560">
+                <StackPanel>
+                    <TextBlock Text="Welcome to The Seed" FontSize="26" FontWeight="Bold"
+                               Foreground="{StaticResource SeedPrimaryBrush}" HorizontalAlignment="Center" />
+                    <TextBlock TextWrapping="Wrap" FontSize="13" Margin="0,16,0,0" TextAlignment="Center"
+                               Foreground="{StaticResource SeedTextSecondaryBrush}" LineHeight="20">
+                        This is your neuroevolution trading lab. Agents evolve their own
+                        trading strategies through simulated natural selection.
+                    </TextBlock>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,24,0,0">
+                        <Border Background="{StaticResource SeedSurfaceElevatedBrush}" CornerRadius="6" Padding="14,8" Margin="4,0">
+                            <TextBlock Text="1. Configure" Foreground="{StaticResource SeedTextPrimaryBrush}" FontSize="12" />
+                        </Border>
+                        <TextBlock Text="→" FontSize="16" VerticalAlignment="Center" Margin="4,0"
+                                   Foreground="{StaticResource SeedTextSecondaryBrush}" />
+                        <Border Background="{StaticResource SeedSurfaceElevatedBrush}" CornerRadius="6" Padding="14,8" Margin="4,0">
+                            <TextBlock Text="2. Train" Foreground="{StaticResource SeedTextPrimaryBrush}" FontSize="12" />
+                        </Border>
+                        <TextBlock Text="→" FontSize="16" VerticalAlignment="Center" Margin="4,0"
+                                   Foreground="{StaticResource SeedTextSecondaryBrush}" />
+                        <Border Background="{StaticResource SeedSurfaceElevatedBrush}" CornerRadius="6" Padding="14,8" Margin="4,0">
+                            <TextBlock Text="3. Evaluate" Foreground="{StaticResource SeedTextPrimaryBrush}" FontSize="12" />
+                        </Border>
+                        <TextBlock Text="→" FontSize="16" VerticalAlignment="Center" Margin="4,0"
+                                   Foreground="{StaticResource SeedTextSecondaryBrush}" />
+                        <Border Background="{StaticResource SeedSurfaceElevatedBrush}" CornerRadius="6" Padding="14,8" Margin="4,0">
+                            <TextBlock Text="4. Deploy" Foreground="{StaticResource SeedTextPrimaryBrush}" FontSize="12" />
+                        </Border>
+                    </StackPanel>
+                    <Button Style="{StaticResource PrimaryButton}" Padding="28,10" Margin="0,28,0,0"
+                            HorizontalAlignment="Center" Command="{Binding DismissWelcomeCommand}">
+                        <TextBlock Text="Get Started" Foreground="#0B0E13" FontWeight="SemiBold" FontSize="14" />
+                    </Button>
+                </StackPanel>
+            </Border>
+        </Border>
+
+        <!-- Main Content -->
+        <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20,16">
+            <StackPanel MaxWidth="1100" HorizontalAlignment="Center">
+
+                <!-- Workflow Breadcrumb -->
+                <Border Background="{StaticResource SeedSurfaceBrush}" CornerRadius="8" Padding="16,12" Margin="0,0,0,12">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Button Style="{StaticResource ActionCardButton}" Padding="16,7" Margin="2,0"
+                                Command="{Binding NavigateToSettingsCommand}">
+                            <TextBlock Text="Configure" Foreground="{StaticResource SeedTextPrimaryBrush}" FontSize="12" />
+                        </Button>
+                        <TextBlock Text="→" FontSize="16" VerticalAlignment="Center" Margin="6,0"
+                                   Foreground="{StaticResource SeedTextSecondaryBrush}" />
+                        <Button Style="{StaticResource ActionCardButton}" Padding="16,7" Margin="2,0"
+                                Command="{Binding NavigateToTrainingCommand}">
+                            <TextBlock Text="Train" Foreground="{StaticResource SeedTextPrimaryBrush}" FontSize="12" />
+                        </Button>
+                        <TextBlock Text="→" FontSize="16" VerticalAlignment="Center" Margin="6,0"
+                                   Foreground="{StaticResource SeedTextSecondaryBrush}" />
+                        <Button Style="{StaticResource ActionCardButton}" Padding="16,7" Margin="2,0"
+                                Command="{Binding NavigateToAnalysisCommand}">
+                            <TextBlock Text="Evaluate" Foreground="{StaticResource SeedTextPrimaryBrush}" FontSize="12" />
+                        </Button>
+                        <TextBlock Text="→" FontSize="16" VerticalAlignment="Center" Margin="6,0"
+                                   Foreground="{StaticResource SeedTextSecondaryBrush}" />
+                        <Button Style="{StaticResource ActionCardButton}" Padding="16,7" Margin="2,0"
+                                Command="{Binding DeployBestToPaperCommand}">
+                            <TextBlock Text="Deploy" Foreground="{StaticResource SeedTextPrimaryBrush}" FontSize="12" />
+                        </Button>
+                    </StackPanel>
+                </Border>
+
+                <!-- Two-column -->
+                <Grid Margin="0,4,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="12" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="12" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Quick Actions -->
+                    <Border Grid.Row="0" Grid.Column="0" Background="{StaticResource SeedSurfaceBrush}"
+                            CornerRadius="8" Padding="20,16">
+                        <StackPanel>
+                            <TextBlock Text="QUICK ACTIONS" FontSize="10" FontWeight="Bold"
+                                       Foreground="{StaticResource SeedTextSecondaryBrush}" Margin="0,0,0,12" />
+                            <Button Style="{StaticResource ActionCardButton}" Command="{Binding NavigateToTrainingCommand}">
+                                <StackPanel>
+                                    <TextBlock Text="Start New Training" FontWeight="SemiBold" FontSize="13"
+                                               Foreground="{StaticResource SeedTextPrimaryBrush}" />
+                                    <TextBlock Text="Evolve a population of trading agents on historical data"
+                                               Foreground="{StaticResource SeedTextSecondaryBrush}" FontSize="11" Margin="0,2,0,0" />
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource ActionCardButton}" Command="{Binding DeployBestToPaperCommand}"
+                                    IsEnabled="{Binding HasGenome}">
+                                <StackPanel>
+                                    <TextBlock Text="Paper Trade Best Genome" FontWeight="SemiBold" FontSize="13"
+                                               Foreground="{StaticResource SeedTextPrimaryBrush}" />
+                                    <TextBlock Text="Deploy your champion agent on live Binance data (simulated)"
+                                               Foreground="{StaticResource SeedTextSecondaryBrush}" FontSize="11" Margin="0,2,0,0" />
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource ActionCardButton}" Command="{Binding NavigateToAnalysisCommand}"
+                                    IsEnabled="{Binding HasGenome}">
+                                <StackPanel>
+                                    <TextBlock Text="Run Full Analysis" FontWeight="SemiBold" FontSize="13"
+                                               Foreground="{StaticResource SeedTextPrimaryBrush}" />
+                                    <TextBlock Text="Compare, ablate, stress-test, and Monte Carlo your agent"
+                                               Foreground="{StaticResource SeedTextSecondaryBrush}" FontSize="11" Margin="0,2,0,0" />
+                                </StackPanel>
+                            </Button>
+                            <Button Style="{StaticResource ActionCardButton}" Command="{Binding NavigateToSettingsCommand}">
+                                <StackPanel>
+                                    <TextBlock Text="Open Settings" FontWeight="SemiBold" FontSize="13"
+                                               Foreground="{StaticResource SeedTextPrimaryBrush}" />
+                                    <TextBlock Text="Configure training parameters, risk limits, and API keys"
+                                               Foreground="{StaticResource SeedTextSecondaryBrush}" FontSize="11" Margin="0,2,0,0" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Best Genome -->
+                    <Border Grid.Row="0" Grid.Column="2" Background="{StaticResource SeedSurfaceBrush}"
+                            CornerRadius="8" Padding="20,16">
+                        <StackPanel>
+                            <TextBlock Text="BEST GENOME" FontSize="10" FontWeight="Bold"
+                                       Foreground="{StaticResource SeedTextSecondaryBrush}" Margin="0,0,0,12" />
+
+                            <StackPanel Visibility="{Binding HasGenome, Converter={StaticResource BoolVis}}">
+                                <TextBlock Text="{Binding BestGenomeSource, StringFormat='Source: {0}'}"
+                                           Foreground="{StaticResource SeedTextSecondaryBrush}" FontSize="11" Margin="0,0,0,12" />
+                                <Border Background="{StaticResource SeedSurfaceElevatedBrush}" CornerRadius="6" Padding="14,10">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" /><ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition /><RowDefinition /><RowDefinition />
+                                        </Grid.RowDefinitions>
+                                        <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,3">
+                                            <TextBlock Text="CPPN Complexity" Style="{StaticResource MetricLabel}" />
+                                            <TextBlock Text="{Binding BestFitness}" Style="{StaticResource MetricValue}" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,3">
+                                            <TextBlock Text="Substrate" Style="{StaticResource MetricLabel}" />
+                                            <TextBlock Text="{Binding BestSharpe}" Style="{StaticResource MetricValue}" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,3">
+                                            <TextBlock Text="Learning Rate" Style="{StaticResource MetricLabel}" />
+                                            <TextBlock Text="{Binding BestReturn}" Style="{StaticResource MetricValue}" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,3">
+                                            <TextBlock Text="Network" Style="{StaticResource MetricLabel}" />
+                                            <TextBlock Text="{Binding BestTrades}" Style="{StaticResource MetricValue}" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,3">
+                                            <TextBlock Text="Critical Period" Style="{StaticResource MetricLabel}" />
+                                            <TextBlock Text="{Binding BestWinRate}" Style="{StaticResource MetricValue}" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </StackPanel>
+
+                            <TextBlock Text="No trained genomes yet. Start a training session to evolve your first agent."
+                                       TextWrapping="Wrap" Foreground="{StaticResource SeedTextSecondaryBrush}" FontSize="13"
+                                       LineHeight="20" Margin="0,8,0,0">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding HasGenome}" Value="True">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </StackPanel>
+                    </Border>
+
+                </Grid>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>
