@@ -44,7 +44,7 @@
                     </StackPanel>
                     <Button Style="{StaticResource PrimaryButton}" Padding="28,10" Margin="0,28,0,0"
                             HorizontalAlignment="Center" Command="{Binding DismissWelcomeCommand}">
-                        <TextBlock Text="Get Started" Foreground="#0B0E13" FontWeight="SemiBold" FontSize="14" />
+                        <TextBlock Text="Get Started" Foreground="{StaticResource SeedOnPrimaryBrush}" FontWeight="SemiBold" FontSize="14" />
                     </Button>
                 </StackPanel>
             </Border>
@@ -157,23 +157,28 @@
                                             <RowDefinition /><RowDefinition /><RowDefinition />
                                         </Grid.RowDefinitions>
                                         <StackPanel Grid.Row="0" Grid.Column="0" Margin="0,3">
-                                            <TextBlock Text="CPPN Complexity" Style="{StaticResource MetricLabel}" />
+                                            <TextBlock Text="Best Fitness" Style="{StaticResource MetricLabel}"
+                                                       ToolTip="Overall performance score from training. Higher is better." />
                                             <TextBlock Text="{Binding BestFitness}" Style="{StaticResource MetricValue}" />
                                         </StackPanel>
                                         <StackPanel Grid.Row="0" Grid.Column="1" Margin="0,3">
-                                            <TextBlock Text="Substrate" Style="{StaticResource MetricLabel}" />
+                                            <TextBlock Text="Substrate" Style="{StaticResource MetricLabel}"
+                                                       ToolTip="Brain dimensions (width x height x layers)." />
                                             <TextBlock Text="{Binding BestSharpe}" Style="{StaticResource MetricValue}" />
                                         </StackPanel>
                                         <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,3">
-                                            <TextBlock Text="Learning Rate" Style="{StaticResource MetricLabel}" />
+                                            <TextBlock Text="Generations" Style="{StaticResource MetricLabel}"
+                                                       ToolTip="Number of evolutionary generations completed." />
                                             <TextBlock Text="{Binding BestReturn}" Style="{StaticResource MetricValue}" />
                                         </StackPanel>
                                         <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,3">
-                                            <TextBlock Text="Network" Style="{StaticResource MetricLabel}" />
+                                            <TextBlock Text="CPPN" Style="{StaticResource MetricLabel}"
+                                                       ToolTip="CPPN network complexity (nodes / connections)." />
                                             <TextBlock Text="{Binding BestTrades}" Style="{StaticResource MetricValue}" />
                                         </StackPanel>
                                         <StackPanel Grid.Row="2" Grid.Column="0" Margin="0,3">
-                                            <TextBlock Text="Critical Period" Style="{StaticResource MetricLabel}" />
+                                            <TextBlock Text="Validation Fitness" Style="{StaticResource MetricLabel}"
+                                                       ToolTip="Best fitness score on unseen validation data. Positive = agent generalizes." />
                                             <TextBlock Text="{Binding BestWinRate}" Style="{StaticResource MetricValue}" />
                                         </StackPanel>
                                     </Grid>

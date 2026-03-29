@@ -115,8 +115,7 @@ public partial class PaperTradingViewModel : ObservableObject
     public void RefreshGenomes()
     {
         AvailableGenomes.Clear();
-        var dirs = new[] { "output_deep", "output_deep_v2", "output_market" };
-        var genomes = _genomeService.GetGenomeDropdownItems(dirs);
+        var genomes = _genomeService.GetGenomeDropdownItems(PathResolver.DiscoverOutputDirs());
         foreach (var g in genomes) AvailableGenomes.Add(g);
         if (AvailableGenomes.Count > 0 && string.IsNullOrEmpty(SelectedGenome))
             SelectedGenome = AvailableGenomes[0];
@@ -144,14 +143,23 @@ public partial class PaperTradingViewModel : ObservableObject
         _main.Notifications.Show("Paper Trading Started",
             $"Genome: {System.IO.Path.GetFileName(SelectedGenome)}", NotificationType.Info);
 
-        await _service.RunAsync();
-
-        IsRunning = false;
-        _main.UpdatePaperSession(false);
-        _main.Sessions.RecordEvent("PaperStopped",
-            $"Paper trading stopped. {TotalTrades} trades, P&L: {TotalPnlText}");
-        StartPaperTradingCommand.NotifyCanExecuteChanged();
-        StopPaperTradingCommand.NotifyCanExecuteChanged();
+        try
+        {
+            await _service.RunAsync();
+            _main.Sessions.RecordEvent("PaperStopped",
+                $"Paper trading stopped. {TotalTrades} trades, P&L: {TotalPnlText}");
+        }
+        catch (Exception ex)
+        {
+            _main.Notifications.Show("Paper Trading Error", ex.Message, NotificationType.Error);
+        }
+        finally
+        {
+            IsRunning = false;
+            _main.UpdatePaperSession(false);
+            StartPaperTradingCommand.NotifyCanExecuteChanged();
+            StopPaperTradingCommand.NotifyCanExecuteChanged();
+        }
     }
 
     private bool CanStart() => !IsRunning;
@@ -190,7 +198,8 @@ public partial class PaperTradingViewModel : ObservableObject
             AvgPnlText = data.TotalTrades > 0 ? $"${data.TotalPnl / data.TotalTrades:N2}" : "$0.00";
             KillSwitch = data.KillSwitch;
             MaxDrawdownText = $"{data.MaxDrawdownReached:P1}";
-            DrawdownProgress = (double)data.MaxDrawdownReached * 100 / 15.0;
+            double killPct = (double)_main.Config.CurrentConfig.KillSwitchDrawdownPct * 100;
+            DrawdownProgress = killPct > 0 ? (double)data.MaxDrawdownReached * 100 / killPct : 0;
             SessionDuration = data.SessionDuration;
             IsWarmup = data.IsWarmup;
 

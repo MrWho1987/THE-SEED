@@ -128,7 +128,7 @@ public partial class TrainingViewModel : ObservableObject
     {
         AvailableConfigs.Clear();
         ConfigItems.Clear();
-        var configs = _main.Config.DiscoverConfigFiles(Environment.CurrentDirectory);
+        var configs = _main.Config.DiscoverConfigFiles(Services.PathResolver.ProjectRoot);
         foreach (var c in configs)
         {
             AvailableConfigs.Add(c);
@@ -165,6 +165,10 @@ public partial class TrainingViewModel : ObservableObject
         _bestSeries.Points.Clear();
         _meanSeries.Points.Clear();
         _valSeries.Points.Clear();
+        WalkForwardPasses = 0;
+        WalkForwardOffset = "0h";
+        StallCounter = "0/50";
+        LastValidation = "—";
         foreach (var axis in FitnessPlotModel.Axes)
         {
             axis.Minimum = double.NaN;
@@ -179,19 +183,29 @@ public partial class TrainingViewModel : ObservableObject
         _main.Notifications.Show("Training Started",
             $"Population: {cfg.PopulationSize}, Generations: {cfg.Generations}", NotificationType.Info);
 
-        await _trainingService.RunAsync();
+        try
+        {
+            await _trainingService.RunAsync();
 
-        IsRunning = false;
-        IsComplete = true;
-        _main.UpdateTrainingSession(false);
-        _main.Sessions.RecordEvent("TrainingComplete",
-            $"Completed {CurrentGen} gens. Best fitness: {BestFitness}", cfg.OutputDirectory);
-        _main.Notifications.Show("Training Complete",
-            $"{CurrentGen} generations. Best Sharpe: {BestSharpe}", NotificationType.Success,
-            "View Results", () => _main.NavigateToCommand.Execute("Genomes"));
-        _main.Dashboard.RefreshGenomeInfo();
-        StartTrainingCommand.NotifyCanExecuteChanged();
-        StopTrainingCommand.NotifyCanExecuteChanged();
+            IsComplete = true;
+            _main.Sessions.RecordEvent("TrainingComplete",
+                $"Completed {CurrentGen} gens. Best fitness: {BestFitness}", cfg.OutputDirectory);
+            _main.Notifications.Show("Training Complete",
+                $"{CurrentGen} generations. Best Sharpe: {BestSharpe}", NotificationType.Success,
+                "View Results", () => _main.NavigateToCommand.Execute("Genomes"));
+            _main.Dashboard.RefreshGenomeInfo();
+        }
+        catch (Exception ex)
+        {
+            _main.Notifications.Show("Training Error", ex.Message, NotificationType.Error);
+        }
+        finally
+        {
+            IsRunning = false;
+            _main.UpdateTrainingSession(false);
+            StartTrainingCommand.NotifyCanExecuteChanged();
+            StopTrainingCommand.NotifyCanExecuteChanged();
+        }
     }
 
     private bool CanStart() => !IsRunning;
@@ -236,6 +250,12 @@ public partial class TrainingViewModel : ObservableObject
             FitnessPlotModel.InvalidatePlot(true);
 
             if (data.WalkForwardStatus == "PASSED") WalkForwardPasses++;
+            WalkForwardOffset = $"{data.WalkForwardOffsetHours}h";
+            StallCounter = $"{data.StallCount}/50";
+            if (data.ValidationFitness.HasValue)
+                LastValidation = $"{data.ValidationFitness.Value:F4} ({data.WalkForwardStatus ?? "—"})";
+
+            _main.BestFitnessText = $"Best: {data.BestFitness:F2} | Sharpe: {data.BestSharpe:F2}";
 
             var row = new GenerationRow(
                 data.Generation, data.BestFitness, data.MeanFitness, data.BestSharpe,

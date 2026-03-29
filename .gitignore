@@ -69,6 +69,11 @@ output_*/
 *.coverage
 *.coveragexml
 
+# Build output directories
+build_check/
+build_paper/
+build_analysis/
+
 # Misc
 *.tmp
 *.temp

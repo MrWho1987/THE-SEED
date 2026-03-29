@@ -57,7 +57,7 @@
 
                     <Button Style="{StaticResource PrimaryButton}" Padding="0,12" Margin="0,0,0,6"
                             Command="{Binding StartTrainingCommand}">
-                        <TextBlock Text="Start Training" Foreground="#0B0E13" FontWeight="SemiBold" />
+                        <TextBlock Text="Start Training" Foreground="{StaticResource SeedOnPrimaryBrush}" FontWeight="SemiBold" />
                     </Button>
                     <Button Style="{StaticResource DangerButton}" Padding="0,8" Margin="0,0,0,6"
                             Command="{Binding StopTrainingCommand}">
@@ -105,9 +105,11 @@
                             <TextBlock Grid.Row="2" Grid.Column="0" Text="Return" Style="{StaticResource MetricLabel}"
                                        ToolTip="Total return on simulated capital." />
                             <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding BestReturn}" Style="{StaticResource MetricValue}" />
-                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Trades" Style="{StaticResource MetricLabel}" />
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Trades" Style="{StaticResource MetricLabel}"
+                                       ToolTip="Number of trades the best agent made during evaluation." />
                             <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding BestTrades}" Style="{StaticResource MetricValue}" />
-                            <TextBlock Grid.Row="4" Grid.Column="0" Text="Win Rate" Style="{StaticResource MetricLabel}" />
+                            <TextBlock Grid.Row="4" Grid.Column="0" Text="Win Rate" Style="{StaticResource MetricLabel}"
+                                       ToolTip="Percentage of profitable trades. Low win rate can still be profitable if winners are large." />
                             <TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding BestWinRate}" Style="{StaticResource MetricValue}" />
                             <TextBlock Grid.Row="5" Grid.Column="0" Text="Substrate" Style="{StaticResource MetricLabel}"
                                        ToolTip="Brain dimensions (width x height x layers)." />
@@ -121,20 +123,24 @@
                     <Border Background="{StaticResource SeedSurfaceElevatedBrush}" CornerRadius="6" Padding="12,10">
                         <StackPanel>
                             <DockPanel Margin="0,1">
-                                <TextBlock Text="Passes" Style="{StaticResource MetricLabel}" />
+                                <TextBlock Text="Passes" Style="{StaticResource MetricLabel}"
+                                           ToolTip="Number of times validation passed. Each pass advances the training window forward." />
                                 <TextBlock Text="{Binding WalkForwardPasses}" Style="{StaticResource MetricValue}"
                                            Foreground="{StaticResource SeedPrimaryBrush}" HorizontalAlignment="Right" />
                             </DockPanel>
                             <DockPanel Margin="0,1">
-                                <TextBlock Text="Offset" Style="{StaticResource MetricLabel}" />
+                                <TextBlock Text="Offset" Style="{StaticResource MetricLabel}"
+                                           ToolTip="How far the training window has advanced into the future data." />
                                 <TextBlock Text="{Binding WalkForwardOffset}" Style="{StaticResource MetricValue}" HorizontalAlignment="Right" />
                             </DockPanel>
                             <DockPanel Margin="0,1">
-                                <TextBlock Text="Stall" Style="{StaticResource MetricLabel}" />
+                                <TextBlock Text="Stall" Style="{StaticResource MetricLabel}"
+                                           ToolTip="Consecutive validation failures. At 50, the window force-advances." />
                                 <TextBlock Text="{Binding StallCounter}" Style="{StaticResource MetricValue}" HorizontalAlignment="Right" />
                             </DockPanel>
                             <DockPanel Margin="0,1">
-                                <TextBlock Text="Last" Style="{StaticResource MetricLabel}" />
+                                <TextBlock Text="Last" Style="{StaticResource MetricLabel}"
+                                           ToolTip="Last validation result. Positive = agent generalizes to unseen data." />
                                 <TextBlock Text="{Binding LastValidation}" Style="{StaticResource MetricValue}" HorizontalAlignment="Right" />
                             </DockPanel>
                         </StackPanel>

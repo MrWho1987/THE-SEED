@@ -283,7 +283,7 @@ public partial class SettingsViewModel : ObservableObject
 
     private void TryApplyPreset(string fileName)
     {
-        var path = Path.Combine(Environment.CurrentDirectory, fileName);
+        var path = Path.Combine(Services.PathResolver.ProjectRoot, fileName);
         if (!File.Exists(path))
         {
             _main.Notifications.Show("Preset not found",

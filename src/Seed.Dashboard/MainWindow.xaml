@@ -5,12 +5,19 @@
         xmlns:vm="clr-namespace:Seed.Dashboard.ViewModels"
         xmlns:views="clr-namespace:Seed.Dashboard.Views"
         xmlns:conv="clr-namespace:Seed.Dashboard.Converters"
-        Title="The Seed — Dashboard" Height="900" Width="1440"
+        Title="The Seed" Height="900" Width="1440"
         WindowState="Maximized"
+        Icon="seed_icon.png"
         Background="{StaticResource SeedBackgroundBrush}"
         Foreground="{StaticResource SeedTextPrimaryBrush}"
         FontFamily="Segoe UI"
         TextElement.FontSize="13">
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="40" GlassFrameThickness="0"
+                      ResizeBorderThickness="6" CornerRadius="0"
+                      UseAeroCaptionButtons="False" />
+    </WindowChrome.WindowChrome>
 
     <Window.DataContext>
         <vm:MainViewModel />
@@ -72,49 +79,76 @@
             </StackPanel>
         </Border>
 
-        <!-- Top Session Bar -->
+        <!-- Custom Title Bar / Session Bar (serves as WindowChrome caption) -->
         <Border Grid.Column="1" Grid.Row="0" Background="{StaticResource SeedSurfaceBrush}"
                 BorderBrush="{StaticResource SeedSurfaceElevatedBrush}" BorderThickness="0,0,0,1">
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0">
-                <TextBlock Text="THE SEED" FontWeight="Bold" FontSize="14"
-                           Foreground="{StaticResource SeedPrimaryBrush}" VerticalAlignment="Center" Margin="0,0,20,0" />
+            <DockPanel Margin="12,0,0,0">
+                <!-- App branding (left) -->
+                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Image Source="seed_icon.png" Width="20" Height="20" Margin="0,0,8,0" RenderOptions.BitmapScalingMode="HighQuality" />
+                    <TextBlock Text="THE SEED" FontWeight="Bold" FontSize="13"
+                               Foreground="{StaticResource SeedPrimaryBrush}" VerticalAlignment="Center" Margin="0,0,16,0" />
 
-                <Border Style="{StaticResource SessionChip}"
-                        Visibility="{Binding IsTrainingRunning, Converter={StaticResource BoolVis}}">
-                    <StackPanel Orientation="Horizontal">
-                        <Ellipse Width="8" Height="8" Fill="{StaticResource SeedPrimaryBrush}" Margin="0,0,6,0" VerticalAlignment="Center" />
-                        <TextBlock Text="{Binding TrainingSessionLabel}" FontSize="12"
-                                   Foreground="{StaticResource SeedTextPrimaryBrush}" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Border>
+                    <Border Style="{StaticResource SessionChip}"
+                            Visibility="{Binding IsTrainingRunning, Converter={StaticResource BoolVis}}">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="7" Height="7" Fill="{StaticResource SeedPrimaryBrush}" Margin="0,0,6,0" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding TrainingSessionLabel}" FontSize="11"
+                                       Foreground="{StaticResource SeedTextPrimaryBrush}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
 
-                <Border Style="{StaticResource SessionChip}"
-                        Visibility="{Binding IsPaperRunning, Converter={StaticResource BoolVis}}">
-                    <StackPanel Orientation="Horizontal">
-                        <Ellipse Width="8" Height="8" Fill="{StaticResource SeedInfoBrush}" Margin="0,0,6,0" VerticalAlignment="Center" />
-                        <TextBlock Text="{Binding PaperSessionLabel}" FontSize="12"
-                                   Foreground="{StaticResource SeedTextPrimaryBrush}" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Border>
+                    <Border Style="{StaticResource SessionChip}"
+                            Visibility="{Binding IsPaperRunning, Converter={StaticResource BoolVis}}">
+                        <StackPanel Orientation="Horizontal">
+                            <Ellipse Width="7" Height="7" Fill="{StaticResource SeedInfoBrush}" Margin="0,0,6,0" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding PaperSessionLabel}" FontSize="11"
+                                       Foreground="{StaticResource SeedTextPrimaryBrush}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
 
-                <TextBlock Text="No active sessions — start from Home" FontSize="12"
-                           Foreground="{StaticResource SeedTextSecondaryBrush}" VerticalAlignment="Center">
-                    <TextBlock.Style>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="Visibility" Value="Collapsed" />
-                            <Style.Triggers>
-                                <MultiDataTrigger>
-                                    <MultiDataTrigger.Conditions>
-                                        <Condition Binding="{Binding IsTrainingRunning}" Value="False" />
-                                        <Condition Binding="{Binding IsPaperRunning}" Value="False" />
-                                    </MultiDataTrigger.Conditions>
-                                    <Setter Property="Visibility" Value="Visible" />
-                                </MultiDataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </TextBlock.Style>
-                </TextBlock>
-            </StackPanel>
+                    <TextBlock Text="No active sessions" FontSize="11"
+                               Foreground="{StaticResource SeedTextSecondaryBrush}" VerticalAlignment="Center">
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <MultiDataTrigger>
+                                        <MultiDataTrigger.Conditions>
+                                            <Condition Binding="{Binding IsTrainingRunning}" Value="False" />
+                                            <Condition Binding="{Binding IsPaperRunning}" Value="False" />
+                                        </MultiDataTrigger.Conditions>
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </MultiDataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                </StackPanel>
+
+                <!-- Window control buttons (right, hit-testable over WindowChrome) -->
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right"
+                            WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Button x:Name="BtnMinimize" Click="BtnMinimize_Click" Width="46" Height="40"
+                            Background="Transparent" BorderThickness="0" Cursor="Hand"
+                            ToolTip="Minimize">
+                        <materialDesign:PackIcon Kind="WindowMinimize" Width="16" Height="16"
+                                                Foreground="{StaticResource SeedTextSecondaryBrush}" />
+                    </Button>
+                    <Button x:Name="BtnMaximize" Click="BtnMaximize_Click" Width="46" Height="40"
+                            Background="Transparent" BorderThickness="0" Cursor="Hand"
+                            ToolTip="Maximize / Restore">
+                        <materialDesign:PackIcon Kind="WindowMaximize" Width="16" Height="16"
+                                                Foreground="{StaticResource SeedTextSecondaryBrush}" />
+                    </Button>
+                    <Button x:Name="BtnClose" Click="BtnClose_Click" Width="46" Height="40"
+                            Background="Transparent" BorderThickness="0" Cursor="Hand"
+                            ToolTip="Close">
+                        <materialDesign:PackIcon Kind="WindowClose" Width="16" Height="16"
+                                                Foreground="{StaticResource SeedTextSecondaryBrush}" />
+                    </Button>
+                </StackPanel>
+            </DockPanel>
         </Border>
 
         <!-- Main Content Area -->
@@ -141,7 +175,7 @@
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
 
-            <!-- View pages via TabControl with hidden tabs -->
+            <!-- View pages -->
             <TabControl SelectedIndex="{Binding SelectedNavIndex}"
                         Background="Transparent" BorderThickness="0">
                 <TabControl.ItemContainerStyle>
@@ -149,25 +183,12 @@
                         <Setter Property="Visibility" Value="Collapsed" />
                     </Style>
                 </TabControl.ItemContainerStyle>
-
-                <TabItem>
-                    <views:DashboardView DataContext="{Binding Dashboard}" />
-                </TabItem>
-                <TabItem>
-                    <views:TrainingView DataContext="{Binding Training}" />
-                </TabItem>
-                <TabItem>
-                    <views:PaperTradingView DataContext="{Binding PaperTrading}" />
-                </TabItem>
-                <TabItem>
-                    <views:GenomeLabView DataContext="{Binding GenomeLab}" />
-                </TabItem>
-                <TabItem>
-                    <views:AnalysisView DataContext="{Binding Analysis}" />
-                </TabItem>
-                <TabItem>
-                    <views:SettingsView DataContext="{Binding Settings}" />
-                </TabItem>
+                <TabItem><views:DashboardView DataContext="{Binding Dashboard}" /></TabItem>
+                <TabItem><views:TrainingView DataContext="{Binding Training}" /></TabItem>
+                <TabItem><views:PaperTradingView DataContext="{Binding PaperTrading}" /></TabItem>
+                <TabItem><views:GenomeLabView DataContext="{Binding GenomeLab}" /></TabItem>
+                <TabItem><views:AnalysisView DataContext="{Binding Analysis}" /></TabItem>
+                <TabItem><views:SettingsView DataContext="{Binding Settings}" /></TabItem>
             </TabControl>
         </Grid>
 

@@ -10,6 +10,7 @@ public partial class DashboardViewModel : ObservableObject
     [ObservableProperty] private string _workflowStep = "Configure";
     [ObservableProperty] private bool _hasGenome;
     [ObservableProperty] private string _bestGenomeSource = "";
+    [ObservableProperty] private string _bestGenomePath = "";
     [ObservableProperty] private string _bestFitness = "—";
     [ObservableProperty] private string _bestSharpe = "—";
     [ObservableProperty] private string _bestReturn = "—";
@@ -27,57 +28,68 @@ public partial class DashboardViewModel : ObservableObject
 
     public void RefreshGenomeInfo()
     {
-        var dirs = new[] { "output_deep", "output_deep_v2", "output_market" };
-        foreach (var dir in dirs)
-        {
-            var path = System.IO.Path.Combine(Environment.CurrentDirectory, dir, "best_market_genome.json");
-            if (!System.IO.File.Exists(path))
-                path = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, dir, "best_market_genome.json");
-            if (System.IO.File.Exists(path))
-            {
-                HasGenome = true;
-                BestGenomeSource = dir;
-                try
-                {
-                    var json = System.IO.File.ReadAllText(path);
-                    var genome = Seed.Genetics.SeedGenome.FromJson(json);
-                    BestFitness = $"{genome.Cppn.Nodes.Count}n / {genome.Cppn.Connections.Count}c";
-                    BestSharpe = $"{genome.Dev.SubstrateWidth}x{genome.Dev.SubstrateHeight}x{genome.Dev.SubstrateLayers}";
-                    BestReturn = $"Eta: {genome.Learn.Eta:F3}";
-                    BestTrades = $"CPPN: {genome.Cppn.Nodes.Count}";
-                    BestWinRate = $"Critical: {genome.Learn.CriticalPeriodTicks}";
-                }
-                catch { }
-                return;
-            }
-        }
+        string[] genomeFiles = ["best_market_genome.json", "best_training_genome.json"];
 
-        foreach (var dir in dirs)
+        foreach (var dir in Services.PathResolver.DiscoverOutputDirs())
         {
-            var path = System.IO.Path.Combine(Environment.CurrentDirectory, dir, "best_training_genome.json");
-            if (!System.IO.File.Exists(path))
-                path = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, dir, "best_training_genome.json");
-            if (System.IO.File.Exists(path))
+            foreach (var gf in genomeFiles)
             {
+                var path = System.IO.Path.Combine(dir, gf);
+                if (!System.IO.File.Exists(path)) continue;
+
                 HasGenome = true;
-                BestGenomeSource = $"{dir} (training best)";
+                var dirName = System.IO.Path.GetFileName(dir);
+                BestGenomeSource = gf.Contains("training") ? $"{dirName} (training best)" : dirName;
+                BestGenomePath = path;
+
+                var scores = TryReadScores(System.IO.Path.Combine(dir, "genome_scores.json"));
+
                 try
                 {
                     var json = System.IO.File.ReadAllText(path);
                     var genome = Seed.Genetics.SeedGenome.FromJson(json);
-                    BestFitness = $"{genome.Cppn.Nodes.Count}n / {genome.Cppn.Connections.Count}c";
-                    BestSharpe = $"{genome.Dev.SubstrateWidth}x{genome.Dev.SubstrateHeight}x{genome.Dev.SubstrateLayers}";
-                    BestReturn = $"Eta: {genome.Learn.Eta:F3}";
-                    BestTrades = $"CPPN: {genome.Cppn.Nodes.Count}";
-                    BestWinRate = $"Critical: {genome.Learn.CriticalPeriodTicks}";
+
+                    if (scores != null)
+                    {
+                        BestFitness = $"{scores.Value.Fitness:F2}";
+                        BestSharpe = $"{genome.Dev.SubstrateWidth}x{genome.Dev.SubstrateHeight}x{genome.Dev.SubstrateLayers}";
+                        BestReturn = $"Gen {scores.Value.Gens}";
+                        BestTrades = $"{genome.Cppn.Nodes.Count}n / {genome.Cppn.Connections.Count}c";
+                        BestWinRate = scores.Value.ValFitness > float.MinValue
+                            ? $"{scores.Value.ValFitness:F4}" : "—";
+                    }
+                    else
+                    {
+                        BestFitness = $"{genome.Cppn.Nodes.Count}n / {genome.Cppn.Connections.Count}c";
+                        BestSharpe = $"{genome.Dev.SubstrateWidth}x{genome.Dev.SubstrateHeight}x{genome.Dev.SubstrateLayers}";
+                        BestReturn = $"Eta: {genome.Learn.Eta:F3}";
+                        BestTrades = "—";
+                        BestWinRate = "—";
+                    }
                 }
                 catch { }
+                UpdateWorkflowStep();
                 return;
             }
         }
 
         HasGenome = false;
         BestGenomeSource = "";
+        UpdateWorkflowStep();
+    }
+
+    private static (float Fitness, float ValFitness, int Gens)? TryReadScores(string path)
+    {
+        if (!System.IO.File.Exists(path)) return null;
+        try
+        {
+            var doc = System.Text.Json.JsonDocument.Parse(System.IO.File.ReadAllText(path));
+            float fit = doc.RootElement.TryGetProperty("bestFitness", out var f) ? f.GetSingle() : 0;
+            float val = doc.RootElement.TryGetProperty("bestValFitness", out var v) ? v.GetSingle() : float.MinValue;
+            int gens = doc.RootElement.TryGetProperty("generationsCompleted", out var g) ? g.GetInt32() : 0;
+            return (fit, val, gens);
+        }
+        catch { return null; }
     }
 
     [RelayCommand]
@@ -104,6 +116,11 @@ public partial class DashboardViewModel : ObservableObject
     [RelayCommand]
     private void DeployBestToPaper()
     {
+        if (!string.IsNullOrEmpty(BestGenomePath) && System.IO.File.Exists(BestGenomePath))
+        {
+            _main.PaperTrading.SelectedGenome = BestGenomePath;
+            _main.PaperTrading.RefreshGenomes();
+        }
         _main.NavigateToCommand.Execute("Trade");
     }
 

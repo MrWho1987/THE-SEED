@@ -68,11 +68,13 @@ public partial class MainViewModel : ObservableObject
     {
         IsTrainingRunning = running;
         TrainingSessionLabel = label;
+        Dashboard.UpdateWorkflowStep();
     }
 
     public void UpdatePaperSession(bool running, string label = "")
     {
         IsPaperRunning = running;
         PaperSessionLabel = label;
+        Dashboard.UpdateWorkflowStep();
     }
 }

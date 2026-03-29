@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Text.Json;
 using System.Windows;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -7,6 +8,7 @@ using OxyPlot;
 using OxyPlot.Axes;
 using OxyPlot.Series;
 using Seed.Dashboard.Services;
+using Seed.Market;
 
 namespace Seed.Dashboard.ViewModels;
 
@@ -18,13 +20,15 @@ public partial class AnalysisViewModel : ObservableObject
 {
     private readonly MainViewModel _main;
     private readonly GenomeService _genomeService = new();
+    private readonly AnalysisService _analysisService = new();
+    private CancellationTokenSource? _cts;
 
     [ObservableProperty] private string _selectedGenome = "";
     [ObservableProperty] private string _selectedMode = "Compare";
     [ObservableProperty] private bool _isRunning;
+    [ObservableProperty] private bool _hasResults;
     [ObservableProperty] private string _resultText = "";
     [ObservableProperty] private string _interpretationText = "";
-
     [ObservableProperty] private PlotModel _resultsPlotModel;
 
     public ObservableCollection<string> AvailableGenomes { get; } = [];
@@ -33,15 +37,15 @@ public partial class AnalysisViewModel : ObservableObject
     public List<AnalysisModeRow> ModeOptions { get; } =
     [
         new("Compare", "Compare",
-            "Bar chart of strategy fitnesses (placeholder until engine is wired)."),
+            "Evolved agent vs Buy&Hold, SMA, Random, Mean-Reversion with p-values."),
         new("Ablation", "Ablation",
-            "Measure fitness deltas when removing feeds or components."),
-        new("StressTest", "Stress test",
-            "Shock scenarios: liquidity, funding, flash moves."),
+            "Disable brain components (learning, curiosity, homeostasis, etc.) one at a time."),
+        new("StressTest", "Stress Test",
+            "Evaluate robustness under 1x\u20135x fee/slippage multipliers."),
         new("MonteCarlo", "Monte Carlo",
-            "Distribution of outcomes from resampled returns."),
-        new("NeuroAblation", "Neuro ablation",
-            "Prune neural subgraphs and measure fitness impact.")
+            "Bootstrap 10K trade resamples for 95% confidence intervals."),
+        new("NeuroAblation", "Neuro Ablation",
+            "Test each neuromodulator channel (reward, pain, curiosity) independently.")
     ];
 
     public AnalysisViewModel(MainViewModel main)
@@ -52,34 +56,21 @@ public partial class AnalysisViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void SelectMode(string mode) => SelectedMode = mode;
+
+    [RelayCommand]
     public void RefreshGenomes()
     {
         AvailableGenomes.Clear();
-        var cfg = _main.Config.CurrentConfig;
-        var dirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-        {
-            Environment.CurrentDirectory,
-            cfg.OutputDirectory,
-            Path.Combine(Environment.CurrentDirectory, cfg.OutputDirectory),
-            "output_market",
-            "output_deep",
-            Path.Combine(Environment.CurrentDirectory, "output_market"),
-            Path.Combine(Environment.CurrentDirectory, "output_deep")
-        };
+        var dirs = PathResolver.DiscoverOutputDirs();
+
         foreach (var dir in dirs)
         {
             foreach (var p in _genomeService.GetGenomeDropdownItems(dir))
             {
-                if (File.Exists(p) && !AvailableGenomes.Contains(p))
+                if (!AvailableGenomes.Contains(p))
                     AvailableGenomes.Add(p);
             }
-        }
-
-        foreach (var fi in _genomeService.ScanGenomes(dirs.ToArray()))
-        {
-            if (File.Exists(fi.FullPath) && fi.FullPath.EndsWith(".json", StringComparison.OrdinalIgnoreCase)
-                && !AvailableGenomes.Contains(fi.FullPath))
-                AvailableGenomes.Add(fi.FullPath);
         }
 
         if (AvailableGenomes.Count > 0 && string.IsNullOrEmpty(SelectedGenome))
@@ -92,32 +83,76 @@ public partial class AnalysisViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(SelectedGenome)) return;
 
         IsRunning = true;
+        HasResults = false;
         ResultText = "";
         InterpretationText = "";
+        ResultsPlotModel = CreateEmptyPlot("Running\u2026");
+
+        _cts?.Cancel();
+        _cts = new CancellationTokenSource();
+        var ct = _cts.Token;
 
         var mode = SelectedMode;
         var genomePath = SelectedGenome;
         var config = _main.Config.CurrentConfig;
 
+        var execMode = mode switch
+        {
+            "Compare" => ExecutionMode.Compare,
+            "Ablation" => ExecutionMode.Ablation,
+            "StressTest" => ExecutionMode.StressTest,
+            "MonteCarlo" => ExecutionMode.MonteCarlo,
+            "NeuroAblation" => ExecutionMode.NeuroAblation,
+            _ => ExecutionMode.Compare
+        };
+
         try
         {
-            await Task.Run(() =>
-            {
-                if (!File.Exists(genomePath))
-                    throw new FileNotFoundException("Genome file not found.", genomePath);
-                _ = File.ReadAllText(genomePath);
-                _ = config.OutputDirectory;
-                Thread.Sleep(400);
-            });
+            var result = await _analysisService.RunAnalysisAsync(config, genomePath, execMode, ct);
 
             await Application.Current.Dispatcher.InvokeAsync(() =>
             {
-                ApplyPlaceholderResults(mode, genomePath);
+                ResultText = result.Stdout;
+
+                if (result.ExitCode != 0)
+                {
+                    InterpretationText = $"Process exited with code {result.ExitCode}.\n{result.Stderr}";
+                    ResultsPlotModel = CreateEmptyPlot("Error");
+                    HasResults = true;
+                    _main.Notifications.Show("Analysis failed",
+                        $"Process exited with code {result.ExitCode}.", NotificationType.Warning);
+                    return;
+                }
+
+                if (result.Metrics != null)
+                {
+                    ResultsPlotModel = BuildChartFromMetrics(mode, result.Metrics);
+                    InterpretationText = GenerateInterpretation(mode, result.Metrics);
+                }
+                else
+                {
+                    ResultsPlotModel = CreateEmptyPlot("No experiment data");
+                    InterpretationText = "Analysis completed but no experiment JSON was found. " +
+                                         "Check that the output directory is correct.";
+                }
+
+                HasResults = true;
                 PastExperiments.Insert(0,
                     new AnalysisExperimentRecord(mode, DateTime.Now,
-                        $"Genome: {Path.GetFileName(genomePath)} — placeholder run"));
+                        $"Genome: {Path.GetFileName(genomePath)}"));
                 _main.Notifications.Show("Analysis complete",
-                    $"{mode} finished (placeholder).", NotificationType.Success);
+                    $"{mode} finished successfully.", NotificationType.Success);
+            });
+        }
+        catch (OperationCanceledException)
+        {
+            await Application.Current.Dispatcher.InvokeAsync(() =>
+            {
+                ResultText = "Analysis cancelled by user.";
+                InterpretationText = "";
+                HasResults = false;
+                _main.Notifications.Show("Analysis cancelled",
+                    "The analysis run was stopped.", NotificationType.Info);
             });
         }
         catch (Exception ex)
@@ -125,7 +160,8 @@ public partial class AnalysisViewModel : ObservableObject
             await Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 ResultText = ex.ToString();
-                InterpretationText = "Run failed. Check the genome path and try again.";
+                InterpretationText = "Run failed. Check the error details above.";
+                HasResults = true;
                 _main.Notifications.Show("Analysis failed", ex.Message, NotificationType.Warning);
             });
         }
@@ -136,131 +172,40 @@ public partial class AnalysisViewModel : ObservableObject
         }
     }
 
+    [RelayCommand]
+    private void StopAnalysis() => _cts?.Cancel();
+
     private bool CanRunAnalysis() => !IsRunning && !string.IsNullOrWhiteSpace(SelectedGenome);
 
     partial void OnIsRunningChanged(bool value) => RunAnalysisCommand.NotifyCanExecuteChanged();
 
     partial void OnSelectedGenomeChanged(string value) => RunAnalysisCommand.NotifyCanExecuteChanged();
 
-    private void ApplyPlaceholderResults(string mode, string genomePath)
-    {
-        var name = Path.GetFileName(genomePath);
-        switch (mode)
+    // ── Chart builders ──────────────────────────────────────────────────────
+
+    private PlotModel BuildChartFromMetrics(string mode, Dictionary<string, JsonElement> metrics) =>
+        mode switch
         {
-            case "Compare":
-                BuildCompareChart();
-                ResultText =
-                    $"Compare (placeholder){Environment.NewLine}" +
-                    $"Genome: {name}{Environment.NewLine}" +
-                    $"Strategy          Fitness{Environment.NewLine}" +
-                    $"────────────────────────────{Environment.NewLine}" +
-                    $"Baseline              0.812{Environment.NewLine}" +
-                    $"Momentum variant      0.847{Environment.NewLine}" +
-                    $"Mean-revert variant   0.791{Environment.NewLine}" +
-                    $"Hybrid ensemble       0.863{Environment.NewLine}";
-                InterpretationText =
-                    "Placeholder compare: hybrid leads on fitness; real run will rank strategies from the loaded genome and config.";
-                break;
-
-            case "Ablation":
-                BuildAblationChart();
-                ResultText =
-                    $"Ablation deltas vs full (placeholder){Environment.NewLine}" +
-                    $"Genome: {name}{Environment.NewLine}" +
-                    "Remove sentiment feed     -0.034{Environment.NewLine}" +
-                    "Remove on-chain feed      -0.012{Environment.NewLine}" +
-                    "Remove macro feed         -0.008{Environment.NewLine}" +
-                    "Remove futures overlay    -0.021{Environment.NewLine}";
-                InterpretationText =
-                    "Placeholder ablation: sentiment removal hurts most; production will measure actual component contributions.";
-                break;
-
-            case "StressTest":
-                BuildStressChart();
-                ResultText =
-                    $"Stress scenarios (placeholder){Environment.NewLine}" +
-                    $"Genome: {name}{Environment.NewLine}" +
-                    "Flash crash sim      portfolio -4.2%{Environment.NewLine}" +
-                    "Liquidity dry-up     max DD +1.8pp{Environment.NewLine}" +
-                    "Funding spike        Sharpe -0.11{Environment.NewLine}";
-                InterpretationText =
-                    "Placeholder stress metrics; full engine will replay shocks against the strategy.";
-                break;
-
-            case "MonteCarlo":
-                BuildMonteCarloChart();
-                ResultText =
-                    $"Monte Carlo summary (placeholder){Environment.NewLine}" +
-                    $"Genome: {name}{Environment.NewLine}" +
-                    "Runs: 2,000  |  median return: +12.4%{Environment.NewLine}" +
-                    "5th pct return: -6.1%   |  95th pct: +28.9%{Environment.NewLine}" +
-                    "Prob. loss > 10%: 14.2%{Environment.NewLine}";
-                InterpretationText =
-                    "Placeholder distribution; live analysis will bootstrap returns from evaluation windows.";
-                break;
-
-            case "NeuroAblation":
-                BuildNeuroAblationChart();
-                ResultText =
-                    $"Neuro ablation (placeholder){Environment.NewLine}" +
-                    $"Genome: {name}{Environment.NewLine}" +
-                    $"Layer prune 10% edges    Δfitness -0.019{Environment.NewLine}" +
-                    $"Layer prune 25% edges    Δfitness -0.047{Environment.NewLine}" +
-                    $"Drop attention block     Δfitness -0.063{Environment.NewLine}";
-                InterpretationText =
-                    "Placeholder neural component study; implementation will slice the brain graph per genome.";
-                break;
-
-            default:
-                ResultsPlotModel = CreateEmptyPlot("Results");
-                ResultText = $"Unknown mode: {mode}";
-                InterpretationText = "Select a supported analysis mode.";
-                break;
-        }
-
-        ResultsPlotModel.InvalidatePlot(true);
-    }
-
-    private PlotModel CreateEmptyPlot(string title)
-    {
-        var model = new PlotModel
-        {
-            Title = title,
-            PlotAreaBorderColor = OxyColor.FromRgb(0x25, 0x28, 0x30),
-            TextColor = OxyColor.FromRgb(0x94, 0xA3, 0xB8),
-            TitleColor = OxyColor.FromRgb(0xE2, 0xE8, 0xF0),
-            Background = OxyColors.Transparent,
-            PlotAreaBackground = OxyColors.Transparent
+            "Compare" => BuildCompareChart(metrics),
+            "Ablation" => BuildPrefixBarChart("Component Ablation \u2014 Fitness",
+                "Fitness", metrics, "ablation_", OxyColor.FromRgb(0xF5, 0x9E, 0x0B), "baseline"),
+            "StressTest" => BuildPrefixBarChart("Stress Test \u2014 Fitness by Cost Multiplier",
+                "Fitness", metrics, "stress_", OxyColor.FromRgb(0xFF, 0x38, 0x64)),
+            "MonteCarlo" => BuildMonteCarloChart(metrics),
+            "NeuroAblation" => BuildPrefixBarChart("Neuro Ablation \u2014 Fitness by Channel",
+                "Fitness", metrics, "neuro_", OxyColor.FromRgb(0xA7, 0x8B, 0xFA)),
+            _ => CreateEmptyPlot("Unknown mode")
         };
-        model.Axes.Add(new LinearAxis
-        {
-            Position = AxisPosition.Left,
-            MajorGridlineStyle = LineStyle.Dot,
-            MajorGridlineColor = OxyColor.FromRgb(0x25, 0x28, 0x30),
-            TicklineColor = OxyColor.FromRgb(0x25, 0x28, 0x30),
-            TextColor = OxyColor.FromRgb(0x94, 0xA3, 0xB8)
-        });
-        model.Axes.Add(new CategoryAxis
-        {
-            Position = AxisPosition.Bottom,
-            MajorGridlineStyle = LineStyle.Dot,
-            MajorGridlineColor = OxyColor.FromRgb(0x25, 0x28, 0x30),
-            TicklineColor = OxyColor.FromRgb(0x25, 0x28, 0x30),
-            TextColor = OxyColor.FromRgb(0x94, 0xA3, 0xB8)
-        });
-        return model;
-    }
 
-    private void BuildCompareChart()
+    private PlotModel BuildCompareChart(Dictionary<string, JsonElement> metrics)
     {
-        var model = CreateEmptyPlot("Strategy fitness (placeholder)");
-        model.Axes.Clear();
+        var model = CreateEmptyPlot("Evolved Agent Mean Fitness");
+        double evolved = Val(metrics, "evolvedMeanFitness");
+        int windows = (int)Val(metrics, "windows");
+
         model.Axes.Add(new LinearAxis
         {
-            Position = AxisPosition.Left,
-            Title = "Fitness",
-            Minimum = 0,
-            Maximum = 1,
+            Position = AxisPosition.Left, Title = "Mean Fitness", Minimum = 0,
             MajorGridlineStyle = LineStyle.Dot,
             MajorGridlineColor = OxyColor.FromRgb(0x25, 0x28, 0x30),
             TextColor = OxyColor.FromRgb(0x94, 0xA3, 0xB8)
@@ -268,14 +213,9 @@ public partial class AnalysisViewModel : ObservableObject
         var cat = new CategoryAxis
         {
             Position = AxisPosition.Bottom,
-            MajorGridlineStyle = LineStyle.Dot,
-            MajorGridlineColor = OxyColor.FromRgb(0x25, 0x28, 0x30),
             TextColor = OxyColor.FromRgb(0x94, 0xA3, 0xB8)
         };
-        cat.Labels.Add("Baseline");
-        cat.Labels.Add("Momentum");
-        cat.Labels.Add("MeanRev");
-        cat.Labels.Add("Hybrid");
+        cat.Labels.Add($"Evolved ({windows}w)");
         model.Axes.Add(cat);
 
         var bar = new BarSeries
@@ -284,149 +224,196 @@ public partial class AnalysisViewModel : ObservableObject
             StrokeColor = OxyColor.FromRgb(0x00, 0xC4, 0x82),
             StrokeThickness = 1
         };
-        bar.Items.Add(new BarItem(0.812));
-        bar.Items.Add(new BarItem(0.847));
-        bar.Items.Add(new BarItem(0.791));
-        bar.Items.Add(new BarItem(0.863));
+        bar.Items.Add(new BarItem(evolved));
         model.Series.Add(bar);
-        ResultsPlotModel = model;
+        return model;
     }
 
-    private void BuildAblationChart()
+    private PlotModel BuildPrefixBarChart(string title, string yLabel,
+        Dictionary<string, JsonElement> metrics, string prefix, OxyColor barColor,
+        string? baselineKey = null)
     {
-        var model = CreateEmptyPlot("Ablation Δ fitness (placeholder)");
-        model.Axes.Clear();
+        var model = CreateEmptyPlot(title);
+        var items = metrics
+            .Where(kv => kv.Key.StartsWith(prefix, StringComparison.Ordinal))
+            .Select(kv => (Label: kv.Key[prefix.Length..], Value: ElVal(kv.Value)))
+            .ToList();
+
+        if (items.Count == 0) return model;
+
         model.Axes.Add(new LinearAxis
         {
-            Position = AxisPosition.Left,
-            Title = "Δ fitness",
-            Minimum = -0.05,
-            Maximum = 0,
+            Position = AxisPosition.Left, Title = yLabel,
             MajorGridlineStyle = LineStyle.Dot,
             MajorGridlineColor = OxyColor.FromRgb(0x25, 0x28, 0x30),
             TextColor = OxyColor.FromRgb(0x94, 0xA3, 0xB8)
         });
-        var cat = new CategoryAxis { Position = AxisPosition.Bottom };
-        cat.Labels.Add("Sentiment");
-        cat.Labels.Add("On-chain");
-        cat.Labels.Add("Macro");
-        cat.Labels.Add("Futures");
-        model.Axes.Add(cat);
-
-        var bar = new BarSeries
-        {
-            FillColor = OxyColor.FromRgb(0xF5, 0x9E, 0x0B),
-            StrokeColor = OxyColor.FromRgb(0xC2, 0x7E, 0x08),
-            StrokeThickness = 1
-        };
-        bar.Items.Add(new BarItem(-0.034));
-        bar.Items.Add(new BarItem(-0.012));
-        bar.Items.Add(new BarItem(-0.008));
-        bar.Items.Add(new BarItem(-0.021));
-        model.Series.Add(bar);
-        ResultsPlotModel = model;
-    }
-
-    private void BuildStressChart()
-    {
-        var model = CreateEmptyPlot("Stress impact (placeholder)");
-        model.Axes.Clear();
-        model.Axes.Add(new LinearAxis
-        {
-            Position = AxisPosition.Left,
-            Title = "Severity (arb.)",
-            Minimum = 0,
-            Maximum = 10,
-            MajorGridlineStyle = LineStyle.Dot,
-            MajorGridlineColor = OxyColor.FromRgb(0x25, 0x28, 0x30),
-            TextColor = OxyColor.FromRgb(0x94, 0xA3, 0xB8)
-        });
-        var cat = new CategoryAxis { Position = AxisPosition.Bottom };
-        cat.Labels.Add("Flash crash");
-        cat.Labels.Add("Liquidity");
-        cat.Labels.Add("Funding");
-        model.Axes.Add(cat);
-
-        var bar = new BarSeries
-        {
-            FillColor = OxyColor.FromRgb(0xFF, 0x38, 0x64),
-            StrokeColor = OxyColor.FromRgb(0xCC, 0x2D, 0x50),
-            StrokeThickness = 1
-        };
-        bar.Items.Add(new BarItem(6.2));
-        bar.Items.Add(new BarItem(4.5));
-        bar.Items.Add(new BarItem(5.1));
-        model.Series.Add(bar);
-        ResultsPlotModel = model;
-    }
-
-    private void BuildMonteCarloChart()
-    {
-        var model = CreateEmptyPlot("Return distribution (placeholder)");
-        model.Axes.Clear();
-        model.Axes.Add(new LinearAxis
-        {
-            Position = AxisPosition.Left,
-            Title = "Frequency",
-            Minimum = 0,
-            MajorGridlineStyle = LineStyle.Dot,
-            MajorGridlineColor = OxyColor.FromRgb(0x25, 0x28, 0x30),
-            TextColor = OxyColor.FromRgb(0x94, 0xA3, 0xB8)
-        });
-        model.Axes.Add(new LinearAxis
+        var cat = new CategoryAxis
         {
             Position = AxisPosition.Bottom,
-            Title = "Return %",
-            MajorGridlineStyle = LineStyle.Dot,
-            MajorGridlineColor = OxyColor.FromRgb(0x25, 0x28, 0x30),
-            TextColor = OxyColor.FromRgb(0x94, 0xA3, 0xB8)
-        });
-
-        var line = new LineSeries
-        {
-            Title = "Density (mock)",
-            Color = OxyColor.FromRgb(0x3B, 0x82, 0xF6),
-            StrokeThickness = 2
+            TextColor = OxyColor.FromRgb(0x94, 0xA3, 0xB8),
+            Angle = -30
         };
-        for (var x = -20; x <= 40; x += 2)
-        {
-            var y = 100 * Math.Exp(-Math.Pow(x - 12, 2) / 200.0);
-            line.Points.Add(new DataPoint(x, y));
-        }
-        model.Series.Add(line);
-        ResultsPlotModel = model;
-    }
 
-    private void BuildNeuroAblationChart()
-    {
-        var model = CreateEmptyPlot("Neuro ablation Δ fitness (placeholder)");
-        model.Axes.Clear();
-        model.Axes.Add(new LinearAxis
-        {
-            Position = AxisPosition.Left,
-            Title = "Δ fitness",
-            Minimum = -0.08,
-            Maximum = 0,
-            MajorGridlineStyle = LineStyle.Dot,
-            MajorGridlineColor = OxyColor.FromRgb(0x25, 0x28, 0x30),
-            TextColor = OxyColor.FromRgb(0x94, 0xA3, 0xB8)
-        });
-        var cat = new CategoryAxis { Position = AxisPosition.Bottom };
-        cat.Labels.Add("Prune 10%");
-        cat.Labels.Add("Prune 25%");
-        cat.Labels.Add("Drop attn.");
-        model.Axes.Add(cat);
-
+        var accentColor = OxyColor.FromRgb(0x00, 0xF6, 0xA1);
         var bar = new BarSeries
         {
-            FillColor = OxyColor.FromRgb(0xA7, 0x8B, 0xFA),
-            StrokeColor = OxyColor.FromRgb(0x7C, 0x6A, 0xD6),
+            FillColor = barColor,
+            StrokeColor = OxyColor.FromArgb(200, barColor.R, barColor.G, barColor.B),
             StrokeThickness = 1
         };
-        bar.Items.Add(new BarItem(-0.019));
-        bar.Items.Add(new BarItem(-0.047));
-        bar.Items.Add(new BarItem(-0.063));
+
+        if (baselineKey != null && metrics.TryGetValue(baselineKey, out var bl))
+        {
+            cat.Labels.Add("Baseline");
+            bar.Items.Add(new BarItem(ElVal(bl)) { Color = accentColor });
+        }
+
+        foreach (var item in items)
+        {
+            cat.Labels.Add(item.Label);
+            bar.Items.Add(new BarItem(item.Value));
+        }
+
+        model.Axes.Add(cat);
         model.Series.Add(bar);
-        ResultsPlotModel = model;
+        return model;
     }
+
+    private PlotModel BuildMonteCarloChart(Dictionary<string, JsonElement> metrics)
+    {
+        var model = CreateEmptyPlot("Monte Carlo \u2014 Return Confidence Interval");
+        double p5 = Val(metrics, "ci_p5");
+        double median = Val(metrics, "ci_median");
+        double p95 = Val(metrics, "ci_p95");
+
+        model.Axes.Add(new LinearAxis
+        {
+            Position = AxisPosition.Left, Title = "Return",
+            MajorGridlineStyle = LineStyle.Dot,
+            MajorGridlineColor = OxyColor.FromRgb(0x25, 0x28, 0x30),
+            TextColor = OxyColor.FromRgb(0x94, 0xA3, 0xB8)
+        });
+        var cat = new CategoryAxis
+        {
+            Position = AxisPosition.Bottom,
+            TextColor = OxyColor.FromRgb(0x94, 0xA3, 0xB8)
+        };
+        cat.Labels.Add("5th pct");
+        cat.Labels.Add("Median");
+        cat.Labels.Add("95th pct");
+        model.Axes.Add(cat);
+
+        var bar = new BarSeries { StrokeThickness = 1 };
+        bar.Items.Add(new BarItem(p5)
+        {
+            Color = p5 < 0 ? OxyColor.FromRgb(0xFF, 0x38, 0x64) : OxyColor.FromRgb(0x00, 0xF6, 0xA1)
+        });
+        bar.Items.Add(new BarItem(median) { Color = OxyColor.FromRgb(0x3B, 0x82, 0xF6) });
+        bar.Items.Add(new BarItem(p95) { Color = OxyColor.FromRgb(0x00, 0xF6, 0xA1) });
+        model.Series.Add(bar);
+        return model;
+    }
+
+    // ── Interpretation ──────────────────────────────────────────────────────
+
+    private static string GenerateInterpretation(string mode, Dictionary<string, JsonElement> m)
+    {
+        switch (mode)
+        {
+            case "Compare":
+            {
+                double evolved = Val(m, "evolvedMeanFitness");
+                int windows = (int)Val(m, "windows");
+                return $"Evolved agent achieved {evolved:F4} mean fitness across {windows} " +
+                       "evaluation windows. See text output above for per-strategy comparison " +
+                       "with p-values and Cohen\u2019s d effect sizes.";
+            }
+            case "Ablation":
+            {
+                double baseline = Val(m, "baseline");
+                var parts = m
+                    .Where(kv => kv.Key.StartsWith("ablation_", StringComparison.Ordinal))
+                    .Select(kv => (Name: kv.Key["ablation_".Length..],
+                                   Delta: ElVal(kv.Value) - baseline))
+                    .OrderBy(x => x.Delta)
+                    .ToList();
+                if (parts.Count == 0) return "No ablation data found.";
+                var best = parts.First();
+                var least = parts.Last();
+                return $"Baseline fitness: {baseline:F4}. Most impactful component: " +
+                       $"{best.Name} (\u0394 = {best.Delta:+0.0000;-0.0000}). " +
+                       $"Least impactful: {least.Name} ({least.Delta:+0.0000;-0.0000}). " +
+                       "Large negative deltas mean the component is helping; positive deltas " +
+                       "suggest the component may be adding noise.";
+            }
+            case "StressTest":
+            {
+                var pts = m
+                    .Where(kv => kv.Key.StartsWith("stress_", StringComparison.Ordinal))
+                    .Select(kv => (Label: kv.Key["stress_".Length..], Fitness: ElVal(kv.Value)))
+                    .OrderBy(x => x.Label)
+                    .ToList();
+                if (pts.Count < 2) return "Insufficient stress data.";
+                double first = pts[0].Fitness;
+                double worst = pts[^1].Fitness;
+                double deg = first > 0 ? (1 - worst / first) * 100 : 0;
+                return $"At baseline costs fitness = {first:F4}. At max stress " +
+                       $"({pts[^1].Label}) fitness = {worst:F4} ({deg:F1}% degradation). " +
+                       (worst > 0 ? "Strategy remains profitable under extreme costs."
+                                  : "Strategy becomes unprofitable \u2014 edge is thin.");
+            }
+            case "MonteCarlo":
+            {
+                double p5 = Val(m, "ci_p5");
+                double median = Val(m, "ci_median");
+                double p95 = Val(m, "ci_p95");
+                int trades = (int)Val(m, "trades");
+                return $"Based on {trades} trades bootstrapped 10,000 times: 95% CI " +
+                       $"[{p5:F2}, {p95:F2}], median {median:F2}. " +
+                       (p5 > 0 ? "Even at the 5th percentile P&L is positive \u2014 " +
+                                 "statistically robust."
+                               : $"At the 5th percentile P&L is negative ({p5:F2}) \u2014 " +
+                                 "meaningful downside risk exists.");
+            }
+            case "NeuroAblation":
+            {
+                var channels = m
+                    .Where(kv => kv.Key.StartsWith("neuro_", StringComparison.Ordinal))
+                    .Select(kv => (Name: kv.Key["neuro_".Length..], Fitness: ElVal(kv.Value)))
+                    .ToList();
+                if (channels.Count < 2) return "Insufficient neuro-ablation data.";
+                double baseline = channels[0].Fitness;
+                var ranked = channels.Skip(1)
+                    .Select(c => (c.Name, Delta: c.Fitness - baseline))
+                    .OrderBy(x => x.Delta)
+                    .ToList();
+                var top = ranked.First();
+                return $"Baseline (all channels): {baseline:F4}. Most critical: " +
+                       $"{top.Name} (\u0394 = {top.Delta:+0.0000;-0.0000}). " +
+                       "Channels with large negative deltas are essential; positive deltas " +
+                       "indicate the channel may be adding noise.";
+            }
+            default:
+                return "Unknown analysis mode.";
+        }
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
+
+    private PlotModel CreateEmptyPlot(string title) => new()
+    {
+        Title = title,
+        PlotAreaBorderColor = OxyColor.FromRgb(0x25, 0x28, 0x30),
+        TextColor = OxyColor.FromRgb(0x94, 0xA3, 0xB8),
+        TitleColor = OxyColor.FromRgb(0xE2, 0xE8, 0xF0),
+        Background = OxyColors.Transparent,
+        PlotAreaBackground = OxyColors.Transparent
+    };
+
+    private static double Val(Dictionary<string, JsonElement> m, string key) =>
+        m.TryGetValue(key, out var el) && el.TryGetDouble(out var d) ? d : 0;
+
+    private static double ElVal(JsonElement el) =>
+        el.TryGetDouble(out var d) ? d : 0;
 }

@@ -9,7 +9,7 @@
 
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="320" />
+            <ColumnDefinition Width="300" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
 
@@ -83,8 +83,8 @@
                     <Button Style="{StaticResource PrimaryButton}" Padding="16,8" Margin="0,0,8,0"
                             Command="{Binding DeployToPaperCommand}">
                         <StackPanel Orientation="Horizontal">
-                            <materialDesign:PackIcon Kind="Play" Width="16" Height="16" Foreground="#0B0E13" Margin="0,0,6,0" VerticalAlignment="Center" />
-                            <TextBlock Text="Deploy to paper" Foreground="#0B0E13" FontSize="12" FontWeight="SemiBold" />
+                            <materialDesign:PackIcon Kind="Play" Width="16" Height="16" Foreground="{StaticResource SeedOnPrimaryBrush}" Margin="0,0,6,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Deploy to paper" Foreground="{StaticResource SeedOnPrimaryBrush}" FontSize="12" FontWeight="SemiBold" />
                         </StackPanel>
                     </Button>
                     <Button Style="{StaticResource ActionCardButton}" Padding="16,8" Margin="0,0,8,0"

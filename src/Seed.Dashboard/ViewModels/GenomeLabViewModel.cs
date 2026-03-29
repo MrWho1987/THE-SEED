@@ -242,8 +242,7 @@ public partial class GenomeLabViewModel : ObservableObject
         RebuildTree();
     }
 
-    private static readonly string[] OutputDirs =
-        ["output_deep", "output_deep_v2", "output_market"];
+    private static string[] OutputDirs => PathResolver.DiscoverOutputDirs();
 
     private void RebuildTree()
     {

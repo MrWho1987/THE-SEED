@@ -126,10 +126,8 @@ static async Task RunBacktest(MarketConfig config)
     {
         GenerationReport report;
 
-        int remainingLen = Math.Max(50, trainLen - walkForwardOffset);
-        if (walkForwardOffset + remainingLen > trainLen)
-            remainingLen = trainLen - walkForwardOffset;
-        if (remainingLen < 1) remainingLen = 1;
+        if (walkForwardOffset >= trainLen) break;
+        int remainingLen = trainLen - walkForwardOffset;
         var wfSnaps = trainSnapshots[walkForwardOffset..(walkForwardOffset + remainingLen)];
         var wfPrices = trainPrices[walkForwardOffset..(walkForwardOffset + remainingLen)];
         int wfEvalWindow = Math.Min(evalWindow, remainingLen);

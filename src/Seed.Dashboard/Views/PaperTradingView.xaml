@@ -28,7 +28,7 @@
                           Style="{StaticResource SeedComboBox}" Width="320" />
                 <Button Style="{StaticResource PrimaryButton}" Padding="18,8" Margin="12,0,6,0"
                         Command="{Binding StartPaperTradingCommand}">
-                    <TextBlock Text="Start Paper Trading" Foreground="#0B0E13" FontWeight="SemiBold" FontSize="12" />
+                    <TextBlock Text="Start Paper Trading" Foreground="{StaticResource SeedOnPrimaryBrush}" FontWeight="SemiBold" FontSize="12" />
                 </Button>
                 <Button Style="{StaticResource DangerButton}" Padding="14,8" Margin="4,0"
                         Command="{Binding StopPaperTradingCommand}">
@@ -110,7 +110,8 @@
                                    Foreground="{StaticResource SeedTextSecondaryBrush}" Margin="0,0,0,6" />
                         <Border Background="{StaticResource SeedSurfaceElevatedBrush}" CornerRadius="6" Padding="12,10" Margin="0,0,0,14">
                             <StackPanel>
-                                <DockPanel Margin="0,2"><TextBlock Text="Total P&amp;L" Style="{StaticResource MetricLabel}" />
+                                <DockPanel Margin="0,2"><TextBlock Text="Total P&amp;L" Style="{StaticResource MetricLabel}"
+                                           ToolTip="Total realized profit and loss from all closed trades." />
                                     <TextBlock Text="{Binding TotalPnlText}" Style="{StaticResource MetricValue}" HorizontalAlignment="Right"
                                                Foreground="{Binding TotalPnl, Converter={StaticResource PnlColor}}" /></DockPanel>
                                 <DockPanel Margin="0,2"><TextBlock Text="Win Rate" Style="{StaticResource MetricLabel}" ToolTip="Percentage of trades that made money." />
@@ -119,9 +120,11 @@
                                     <TextBlock Text="{Binding RollingSharpeText}" Style="{StaticResource MetricValue}" HorizontalAlignment="Right" /></DockPanel>
                                 <DockPanel Margin="0,2"><TextBlock Text="Rolling DD" Style="{StaticResource MetricLabel}" ToolTip="Max drawdown in last 100 ticks." />
                                     <TextBlock Text="{Binding RollingDrawdownText}" Style="{StaticResource MetricValue}" HorizontalAlignment="Right" /></DockPanel>
-                                <DockPanel Margin="0,2"><TextBlock Text="Trades" Style="{StaticResource MetricLabel}" />
+                                <DockPanel Margin="0,2"><TextBlock Text="Trades" Style="{StaticResource MetricLabel}"
+                                           ToolTip="Total number of completed trades in this session." />
                                     <TextBlock Text="{Binding TotalTrades}" Style="{StaticResource MetricValue}" HorizontalAlignment="Right" /></DockPanel>
-                                <DockPanel Margin="0,2"><TextBlock Text="Avg P&amp;L" Style="{StaticResource MetricLabel}" />
+                                <DockPanel Margin="0,2"><TextBlock Text="Avg P&amp;L" Style="{StaticResource MetricLabel}"
+                                           ToolTip="Average profit/loss per trade." />
                                     <TextBlock Text="{Binding AvgPnlText}" Style="{StaticResource MetricValue}" HorizontalAlignment="Right" /></DockPanel>
                             </StackPanel>
                         </Border>

@@ -11,7 +11,8 @@ namespace Seed.Dashboard.Services;
 public record GenerationReportData(
     int Generation, float BestFitness, float MeanFitness, float BestSharpe,
     float BestReturn, int BestTrades, float BestWinRate, int SpeciesCount,
-    string Substrate, float? ValidationFitness = null, string? WalkForwardStatus = null);
+    string Substrate, float? ValidationFitness = null, string? WalkForwardStatus = null,
+    int WalkForwardOffsetHours = 0, int StallCount = 0);
 
 public class TrainingService
 {
@@ -162,7 +163,8 @@ public class TrainingService
             _onGeneration(new GenerationReportData(
                 gen, report.BestFitness, report.MeanFitness, report.BestSharpe,
                 report.BestReturn, report.BestTrades, report.BestWinRate,
-                report.SpeciesCount, report.BestSubstrate, valFit, wfStatus));
+                report.SpeciesCount, report.BestSubstrate, valFit, wfStatus,
+                walkForwardOffset, stallCount));
         }
 
         var finalBest = evolution.GetBestGenome();
@@ -171,6 +173,21 @@ public class TrainingService
             File.WriteAllText(Path.Combine(_config.OutputDirectory, "best_training_genome.json"), finalBest.ToJson());
             File.WriteAllText(_config.ResolvedGenomePath, finalBest.ToJson());
         }
+
+        try
+        {
+            var scores = new
+            {
+                bestFitness = bestEverFitness,
+                bestValFitness = bestValFitness,
+                generationsCompleted = evolution.Generation,
+                timestamp = DateTimeOffset.UtcNow.ToString("o")
+            };
+            var scoresJson = System.Text.Json.JsonSerializer.Serialize(scores,
+                new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(Path.Combine(_config.OutputDirectory, "genome_scores.json"), scoresJson);
+        }
+        catch { /* non-critical */ }
 
         observatory.Flush();
     }

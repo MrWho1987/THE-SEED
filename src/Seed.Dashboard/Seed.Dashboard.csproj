@@ -6,9 +6,12 @@
     <UseWPF>true</UseWPF>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <ApplicationIcon />
     <StartupObject>Seed.Dashboard.App</StartupObject>
   </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="seed_icon.png" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="MaterialDesignThemes" Version="5.*" />

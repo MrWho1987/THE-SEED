@@ -24,6 +24,7 @@
     <SolidColorBrush x:Key="SeedProfitBrush" Color="#00F6A1" />
     <SolidColorBrush x:Key="SeedLossBrush" Color="#FF3864" />
     <SolidColorBrush x:Key="SeedFlatBrush" Color="#94A3B8" />
+    <SolidColorBrush x:Key="SeedOnPrimaryBrush" Color="{StaticResource SeedBackground}" />
 
     <!-- ═══════════════════ MATERIALDESIGN OVERRIDES ═══════════════════ -->
     <SolidColorBrush x:Key="MaterialDesign.Brush.Background" Color="{StaticResource SeedBackground}" />

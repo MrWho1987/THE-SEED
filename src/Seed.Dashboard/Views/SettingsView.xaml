@@ -283,7 +283,7 @@
                         </Button>
                         <Button Style="{StaticResource PrimaryButton}" Padding="20,8"
                                 Command="{Binding SaveCommand}">
-                            <TextBlock Text="Save" Foreground="#0B0E13" FontWeight="SemiBold" FontSize="12" />
+                            <TextBlock Text="Save" Foreground="{StaticResource SeedOnPrimaryBrush}" FontWeight="SemiBold" FontSize="12" />
                         </Button>
                     </StackPanel>
                 </DockPanel>
