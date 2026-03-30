@@ -85,7 +85,8 @@ public readonly record struct TickContext(
     decimal Price,
     decimal HourlyVolume,
     float FundingRate,
-    int TickIndex
+    int TickIndex,
+    float ElapsedHours = 0f
 );
 
 public readonly record struct ClosedTrade(

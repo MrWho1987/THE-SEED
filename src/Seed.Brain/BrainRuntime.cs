@@ -270,8 +270,8 @@ public sealed class BrainRuntime : IBrain
         if (modulators.Length > ModulatorIndex.Curiosity)
             M += _learn.AlphaCuriosity * modulators[ModulatorIndex.Curiosity];
 
-        float etaScale = _learn.CriticalPeriodTicks > 0
-            ? MathF.Max(0.1f, 1f - (float)ctx.Tick / _learn.CriticalPeriodTicks)
+        float etaScale = _learn.CriticalPeriodHours > 0f
+            ? MathF.Max(0.1f, 1f - ctx.ElapsedHours / _learn.CriticalPeriodHours)
             : 1f;
 
         foreach (var node in _graph.Nodes)

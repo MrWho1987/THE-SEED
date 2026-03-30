@@ -87,9 +87,9 @@ public class CliTests
         var eval1 = new MarketEvaluator(config1x);
         var eval5 = new MarketEvaluator(config5x);
 
-        var (snaps, prices) = CreateSyntheticData(200);
-        var r1 = eval1.EvaluateSingle(genome, snaps, prices, 0);
-        var r5 = eval5.EvaluateSingle(genome, snaps, prices, 0);
+        var (snaps, prices, rawVols, rawFund) = CreateSyntheticData(200);
+        var r1 = eval1.EvaluateSingle(genome, snaps, prices, rawVols, rawFund, 0);
+        var r5 = eval5.EvaluateSingle(genome, snaps, prices, rawVols, rawFund, 0);
 
         Assert.True(r5.Fitness.Fitness <= r1.Fitness.Fitness,
             $"5x fees ({r5.Fitness.Fitness:F4}) should not exceed 1x ({r1.Fitness.Fitness:F4})");
@@ -164,7 +164,7 @@ public class CliTests
         var devCtx = new DevelopmentContext(42, 0);
         var budget = Seed.Market.Evolution.MarketEvaluator.MarketBrainBudget;
 
-        var (snaps, prices) = CreateSyntheticData(100);
+        var (snaps, prices, rawVols2, rawFund2) = CreateSyntheticData(100);
 
         foreach (var lp in configurations)
         {
@@ -174,7 +174,10 @@ public class CliTests
             var agent = new Seed.Market.Agents.MarketAgent(genome.GenomeId, brain, trader);
 
             for (int t = 0; t < snaps.Length; t++)
-                agent.ProcessTick(snaps[t], (decimal)prices[t]);
+            {
+                var ctx = new Seed.Market.Trading.TickContext((decimal)prices[t], (decimal)rawVols2[t], rawFund2[t], t, (float)t);
+                agent.ProcessTick(snaps[t], ctx);
+            }
 
             trader.CloseAllPositions(agent.Portfolio, (decimal)prices[^1], snaps.Length);
             float fitness = MarketFitness.ComputeDetailed(agent.Portfolio, (decimal)prices[^1]).Fitness;
@@ -183,11 +186,13 @@ public class CliTests
         }
     }
 
-    private static (Seed.Market.Signals.SignalSnapshot[], float[]) CreateSyntheticData(int length)
+    private static (Seed.Market.Signals.SignalSnapshot[], float[], float[], float[]) CreateSyntheticData(int length)
     {
         var normalizer = new Seed.Market.Signals.SignalNormalizer();
         var snapshots = new Seed.Market.Signals.SignalSnapshot[length];
         var prices = new float[length];
+        var rawVolumes = new float[length];
+        var rawFundingRates = new float[length];
         float price = 50000f;
         var rng = new Random(42);
 
@@ -195,12 +200,14 @@ public class CliTests
         {
             price *= 1f + (float)(rng.NextDouble() - 0.498) * 0.02f;
             prices[i] = price;
+            rawVolumes[i] = 1000f;
+            rawFundingRates[i] = 0.0001f;
             var raw = new float[Seed.Market.Signals.SignalIndex.Count];
             raw[Seed.Market.Signals.SignalIndex.BtcPrice] = price;
             raw[Seed.Market.Signals.SignalIndex.BtcReturn1h] = i > 0 ? (price - prices[i - 1]) / prices[i - 1] : 0f;
             raw[Seed.Market.Signals.SignalIndex.BtcVolume1h] = 1000f;
             snapshots[i] = normalizer.Normalize(raw, DateTimeOffset.UtcNow.AddHours(i), i);
         }
-        return (snapshots, prices);
+        return (snapshots, prices, rawVolumes, rawFundingRates);
     }
 }

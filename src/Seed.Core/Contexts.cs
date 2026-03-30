@@ -19,7 +19,8 @@ public readonly record struct BrainStepContext(
 /// Context for brain learning update.
 /// </summary>
 public readonly record struct BrainLearnContext(
-    int Tick
+    int Tick,
+    float ElapsedHours = 0f
 );
 
 /// <summary>

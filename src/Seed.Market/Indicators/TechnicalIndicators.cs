@@ -75,18 +75,26 @@ public static class TechnicalIndicators
         if (closes.Length < period + 1) return 50f;
 
         float gainSum = 0, lossSum = 0;
-        for (int i = closes.Length - period; i < closes.Length; i++)
+        for (int i = 1; i <= period; i++)
         {
-            float change = closes[i] - closes[i - 1];
-            if (change > 0) gainSum += change;
-            else lossSum -= change;
+            float ch = closes[i] - closes[i - 1];
+            if (ch > 0) gainSum += ch; else lossSum -= ch;
+        }
+        float avgGain = gainSum / period;
+        float avgLoss = lossSum / period;
+
+        for (int i = period + 1; i < closes.Length; i++)
+        {
+            float ch = closes[i] - closes[i - 1];
+            float gain = ch > 0 ? ch : 0f;
+            float loss = ch < 0 ? -ch : 0f;
+            avgGain = (avgGain * (period - 1) + gain) / period;
+            avgLoss = (avgLoss * (period - 1) + loss) / period;
         }
 
-        if (lossSum == 0) return 100f;
-        if (gainSum == 0) return 0f;
-
-        float rs = gainSum / lossSum;
-        return 100f - 100f / (1f + rs);
+        if (avgLoss == 0) return 100f;
+        if (avgGain == 0) return 0f;
+        return 100f - 100f / (1f + avgGain / avgLoss);
     }
 
     public static float ComputeEma(float[] data, int period)

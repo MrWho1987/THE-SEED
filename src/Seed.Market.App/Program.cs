@@ -68,7 +68,7 @@ static async Task RunBacktest(MarketConfig config)
     var end = DateTimeOffset.UtcNow.AddHours(-1);
     var start = end.AddHours(-config.TrainingWindowHours - config.ValidationWindowHours);
 
-    var (snapshots, prices) = await runner.LoadData(config.Symbols[0], start, end, enrich: true);
+    var (snapshots, prices, rawVolumes, rawFundingRates) = await runner.LoadData(config.Symbols[0], start, end, enrich: true);
     Console.WriteLine($"[BACKTEST] Loaded {snapshots.Length} candles ({start:yyyy-MM-dd} to {end:yyyy-MM-dd})");
 
     int trainLen = Math.Min(config.TrainingWindowHours, snapshots.Length - config.ValidationWindowHours);
@@ -77,8 +77,12 @@ static async Task RunBacktest(MarketConfig config)
 
     var trainSnapshots = snapshots[..trainLen];
     var trainPrices = prices[..trainLen];
+    var trainRawVolumes = rawVolumes[..trainLen];
+    var trainRawFunding = rawFundingRates[..trainLen];
     var valSnapshots = snapshots[valStart..valEnd];
     var valPrices = prices[valStart..valEnd];
+    var valRawVolumes = rawVolumes[valStart..valEnd];
+    var valRawFunding = rawFundingRates[valStart..valEnd];
 
     Console.WriteLine($"[BACKTEST] Training: {trainLen}h, Validation: {valEnd - valStart}h");
 
@@ -90,6 +94,9 @@ static async Task RunBacktest(MarketConfig config)
 
     int startGen = 0;
     float bestEverFitness = float.MinValue;
+    int walkForwardOffset = 0;
+    int stallCount = 0;
+    int lastInnovationId = 0;
 
     var latestCheckpoint = CheckpointState.FindLatest(checkpointDir);
     if (latestCheckpoint != null)
@@ -97,18 +104,33 @@ static async Task RunBacktest(MarketConfig config)
         Console.WriteLine($"[BACKTEST] Resuming from checkpoint: {Path.GetFileName(latestCheckpoint)}");
         var cp = CheckpointState.Load(latestCheckpoint);
         var restored = cp.RestorePopulation();
-        evolution.InitializeFrom(restored, cp.Generation);
+
+        var speciesState = cp.SpeciesState
+            .Select(s => (s.SpeciesId, (IGenome)SeedGenome.FromJson(s.RepresentativeGenomeJson), s.StagnationCounter, s.BestFitness))
+            .ToList();
+        var archiveState = cp.ArchiveState
+            .Select(a => (a.SpeciesId, (IGenome)SeedGenome.FromJson(a.GenomeJson), a.Fitness))
+            .ToList();
+
+        evolution.InitializeFrom(restored, cp.Generation,
+            cp.NextInnovationId, cp.NextCppnNodeId, cp.CompatibilityThreshold,
+            speciesState, cp.NextSpeciesId, archiveState);
         startGen = cp.Generation;
         bestEverFitness = cp.BestFitness;
+        walkForwardOffset = cp.WalkForwardOffset;
+        stallCount = cp.StallCount;
+        lastInnovationId = cp.NextInnovationId;
         Console.WriteLine($"[BACKTEST] Restored generation {cp.Generation}, best fitness {cp.BestFitness:F4}");
+        Console.WriteLine($"[BACKTEST] Walk-forward offset: {cp.WalkForwardOffset}h, stall count: {cp.StallCount}");
+        Console.WriteLine($"[BACKTEST] Restored {cp.SpeciesState.Count} species, archive: {cp.ArchiveState.Count} elites");
     }
     else
     {
         evolution.Initialize();
     }
 
-    Console.WriteLine($"\n{"Gen",-5} {"Best",8} {"Mean",8} {"Sharpe",8} {"Return",8} {"WR",6} {"Trades",7} {"Species",8} {"ValFit",8}");
-    Console.WriteLine(new string('─', 74));
+    Console.WriteLine($"\n{"Gen",-5} {"Best",8} {"Mean",8} {"Med",8} {"Sharpe",8} {"Sortino",8} {"Return",8} {"WR",5} {"Trades",7} {"DD%",6} {"CVaR",7} {"Sp",3} {"Inact%",6} {"ValFit",8}");
+    Console.WriteLine(new string('─', 110));
 
     int evalWindow = Math.Min(config.EvalWindowHours, trainLen);
     var valEvaluator = new MarketEvaluator(config);
@@ -119,8 +141,6 @@ static async Task RunBacktest(MarketConfig config)
     int consecutiveValDeclines = 0;
 
     int k = Math.Max(1, config.EvalWindowCount);
-    int walkForwardOffset = 0;
-    int stallCount = 0;
 
     for (int gen = startGen; gen < config.Generations; gen++)
     {
@@ -130,6 +150,8 @@ static async Task RunBacktest(MarketConfig config)
         int remainingLen = trainLen - walkForwardOffset;
         var wfSnaps = trainSnapshots[walkForwardOffset..(walkForwardOffset + remainingLen)];
         var wfPrices = trainPrices[walkForwardOffset..(walkForwardOffset + remainingLen)];
+        var wfRawVols = trainRawVolumes[walkForwardOffset..(walkForwardOffset + remainingLen)];
+        var wfRawFund = trainRawFunding[walkForwardOffset..(walkForwardOffset + remainingLen)];
         int wfEvalWindow = Math.Min(evalWindow, remainingLen);
 
         if (k <= 1)
@@ -139,20 +161,22 @@ static async Task RunBacktest(MarketConfig config)
             int windowEnd = Math.Min(offset + wfEvalWindow, remainingLen);
             var windowSnaps = wfSnaps[offset..windowEnd];
             var windowPrices = wfPrices[offset..windowEnd];
-            if (windowSnaps.Length < 50) { windowSnaps = wfSnaps; windowPrices = wfPrices; }
-            report = evolution.RunGeneration(windowSnaps, windowPrices);
+            var windowRawVols = wfRawVols[offset..windowEnd];
+            var windowRawFund = wfRawFund[offset..windowEnd];
+            if (windowSnaps.Length < 50) { windowSnaps = wfSnaps; windowPrices = wfPrices; windowRawVols = wfRawVols; windowRawFund = wfRawFund; }
+            report = evolution.RunGeneration(windowSnaps, windowPrices, windowRawVols, windowRawFund);
         }
         else
         {
             var diverseWindows = RegimeDetector.SelectDiverseWindows(
                 wfPrices, remainingLen, wfEvalWindow, k, gen, config.RunSeed);
-            var windowList = new (SignalSnapshot[], float[])[diverseWindows.Length];
+            var windowList = new (SignalSnapshot[], float[], float[], float[])[diverseWindows.Length];
             for (int w = 0; w < diverseWindows.Length; w++)
             {
                 var (off, len, _) = diverseWindows[w];
                 int end2 = Math.Min(off + len, remainingLen);
                 if (end2 - off < 50) { off = 0; end2 = Math.Min(wfEvalWindow, remainingLen); }
-                windowList[w] = (wfSnaps[off..end2], wfPrices[off..end2]);
+                windowList[w] = (wfSnaps[off..end2], wfPrices[off..end2], wfRawVols[off..end2], wfRawFund[off..end2]);
             }
             report = evolution.RunGeneration(windowList);
         }
@@ -167,7 +191,7 @@ static async Task RunBacktest(MarketConfig config)
             var bestGenome = evolution.GetBestGenome();
             if (bestGenome != null)
             {
-                var valResult = valEvaluator.EvaluateSingle(bestGenome, valSnapshots, valPrices, gen);
+                var valResult = valEvaluator.EvaluateSingle(bestGenome, valSnapshots, valPrices, valRawVolumes, valRawFunding, gen);
                 float valFit = valResult.Fitness.Fitness;
                 valFitStr = $"{valFit,8:F4}";
                 validationHistory.Add((gen, report.BestFitness, valFit));
@@ -223,10 +247,24 @@ static async Task RunBacktest(MarketConfig config)
             }
         }
 
+        float inactPct = report.PopulationSize > 0 ? (float)report.InactiveCount / report.PopulationSize * 100f : 0f;
         Console.WriteLine(
-            $"{gen,-5} {report.BestFitness,8:F4} {report.MeanFitness,8:F4} " +
-            $"{report.BestSharpe,8:F2} {report.BestReturn,7:P1} {report.BestWinRate,5:P0} " +
-            $"{report.BestTrades,7} {report.SpeciesCount,8} {valFitStr}");
+            $"{gen,-5} {report.BestFitness,8:F4} {report.MeanFitness,8:F4} {report.MedianFitness,8:F4} " +
+            $"{report.BestSharpe,8:F2} {report.BestSortino,8:F2} {report.BestReturn,8:P1} {report.BestWinRate,5:P0} " +
+            $"{report.BestTrades,7} {report.BestMaxDrawdown,6:P1} {report.BestCVaR5,7:F4} " +
+            $"{report.SpeciesCount,3} {inactPct,5:F0}% {valFitStr}");
+
+        bool isDetailGen = config.CheckpointIntervalGens > 0 && (gen + 1) % config.CheckpointIntervalGens == 0;
+        if (isDetailGen)
+        {
+            int innovDelta = report.InnovationId - lastInnovationId;
+            lastInnovationId = report.InnovationId;
+            Console.WriteLine(
+                $"  [detail] DDDur:{report.BestMaxDrawdownDuration:P1}  PopTrd:{report.TotalTrades}  " +
+                $"MaxStag:{report.MaxSpeciesStagnation}/{config.StagnationLimit}  CtAdj:{report.CompatibilityThreshold:F2}  " +
+                $"Arch:{report.ArchiveSize}  Edges:{report.BestBrainActiveEdges}/{report.BestBrainTotalEdges}  " +
+                $"Sat:{report.BestBrainSaturation:P0}  Innov:+{innovDelta}  Shrk:{report.BestShrinkageConfidence:F2}");
+        }
 
         if (report.BestFitness > bestEverFitness)
         {
@@ -242,7 +280,19 @@ static async Task RunBacktest(MarketConfig config)
         if (config.CheckpointIntervalGens > 0 &&
             (gen + 1) % config.CheckpointIntervalGens == 0)
         {
-            var cp = CheckpointState.FromPopulation(evolution.Population, gen + 1, bestEverFitness, evolution.GetSpeciesIds());
+            var cpSpeciesState = evolution.GetSpeciesState()
+                .Select(s => new SpeciesCheckpointEntry(s.SpeciesId, s.RepresentativeJson, s.StagnationCounter, s.BestFitness))
+                .ToList();
+            var cpArchiveState = evolution.Archive.Champions
+                .Select(kv => new ArchiveCheckpointEntry(kv.Key, kv.Value.Genome.ToJson(), kv.Value.Fitness))
+                .ToList();
+
+            var cp = CheckpointState.FromPopulation(evolution.Population, gen + 1, bestEverFitness,
+                evolution.GetSpeciesIds(),
+                evolution.Innovations.NextInnovationId, evolution.Innovations.NextCppnNodeId,
+                evolution.CompatibilityThreshold,
+                walkForwardOffset, stallCount,
+                cpSpeciesState, evolution.NextSpeciesId, cpArchiveState);
             cp.Save(Path.Combine(checkpointDir, $"checkpoint_{gen + 1:D4}.json"));
             Console.WriteLine($"  [checkpoint saved: gen {gen + 1}]");
         }
@@ -251,7 +301,7 @@ static async Task RunBacktest(MarketConfig config)
     // Final validation run on full population
     Console.WriteLine($"\n{"═══ VALIDATION ═══",-74}");
     var valResults = new BacktestRunner(config)
-        .Evaluate(evolution.Population, valSnapshots, valPrices, config.Generations);
+        .Evaluate(evolution.Population, valSnapshots, valPrices, valRawVolumes, valRawFunding, config.Generations);
 
     var bestValResult = valResults.Values.OrderByDescending(r => r.Fitness.Fitness).First();
     Console.WriteLine($"  Best validation fitness: {bestValResult.Fitness.Fitness:F4}");
@@ -259,6 +309,18 @@ static async Task RunBacktest(MarketConfig config)
     Console.WriteLine($"  Return: {bestValResult.Fitness.ReturnPct:P2}");
     Console.WriteLine($"  Trades: {bestValResult.Fitness.TotalTrades}, Win rate: {bestValResult.Fitness.WinRate:P0}");
     Console.WriteLine($"  Max drawdown: {bestValResult.Fitness.MaxDrawdown:P2}");
+
+    var champions = evolution.GetSpeciesChampions();
+    if (champions.Count >= 2)
+    {
+        Console.WriteLine($"\n{"═══ ENSEMBLE ═══",-74}");
+        Console.WriteLine($"  Species champions: {champions.Count}");
+        var ensembleResult = valEvaluator.EvaluateEnsemble(champions, valSnapshots, valPrices, valRawVolumes, valRawFunding, config.Generations);
+        Console.WriteLine($"  Ensemble fitness: {ensembleResult.Fitness:F4}");
+        Console.WriteLine($"  Ensemble return: {ensembleResult.ReturnPct:P2}");
+        Console.WriteLine($"  Ensemble Sharpe: {ensembleResult.AdjustedSharpe:F2}");
+        Console.WriteLine($"  Ensemble trades: {ensembleResult.TotalTrades}");
+    }
 
     // Save the best genome by VALIDATION fitness for deployment
     if (bestValGenomePath != null && File.Exists(bestValGenomePath))
@@ -342,6 +404,7 @@ static async Task RunPaper(MarketConfig config)
     int prevTradeCount = 0;
     var lastDisplay = DateTimeOffset.MinValue;
     var lastHeartbeat = DateTimeOffset.MinValue;
+    var sessionStart = DateTimeOffset.UtcNow;
 
     while (!cts.Token.IsCancellationRequested)
     {
@@ -356,7 +419,9 @@ static async Task RunPaper(MarketConfig config)
                 continue;
             }
 
-            agent.ProcessTick(snapshot, price);
+            float elapsedHours = (float)(DateTimeOffset.UtcNow - sessionStart).TotalHours;
+            var ctx = new TickContext(price, (decimal)aggregator.LastRawVolume, aggregator.LastRawFundingRate, tick, elapsedHours);
+            agent.ProcessTick(snapshot, ctx);
             agent.Portfolio.RecordEquity(price);
             rolling.Add((float)agent.Portfolio.Equity(price));
 
@@ -415,10 +480,9 @@ static async Task RunPaper(MarketConfig config)
         }
     }
 
-    decimal finalPrice = agent.Portfolio.OpenPositions.Count > 0
-        ? agent.Portfolio.OpenPositions[0].EntryPrice
-        : config.InitialCapital;
-    trader.CloseAllPositions(agent.Portfolio, finalPrice, tick);
+    decimal lastMarketPrice = (decimal)aggregator.LastRawBtcPrice;
+    if (lastMarketPrice <= 0) lastMarketPrice = config.InitialCapital;
+    trader.CloseAllPositions(agent.Portfolio, lastMarketPrice, tick);
 
     Console.WriteLine($"\n{"═══ SESSION SUMMARY ═══",-64}");
     Console.WriteLine($"  Ticks processed: {tick}");
@@ -457,7 +521,7 @@ static async Task RunCompare(MarketConfig config)
     var runner = new BacktestRunner(config);
     var end = DateTimeOffset.UtcNow.AddHours(-1);
     var start = end.AddHours(-config.TrainingWindowHours);
-    var (snapshots, prices) = await runner.LoadData(config.Symbols[0], start, end, enrich: true);
+    var (snapshots, prices, rawVolumes, rawFundingRates) = await runner.LoadData(config.Symbols[0], start, end, enrich: true);
 
     var genomePath = config.ResolvedGenomePath;
     if (!File.Exists(genomePath))
@@ -483,8 +547,10 @@ static async Task RunCompare(MarketConfig config)
         int offset = w * windowSize;
         var wSnaps = snapshots[offset..(offset + windowSize)];
         var wPrices = prices[offset..(offset + windowSize)];
+        var wRawVols = rawVolumes[offset..(offset + windowSize)];
+        var wRawFund = rawFundingRates[offset..(offset + windowSize)];
 
-        var result = evaluator.EvaluateSingle(genome, wSnaps, wPrices, w);
+        var result = evaluator.EvaluateSingle(genome, wSnaps, wPrices, wRawVols, wRawFund, w);
         evolvedFitnesses[w] = result.Fitness.Fitness;
         bhFitnesses[w] = BaselineStrategies.BuyAndHold(wPrices, config).Fitness;
         smaFitnesses[w] = BaselineStrategies.SmaCrossover(wPrices, config).Fitness;
@@ -523,7 +589,7 @@ static async Task RunAblation(MarketConfig config)
     var runner = new BacktestRunner(config);
     var end = DateTimeOffset.UtcNow.AddHours(-1);
     var start = end.AddHours(-config.ValidationWindowHours);
-    var (snapshots, prices) = await runner.LoadData(config.Symbols[0], start, end, enrich: true);
+    var (snapshots, prices, rawVolumes, rawFundingRates) = await runner.LoadData(config.Symbols[0], start, end, enrich: true);
 
     var genomePath = config.ResolvedGenomePath;
     if (!File.Exists(genomePath))
@@ -553,7 +619,8 @@ static async Task RunAblation(MarketConfig config)
         {
             decimal price = (decimal)prices[t];
             if (price <= 0) continue;
-            agent.ProcessTick(snapshots[t], price);
+            var ctx = new TickContext(price, (decimal)rawVolumes[t], rawFundingRates[t], t, (float)t);
+            agent.ProcessTick(snapshots[t], ctx);
             agent.Portfolio.RecordEquity(price);
         }
         trader.CloseAllPositions(agent.Portfolio, (decimal)prices[^1], snapshots.Length);
@@ -598,7 +665,7 @@ static async Task RunStressTest(MarketConfig config)
     var runner = new BacktestRunner(config);
     var end = DateTimeOffset.UtcNow.AddHours(-1);
     var start = end.AddHours(-config.TrainingWindowHours);
-    var (snapshots, prices) = await runner.LoadData(config.Symbols[0], start, end, enrich: true);
+    var (snapshots, prices, rawVolumes, rawFundingRates) = await runner.LoadData(config.Symbols[0], start, end, enrich: true);
 
     var genomePath = config.ResolvedGenomePath;
     if (!File.Exists(genomePath))
@@ -620,7 +687,7 @@ static async Task RunStressTest(MarketConfig config)
         };
         var evaluator = new MarketEvaluator(stressConfig);
         var genome = SeedGenome.FromJson(File.ReadAllText(genomePath));
-        var result = evaluator.EvaluateSingle(genome, snapshots, prices, 0);
+        var result = evaluator.EvaluateSingle(genome, snapshots, prices, rawVolumes, rawFundingRates, 0);
 
         Console.WriteLine($"{mult + "x",-12} {result.Fitness.Fitness,10:F4} {result.Fitness.ReturnPct,9:P1} {result.Fitness.TotalTrades,8}");
         tracker.RecordMetric($"stress_{mult}x", result.Fitness.Fitness);
@@ -638,7 +705,7 @@ static async Task RunMonteCarlo(MarketConfig config)
     var runner = new BacktestRunner(config);
     var end = DateTimeOffset.UtcNow.AddHours(-1);
     var start = end.AddHours(-config.TrainingWindowHours);
-    var (snapshots, prices) = await runner.LoadData(config.Symbols[0], start, end, enrich: true);
+    var (snapshots, prices, rawVolumes, rawFundingRates) = await runner.LoadData(config.Symbols[0], start, end, enrich: true);
 
     var genomePath = config.ResolvedGenomePath;
     if (!File.Exists(genomePath))
@@ -649,12 +716,11 @@ static async Task RunMonteCarlo(MarketConfig config)
 
     var evaluator = new MarketEvaluator(config);
     var genome = SeedGenome.FromJson(File.ReadAllText(genomePath));
-    var evalResult = evaluator.EvaluateSingle(genome, snapshots, prices, 0);
+    var evalResult = evaluator.EvaluateSingle(genome, snapshots, prices, rawVolumes, rawFundingRates, 0);
 
     Console.WriteLine($"[MC] Agent made {evalResult.Fitness.TotalTrades} trades. Bootstrapping 10,000 resamples...");
 
     var tradePnls = new List<float>();
-    // Re-run to get trade history (EvaluateSingle doesn't expose it directly)
     var developer = new BrainDeveloper(MarketAgent.InputCount, MarketAgent.OutputCount);
     var sg = (SeedGenome)genome;
     var budget = MarketEvaluator.MarketBrainBudget with
@@ -672,7 +738,8 @@ static async Task RunMonteCarlo(MarketConfig config)
     {
         decimal price = (decimal)prices[t];
         if (price <= 0) continue;
-        agent.ProcessTick(snapshots[t], price);
+        var ctx = new TickContext(price, (decimal)rawVolumes[t], rawFundingRates[t], t, (float)t);
+        agent.ProcessTick(snapshots[t], ctx);
     }
     trader.CloseAllPositions(agent.Portfolio, (decimal)prices[^1], snapshots.Length);
 
@@ -704,7 +771,7 @@ static async Task RunNeuroAblation(MarketConfig config)
     var runner = new BacktestRunner(config);
     var end = DateTimeOffset.UtcNow.AddHours(-1);
     var start = end.AddHours(-config.ValidationWindowHours);
-    var (snapshots, prices) = await runner.LoadData(config.Symbols[0], start, end, enrich: true);
+    var (snapshots, prices, rawVolumes, rawFundingRates) = await runner.LoadData(config.Symbols[0], start, end, enrich: true);
 
     var genomePath = config.ResolvedGenomePath;
     if (!File.Exists(genomePath))
@@ -733,7 +800,8 @@ static async Task RunNeuroAblation(MarketConfig config)
         {
             decimal price = (decimal)prices[t];
             if (price <= 0) continue;
-            agent.ProcessTick(snapshots[t], price);
+            var ctx = new TickContext(price, (decimal)rawVolumes[t], rawFundingRates[t], t, (float)t);
+            agent.ProcessTick(snapshots[t], ctx);
             agent.Portfolio.RecordEquity(price);
         }
         trader.CloseAllPositions(agent.Portfolio, (decimal)prices[^1], snapshots.Length);

@@ -238,6 +238,93 @@ public class IntegrationTests
     }
 
     [Fact]
+    public void Checkpoint_RestoresSpeciationAndArchiveState()
+    {
+        var config = MarketConfig.Default with
+        {
+            PopulationSize = 15,
+            Generations = 10,
+            InitialCapital = 10_000m,
+            RunSeed = 99
+        };
+
+        var logPath = Path.Combine(Path.GetTempPath(), $"seed_cp_spec_{Guid.NewGuid()}.jsonl");
+        var observatory = new FileObservatory(logPath);
+        var evo = new MarketEvolution(config, observatory);
+        evo.Initialize();
+
+        var (snapshots, prices, rawVols, rawFund) = CreateSyntheticData(200);
+
+        for (int g = 0; g < 3; g++)
+            evo.RunGeneration(snapshots, prices, rawVols, rawFund);
+
+        int speciesCountBefore = evo.SpeciesCount;
+        int nextSpeciesIdBefore = evo.NextSpeciesId;
+        int archiveCountBefore = evo.Archive.Count;
+        var speciesStateBefore = evo.GetSpeciesState();
+        Assert.True(speciesCountBefore > 0);
+
+        var cpSpeciesState = speciesStateBefore
+            .Select(s => new SpeciesCheckpointEntry(s.SpeciesId, s.RepresentativeJson, s.StagnationCounter, s.BestFitness))
+            .ToList();
+        var cpArchiveState = evo.Archive.Champions
+            .Select(kv => new ArchiveCheckpointEntry(kv.Key, kv.Value.Genome.ToJson(), kv.Value.Fitness))
+            .ToList();
+
+        var path = Path.Combine(Path.GetTempPath(), $"seed_cp_spec_{Guid.NewGuid():N}.json");
+        try
+        {
+            var cp = Backtest.CheckpointState.FromPopulation(
+                evo.Population, 3, 0.1f,
+                evo.GetSpeciesIds(),
+                evo.Innovations.NextInnovationId, evo.Innovations.NextCppnNodeId,
+                evo.CompatibilityThreshold,
+                0, 0,
+                cpSpeciesState, nextSpeciesIdBefore, cpArchiveState);
+            cp.Save(path);
+
+            var loaded = Backtest.CheckpointState.Load(path);
+            Assert.Equal(speciesStateBefore.Count, loaded.SpeciesState.Count);
+            Assert.Equal(nextSpeciesIdBefore, loaded.NextSpeciesId);
+            Assert.Equal(archiveCountBefore, loaded.ArchiveState.Count);
+
+            for (int i = 0; i < speciesStateBefore.Count; i++)
+            {
+                Assert.Equal(speciesStateBefore[i].SpeciesId, loaded.SpeciesState[i].SpeciesId);
+                Assert.Equal(speciesStateBefore[i].StagnationCounter, loaded.SpeciesState[i].StagnationCounter);
+                Assert.Equal(speciesStateBefore[i].BestFitness, loaded.SpeciesState[i].BestFitness);
+            }
+
+            var evo2 = new MarketEvolution(config, observatory);
+            var restored = loaded.RestorePopulation();
+            var restoredSpecies = loaded.SpeciesState
+                .Select(s => (s.SpeciesId, (IGenome)SeedGenome.FromJson(s.RepresentativeGenomeJson), s.StagnationCounter, s.BestFitness))
+                .ToList();
+            var restoredArchive = loaded.ArchiveState
+                .Select(a => (a.SpeciesId, (IGenome)SeedGenome.FromJson(a.GenomeJson), a.Fitness))
+                .ToList();
+
+            evo2.InitializeFrom(restored, loaded.Generation,
+                loaded.NextInnovationId, loaded.NextCppnNodeId, loaded.CompatibilityThreshold,
+                restoredSpecies, loaded.NextSpeciesId, restoredArchive);
+
+            Assert.Equal(3, evo2.Generation);
+            Assert.Equal(nextSpeciesIdBefore, evo2.NextSpeciesId);
+            Assert.Equal(archiveCountBefore, evo2.Archive.Count);
+
+            var report = evo2.RunGeneration(snapshots, prices, rawVols, rawFund);
+            Assert.True(report.PopulationSize > 0);
+            Assert.True(report.SpeciesCount > 0);
+            Assert.Equal(4, evo2.Generation);
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+            if (File.Exists(logPath)) File.Delete(logPath);
+        }
+    }
+
+    [Fact]
     public void MarketEvaluator_UsesSharedBudget()
     {
         Assert.Equal(16, MarketEvaluator.MarketBrainBudget.HiddenWidth);
@@ -270,8 +357,8 @@ public class IntegrationTests
         enrichment[SignalIndex.FearGreedIndex] = fearGreed;
         enrichment[SignalIndex.Sp500Return] = sp500;
 
-        var (snapshotsPlain, _) = HistoricalDataStore.CandlesToSignals(candles);
-        var (snapshotsEnriched, _) = HistoricalDataStore.CandlesToSignals(candles, enrichment);
+        var (snapshotsPlain, _, _, _) = HistoricalDataStore.CandlesToSignals(candles);
+        var (snapshotsEnriched, _, _, _) = HistoricalDataStore.CandlesToSignals(candles, enrichment);
 
         int enrichedNonZero = 0, plainNonZero = 0;
         for (int s = 0; s < SignalIndex.Count; s++)
@@ -364,5 +451,31 @@ public class IntegrationTests
             Assert.True(proximity.Value > -1f,
                 $"EventProximity should not be minimal for date near FOMC: {date:yyyy-MM-dd}");
         }
+    }
+
+    private static (SignalSnapshot[], float[], float[], float[]) CreateSyntheticData(int length)
+    {
+        var normalizer = new SignalNormalizer();
+        var snapshots = new SignalSnapshot[length];
+        var prices = new float[length];
+        var rawVolumes = new float[length];
+        var rawFundingRates = new float[length];
+        float price = 50000f;
+        var rng = new Random(42);
+
+        for (int i = 0; i < length; i++)
+        {
+            price *= 1f + (float)(rng.NextDouble() - 0.498) * 0.02f;
+            prices[i] = price;
+            rawVolumes[i] = 1000f + (float)rng.NextDouble() * 500f;
+            rawFundingRates[i] = 0.0001f * ((float)rng.NextDouble() - 0.5f);
+            var raw = new float[SignalIndex.Count];
+            raw[SignalIndex.BtcPrice] = price;
+            raw[SignalIndex.BtcReturn1h] = i > 0 ? (price - prices[i - 1]) / prices[i - 1] : 0f;
+            raw[SignalIndex.BtcVolume1h] = rawVolumes[i];
+            raw[SignalIndex.Rsi14] = 50f + (float)(rng.NextDouble() - 0.5) * 30f;
+            snapshots[i] = normalizer.Normalize(raw, DateTimeOffset.UtcNow.AddHours(i), i);
+        }
+        return (snapshots, prices, rawVolumes, rawFundingRates);
     }
 }

@@ -63,9 +63,10 @@ public static class MarketFitness
         float sortinoComponent = float.IsNaN(sortino) || float.IsInfinity(sortino) ? 0f : sortino;
         float cvarPenalty = cvar5 < 0f ? -cvar5 : 0f;
 
+        float logReturn = MathF.Log(1f + MathF.Abs(returnPct)) * MathF.Sign(returnPct);
         float fitness = adjustedSharpe * wSharpe
                       + sortinoComponent * wSortino
-                      + returnPct * wReturn
+                      + logReturn * wReturn
                       - maxDdDuration * wDrawdownDuration
                       - cvarPenalty * wCVaR;
 

@@ -31,7 +31,8 @@ public sealed record LearningParams(
     float AlphaCuriosity = 0.25f,           // αC
     float BetaConsolidate = 0.01f,          // β (slow weight update rate)
     float GammaRecall = 0.01f,              // γ (fast weight recall from slow)
-    int CriticalPeriodTicks = 1000          // ticks over which Eta decays to 10%
+    int CriticalPeriodTicks = 1000,         // ticks over which Eta decays to 10% (deprecated, use CriticalPeriodHours)
+    float CriticalPeriodHours = 1000f       // hours over which Eta decays to 10%
 )
 {
     public static LearningParams Default => new();

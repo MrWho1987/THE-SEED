@@ -20,8 +20,8 @@ public class ValidationTests
         var rng = new Rng64(42);
         var genome = SeedGenome.CreateRandom(rng);
 
-        var (snapshots, prices) = CreateSyntheticData(100);
-        var result = evaluator.EvaluateSingle(genome, snapshots, prices, 0);
+        var (snapshots, prices, rawVols, rawFund) = CreateSyntheticData(100);
+        var result = evaluator.EvaluateSingle(genome, snapshots, prices, rawVols, rawFund, 0);
 
         Assert.False(float.IsNaN(result.Fitness.Fitness));
         Assert.False(float.IsInfinity(result.Fitness.Fitness));
@@ -219,11 +219,13 @@ public class ValidationTests
         Assert.True(wfEvalWindow <= remainingLen, "Eval window must not exceed remaining data");
     }
 
-    private static (SignalSnapshot[], float[]) CreateSyntheticData(int length)
+    private static (SignalSnapshot[], float[], float[], float[]) CreateSyntheticData(int length)
     {
         var normalizer = new SignalNormalizer();
         var snapshots = new SignalSnapshot[length];
         var prices = new float[length];
+        var rawVolumes = new float[length];
+        var rawFundingRates = new float[length];
         float price = 50000f;
         var rng = new Random(42);
 
@@ -231,6 +233,8 @@ public class ValidationTests
         {
             price *= 1f + (float)(rng.NextDouble() - 0.498) * 0.02f;
             prices[i] = price;
+            rawVolumes[i] = 1000f;
+            rawFundingRates[i] = 0.0001f;
             var raw = new float[SignalIndex.Count];
             raw[SignalIndex.BtcPrice] = price;
             raw[SignalIndex.BtcReturn1h] = i > 0 ? (price - prices[i - 1]) / prices[i - 1] : 0f;
@@ -238,6 +242,6 @@ public class ValidationTests
             raw[SignalIndex.Rsi14] = 50f;
             snapshots[i] = normalizer.Normalize(raw, DateTimeOffset.UtcNow.AddHours(i), i);
         }
-        return (snapshots, prices);
+        return (snapshots, prices, rawVolumes, rawFundingRates);
     }
 }

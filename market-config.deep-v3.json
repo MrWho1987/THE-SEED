@@ -1,0 +1,45 @@
+{
+  "initialCapital": 10000,
+  "makerFee": 0.0004,
+  "takerFee": 0.0006,
+  "slippageBps": 5,
+  "symbols": ["BTCUSDT"],
+  "maxPositionPct": 0.25,
+  "maxDailyLossPct": 0.05,
+  "killSwitchDrawdownPct": 0.15,
+  "maxConcurrentPositions": 3,
+
+  "populationSize": 100,
+  "generations": 1500,
+  "trainingWindowHours": 65000,
+  "validationWindowHours": 8760,
+  "evalWindowHours": 4000,
+  "evalWindowCount": 3,
+  "rollingStepHours": 168,
+  "runSeed": 37,
+
+  "fitnessSharpeWeight": 0.35,
+  "fitnessSortinoWeight": 0.15,
+  "fitnessReturnWeight": 0.15,
+  "fitnessDrawdownDurationWeight": 0.20,
+  "fitnessCVaRWeight": 0.15,
+
+  "maxBrainNodes": 200,
+  "maxBrainEdges": 2000,
+
+  "spotPollMs": 5000,
+  "futuresPollMs": 15000,
+  "sentimentPollMs": 300000,
+  "onChainPollMs": 3600000,
+  "macroPollMs": 3600000,
+
+  "coinGeckoApiKey": "CG-grHkUd2py1dRkcUhXG9BfBS4",
+
+  "walkForwardMinValFitness": 0.0,
+
+  "mode": "Backtest",
+  "confirmLive": false,
+  "outputDirectory": "output_deep_v3",
+  "displayIntervalMs": 10000,
+  "checkpointIntervalGens": 25
+}

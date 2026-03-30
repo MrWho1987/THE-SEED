@@ -12,7 +12,11 @@ public record GenerationReportData(
     int Generation, float BestFitness, float MeanFitness, float BestSharpe,
     float BestReturn, int BestTrades, float BestWinRate, int SpeciesCount,
     string Substrate, float? ValidationFitness = null, string? WalkForwardStatus = null,
-    int WalkForwardOffsetHours = 0, int StallCount = 0);
+    int WalkForwardOffsetHours = 0, int StallCount = 0,
+    float MedianFitness = 0f, float BestSortino = 0f,
+    float BestMaxDrawdown = 0f, float BestCVaR5 = 0f,
+    int InactiveCount = 0, int PopulationSize = 100, int MaxSpeciesStagnation = 0,
+    float CompatibilityThreshold = 3.5f, int ArchiveSize = 0);
 
 public class TrainingService
 {
@@ -46,25 +50,45 @@ public class TrainingService
         var runner = new BacktestRunner(_config);
         var end = DateTimeOffset.UtcNow.AddHours(-1);
         var start = end.AddHours(-_config.TrainingWindowHours - _config.ValidationWindowHours);
-        var (snapshots, prices) = runner.LoadData(_config.Symbols[0], start, end, enrich: true).GetAwaiter().GetResult();
+        var (snapshots, prices, rawVolumes, rawFundingRates) = runner.LoadData(_config.Symbols[0], start, end, enrich: true).GetAwaiter().GetResult();
 
         int trainLen = Math.Min(_config.TrainingWindowHours, snapshots.Length - _config.ValidationWindowHours);
         var trainSnapshots = snapshots[..trainLen];
         var trainPrices = prices[..trainLen];
+        var trainRawVolumes = rawVolumes[..trainLen];
+        var trainRawFunding = rawFundingRates[..trainLen];
         var valSnapshots = snapshots[trainLen..];
         var valPrices = prices[trainLen..];
+        var valRawVolumes = rawVolumes[trainLen..];
+        var valRawFunding = rawFundingRates[trainLen..];
 
         var observatory = new FileObservatory(Path.Combine(_config.OutputDirectory, "events.jsonl"));
         var evolution = new MarketEvolution(_config, observatory);
 
         var checkpointDir = Path.Combine(_config.OutputDirectory, "checkpoints");
         Directory.CreateDirectory(checkpointDir);
+
+        int walkForwardOffset = 0;
+        int stallCount = 0;
+
         var latestCp = CheckpointState.FindLatest(checkpointDir);
         if (latestCp != null)
         {
             var cp = CheckpointState.Load(latestCp);
             var restored = cp.RestorePopulation();
-            evolution.InitializeFrom(restored, cp.Generation);
+
+            var speciesState = cp.SpeciesState
+                .Select(s => (s.SpeciesId, (IGenome)SeedGenome.FromJson(s.RepresentativeGenomeJson), s.StagnationCounter, s.BestFitness))
+                .ToList();
+            var archiveState = cp.ArchiveState
+                .Select(a => (a.SpeciesId, (IGenome)SeedGenome.FromJson(a.GenomeJson), a.Fitness))
+                .ToList();
+
+            evolution.InitializeFrom(restored, cp.Generation,
+                cp.NextInnovationId, cp.NextCppnNodeId, cp.CompatibilityThreshold,
+                speciesState, cp.NextSpeciesId, archiveState);
+            walkForwardOffset = cp.WalkForwardOffset;
+            stallCount = cp.StallCount;
         }
         else
         {
@@ -74,8 +98,6 @@ public class TrainingService
         int evalWindow = Math.Min(_config.EvalWindowHours, trainLen);
         float bestEverFitness = float.MinValue;
         float bestValFitness = float.MinValue;
-        int walkForwardOffset = 0;
-        int stallCount = 0;
         var evaluator = new MarketEvaluator(_config);
 
         for (int gen = evolution.Generation; gen < _config.Generations; gen++)
@@ -88,14 +110,18 @@ public class TrainingService
             if (remainingLen < 1) remainingLen = 1;
             var wfSnaps = trainSnapshots[walkForwardOffset..(walkForwardOffset + remainingLen)];
             var wfPrices = trainPrices[walkForwardOffset..(walkForwardOffset + remainingLen)];
+            var wfRawVols = trainRawVolumes[walkForwardOffset..(walkForwardOffset + remainingLen)];
+            var wfRawFund = trainRawFunding[walkForwardOffset..(walkForwardOffset + remainingLen)];
             int wfEvalWindow = Math.Min(evalWindow, remainingLen);
 
             int maxOff = Math.Max(1, remainingLen - wfEvalWindow);
             int offset = _config.WalkForwardEnabled ? 0 : (gen * _config.RollingStepHours) % maxOff;
             var evalSnaps = wfSnaps[offset..(offset + wfEvalWindow)];
             var evalPrices = wfPrices[offset..(offset + wfEvalWindow)];
+            var evalRawVols = wfRawVols[offset..(offset + wfEvalWindow)];
+            var evalRawFund = wfRawFund[offset..(offset + wfEvalWindow)];
 
-            var report = evolution.RunGeneration(evalSnaps, evalPrices);
+            var report = evolution.RunGeneration(evalSnaps, evalPrices, evalRawVols, evalRawFund);
 
             float? valFit = null;
             string? wfStatus = null;
@@ -106,7 +132,9 @@ public class TrainingService
                 if (bestGenome != null)
                 {
                     int valWindow = Math.Min(_config.EvalWindowHours, valPrices.Length);
-                    var valResult = evaluator.EvaluateSingle(bestGenome, valSnapshots[..valWindow], valPrices[..valWindow], gen);
+                    var valResult = evaluator.EvaluateSingle(bestGenome,
+                        valSnapshots[..valWindow], valPrices[..valWindow],
+                        valRawVolumes[..valWindow], valRawFunding[..valWindow], gen);
                     valFit = valResult.Fitness.Fitness;
 
                     if (_config.WalkForwardEnabled)
@@ -156,15 +184,31 @@ public class TrainingService
 
             if (_config.CheckpointIntervalGens > 0 && (gen + 1) % _config.CheckpointIntervalGens == 0)
             {
-                var cp = CheckpointState.FromPopulation(evolution.Population, gen, report.BestFitness, evolution.GetSpeciesIds());
-                cp.Save(Path.Combine(checkpointDir, $"checkpoint_{gen:D4}.json"));
+                var cpSpeciesState = evolution.GetSpeciesState()
+                    .Select(s => new SpeciesCheckpointEntry(s.SpeciesId, s.RepresentativeJson, s.StagnationCounter, s.BestFitness))
+                    .ToList();
+                var cpArchiveState = evolution.Archive.Champions
+                    .Select(kv => new ArchiveCheckpointEntry(kv.Key, kv.Value.Genome.ToJson(), kv.Value.Fitness))
+                    .ToList();
+
+                var cp = CheckpointState.FromPopulation(evolution.Population, gen + 1, report.BestFitness,
+                    evolution.GetSpeciesIds(),
+                    evolution.Innovations.NextInnovationId, evolution.Innovations.NextCppnNodeId,
+                    evolution.CompatibilityThreshold,
+                    walkForwardOffset, stallCount,
+                    cpSpeciesState, evolution.NextSpeciesId, cpArchiveState);
+                cp.Save(Path.Combine(checkpointDir, $"checkpoint_{gen + 1:D4}.json"));
             }
 
             _onGeneration(new GenerationReportData(
                 gen, report.BestFitness, report.MeanFitness, report.BestSharpe,
                 report.BestReturn, report.BestTrades, report.BestWinRate,
                 report.SpeciesCount, report.BestSubstrate, valFit, wfStatus,
-                walkForwardOffset, stallCount));
+                walkForwardOffset, stallCount,
+                report.MedianFitness, report.BestSortino,
+                report.BestMaxDrawdown, report.BestCVaR5,
+                report.InactiveCount, report.PopulationSize, report.MaxSpeciesStagnation,
+                report.CompatibilityThreshold, report.ArchiveSize));
         }
 
         var finalBest = evolution.GetBestGenome();

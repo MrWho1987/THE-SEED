@@ -281,7 +281,11 @@ public class PolishTests
             snaps[i] = normalizer.Normalize(raw, DateTimeOffset.UtcNow.AddHours(i), i);
         }
 
-        var results = evaluator.Evaluate(population, snaps, prices, 0);
+        var rawVols = new float[50];
+        var rawFund = new float[50];
+        for (int i = 0; i < 50; i++) { rawVols[i] = 1000f; rawFund[i] = 0.0001f; }
+
+        var results = evaluator.Evaluate(population, snaps, prices, rawVols, rawFund, 0);
         foreach (var r in results.Values)
             Assert.Equal(1.0f, r.Fitness.Fitness);
     }

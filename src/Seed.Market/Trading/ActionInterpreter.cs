@@ -16,11 +16,10 @@ public static class ActionInterpreter
 
     public static TradingSignal Interpret(ReadOnlySpan<float> outputs)
     {
-        float rawDir = outputs.Length > 0 ? Tanh(outputs[0]) : 0f;
-        float rawSize = outputs.Length > 1 ? Sigmoid(outputs[1]) : 0f;
-        float rawUrgency = outputs.Length > 2 ? Sigmoid(outputs[2]) : 0f;
-        float rawExit = outputs.Length > 3 ? Sigmoid(outputs[3]) : 0f;
-        // outputs[4] = price direction prediction (used for curiosity, not for trading)
+        float rawDir = outputs.Length > 0 ? Safe(outputs[0]) : 0f;
+        float rawSize = outputs.Length > 1 ? Sigmoid(Safe(outputs[1])) : 0f;
+        float rawUrgency = outputs.Length > 2 ? Sigmoid(Safe(outputs[2])) : 0f;
+        float rawExit = outputs.Length > 3 ? Sigmoid(Safe(outputs[3])) : 0f;
 
         var direction = TradeDirection.Flat;
         if (rawDir > DirectionDeadzone) direction = TradeDirection.Long;
@@ -33,6 +32,8 @@ public static class ActionInterpreter
         return new TradingSignal(direction, sizePct, urgency, exit);
     }
 
+    private static float Safe(float x) =>
+        float.IsNaN(x) || float.IsInfinity(x) ? 0f : x;
+
     private static float Sigmoid(float x) => 1f / (1f + MathF.Exp(-x));
-    private static float Tanh(float x) => MathF.Tanh(x);
 }

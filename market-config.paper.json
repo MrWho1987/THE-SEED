@@ -22,6 +22,6 @@
 
   "mode": "Paper",
   "confirmLive": false,
-  "outputDirectory": "output_deep",
+  "outputDirectory": "output_deep_v2",
   "displayIntervalMs": 10000
 }

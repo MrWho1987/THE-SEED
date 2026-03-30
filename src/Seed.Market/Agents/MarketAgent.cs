@@ -21,10 +21,12 @@ public sealed class MarketAgent
     private readonly PortfolioState _portfolio;
     private int _tick;
     private int _ticksSinceEntry;
+    private float _elapsedHoursAtEntry;
 
     private int _lastTradeCount;
     private float _lastUnrealizedPnl;
     private decimal _lastPrice;
+    private decimal _prevEquity;
     private TradingSignal? _pendingSignal;
     private TradingSignal _lastGeneratedSignal;
 
@@ -41,18 +43,19 @@ public sealed class MarketAgent
         _trader = trader;
         _ablation = ablation ?? AblationConfig.Default;
         _portfolio = trader.CreatePortfolio();
+        _prevEquity = _portfolio.InitialBalance;
     }
 
     public TradeResult ProcessTick(SignalSnapshot snapshot, decimal currentPrice)
     {
-        return ProcessTick(snapshot, new TickContext(currentPrice, 0m, 0f, _tick));
+        return ProcessTick(snapshot, new TickContext(currentPrice, 0m, 0f, _tick, (float)_tick));
     }
 
     public TradeResult ProcessTick(SignalSnapshot snapshot, TickContext ctx)
     {
         var signals = new float[InputCount];
         Array.Copy(snapshot.Signals, signals, InputCount);
-        InjectAgentState(signals, ctx.Price);
+        InjectAgentState(signals, ctx.Price, ctx.ElapsedHours);
 
         var outputs = _brain.Step(signals, new BrainStepContext(_tick));
 
@@ -72,19 +75,24 @@ public sealed class MarketAgent
         modulators[0] = reward;
         modulators[1] = pain;
         modulators[2] = curiosity;
-        _brain.Learn(modulators, new BrainLearnContext(_tick));
+        _brain.Learn(modulators, new BrainLearnContext(_tick, ctx.ElapsedHours));
 
         if (_portfolio.OpenPositions.Count > 0)
+        {
             _ticksSinceEntry++;
+        }
         else
+        {
             _ticksSinceEntry = 0;
+            _elapsedHoursAtEntry = ctx.ElapsedHours;
+        }
 
         _lastPrice = ctx.Price;
         _tick++;
         return result;
     }
 
-    private void InjectAgentState(float[] signals, decimal currentPrice)
+    private void InjectAgentState(float[] signals, decimal currentPrice, float elapsedHours)
     {
         if (_portfolio.OpenPositions.Count > 0)
         {
@@ -93,7 +101,8 @@ public sealed class MarketAgent
             signals[SignalIndex.CurrentPnl] = Math.Clamp(pnlPct, -1f, 1f);
             signals[SignalIndex.PositionDirection] = pos.Direction == TradeDirection.Long ? 1f
                 : pos.Direction == TradeDirection.Short ? -1f : 0f;
-            signals[SignalIndex.HoldingDuration] = Math.Min(_ticksSinceEntry / 100f, 1f);
+            float holdingHours = elapsedHours - _elapsedHoursAtEntry;
+            signals[SignalIndex.HoldingDuration] = Math.Min(holdingHours / 100f, 1f);
         }
         else
         {
@@ -123,14 +132,18 @@ public sealed class MarketAgent
         {
             float currentPnlPct = (float)_portfolio.OpenPositions[0].UnrealizedPnlPct(currentPrice) / 100f;
             float delta = currentPnlPct - _lastUnrealizedPnl;
-            reward += Math.Clamp(delta * 10f, -0.3f, 0.3f);
+            reward += Math.Clamp(delta * 30f, -0.5f, 0.5f);
             _lastUnrealizedPnl = currentPnlPct;
         }
         else
         {
+            decimal equity = _portfolio.Equity(currentPrice);
+            float equityDelta = Math.Clamp((float)((equity - _prevEquity) / _portfolio.InitialBalance) * 5f, -0.1f, 0.1f);
+            reward += equityDelta;
             _lastUnrealizedPnl = 0f;
         }
 
+        _prevEquity = _portfolio.Equity(currentPrice);
         return reward;
     }
 
@@ -156,9 +169,11 @@ public sealed class MarketAgent
         _brain.Reset();
         _tick = 0;
         _ticksSinceEntry = 0;
+        _elapsedHoursAtEntry = 0f;
         _lastTradeCount = 0;
         _lastUnrealizedPnl = 0f;
         _lastPrice = 0m;
+        _prevEquity = _portfolio.InitialBalance;
         _pendingSignal = null;
         _lastGeneratedSignal = default;
     }

@@ -83,7 +83,7 @@ public sealed class HistoricalDataStore
     /// then assembled per-bar and normalized.
     /// Optional enrichment data fills additional signal slots (macro, on-chain, etc.).
     /// </summary>
-    public static (SignalSnapshot[] snapshots, float[] prices) CandlesToSignals(
+    public static (SignalSnapshot[] snapshots, float[] prices, float[] rawVolumes, float[] rawFundingRates) CandlesToSignals(
         TechnicalIndicators.Candle[] candles,
         Dictionary<int, float[]>? enrichment = null)
     {
@@ -91,6 +91,8 @@ public sealed class HistoricalDataStore
         var normalizer = new SignalNormalizer();
         var snapshots = new SignalSnapshot[n];
         var prices = new float[n];
+        var rawVolumes = new float[n];
+        var rawFundingRates = new float[n];
 
         var closes = new float[n];
         var highs = new float[n];
@@ -104,6 +106,13 @@ public sealed class HistoricalDataStore
             lows[i] = candles[i].Low;
             volumes[i] = candles[i].Volume;
             prices[i] = candles[i].Close;
+            rawVolumes[i] = candles[i].Volume;
+        }
+
+        if (enrichment != null && enrichment.TryGetValue(SignalIndex.FundingRate, out var fundingArr))
+        {
+            for (int i = 0; i < n && i < fundingArr.Length; i++)
+                rawFundingRates[i] = fundingArr[i];
         }
 
         var ema12 = TechnicalIndicators.ComputeEmaArray(closes, 12);
@@ -168,7 +177,7 @@ public sealed class HistoricalDataStore
             snapshots[i] = normalizer.Normalize(raw, c.Time, i);
         }
 
-        return (snapshots, prices);
+        return (snapshots, prices, rawVolumes, rawFundingRates);
     }
 
     private static TechnicalIndicators.Candle[] LoadCandlesFromCache(string path)

@@ -8,6 +8,8 @@ public sealed class PaperTrader : ITrader
 {
     private readonly MarketConfig _config;
     private readonly RiskManager _risk;
+    private float _lastFundingHour = -8f;
+    private float _lastResetHour = 0f;
 
     public PaperTrader(MarketConfig config)
     {
@@ -33,8 +35,11 @@ public sealed class PaperTrader : ITrader
     public TradeResult ProcessSignal(
         TradingSignal signal, PortfolioState portfolio, TickContext ctx)
     {
-        if ((DateTimeOffset.UtcNow - portfolio.LastResetDay).TotalHours >= 24)
+        if (ctx.ElapsedHours - _lastResetHour >= 24f)
+        {
             _risk.ResetDaily(portfolio);
+            _lastResetHour = ctx.ElapsedHours;
+        }
 
         _risk.UpdateWatermark(portfolio, ctx.Price);
 
@@ -110,14 +115,20 @@ public sealed class PaperTrader : ITrader
         decimal feeRate = _config.TakerFee;
         decimal fee = fillPrice * position.Size * feeRate;
 
-        decimal pnl = position.Direction == TradeDirection.Long
-            ? (fillPrice - position.EntryPrice) * position.Size
-            : (position.EntryPrice - fillPrice) * position.Size;
-
-        pnl -= fee;
-
-        portfolio.Balance += pnl;
-        portfolio.DailyPnl += pnl;
+        decimal pnl;
+        try
+        {
+            pnl = position.Direction == TradeDirection.Long
+                ? (fillPrice - position.EntryPrice) * position.Size
+                : (position.EntryPrice - fillPrice) * position.Size;
+            pnl -= fee;
+            portfolio.Balance += pnl;
+            portfolio.DailyPnl += pnl;
+        }
+        catch (OverflowException)
+        {
+            pnl = 0;
+        }
         portfolio.OpenPositions.Remove(position);
 
         portfolio.TradeHistory.Add(new ClosedTrade(
@@ -155,17 +166,28 @@ public sealed class PaperTrader : ITrader
 
     private void ApplyFundingRates(PortfolioState portfolio, TickContext ctx)
     {
-        if (ctx.TickIndex <= 0 || ctx.TickIndex % 8 != 0 || ctx.FundingRate == 0f)
+        if (ctx.FundingRate == 0f)
             return;
+
+        int prevFundingSlot = (int)(_lastFundingHour / 8f);
+        int currFundingSlot = (int)(ctx.ElapsedHours / 8f);
+        if (currFundingSlot <= prevFundingSlot)
+            return;
+
+        _lastFundingHour = ctx.ElapsedHours;
 
         foreach (var pos in portfolio.OpenPositions)
         {
-            decimal fundingCost = pos.Size * pos.EntryPrice * (decimal)ctx.FundingRate;
-            if (pos.Direction == TradeDirection.Long)
-                portfolio.Balance -= fundingCost;
-            else
-                portfolio.Balance += fundingCost;
-            portfolio.DailyPnl -= (pos.Direction == TradeDirection.Long ? fundingCost : -fundingCost);
+            try
+            {
+                decimal fundingCost = pos.Size * pos.EntryPrice * (decimal)ctx.FundingRate;
+                if (pos.Direction == TradeDirection.Long)
+                    portfolio.Balance -= fundingCost;
+                else
+                    portfolio.Balance += fundingCost;
+                portfolio.DailyPnl -= (pos.Direction == TradeDirection.Long ? fundingCost : -fundingCost);
+            }
+            catch (OverflowException) { }
         }
     }
 

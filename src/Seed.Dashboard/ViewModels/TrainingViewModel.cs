@@ -14,8 +14,9 @@ public record ConfigItem(string DisplayName, string FullPath)
 }
 
 public record GenerationRow(
-    int Gen, float Best, float Mean, float Sharpe, string Return,
-    string WinRate, int Trades, int Species, string ValFit, string Status);
+    int Gen, float Best, float Mean, float Median, float Sharpe, float Sortino,
+    string Return, string WinRate, int Trades, string MaxDD, string CVaR,
+    int Species, string InactPct, string ValFit, string Status);
 
 public partial class TrainingViewModel : ObservableObject
 {
@@ -257,10 +258,15 @@ public partial class TrainingViewModel : ObservableObject
 
             _main.BestFitnessText = $"Best: {data.BestFitness:F2} | Sharpe: {data.BestSharpe:F2}";
 
+            float inactPct = data.PopulationSize > 0
+                ? (float)data.InactiveCount / data.PopulationSize * 100f
+                : 0f;
             var row = new GenerationRow(
-                data.Generation, data.BestFitness, data.MeanFitness, data.BestSharpe,
+                data.Generation, data.BestFitness, data.MeanFitness, data.MedianFitness,
+                data.BestSharpe, data.BestSortino,
                 data.BestReturn.ToString("P1"), data.BestWinRate.ToString("P0"),
-                data.BestTrades, data.SpeciesCount,
+                data.BestTrades, data.BestMaxDrawdown.ToString("P1"), data.BestCVaR5.ToString("F4"),
+                data.SpeciesCount, $"{inactPct:F0}%",
                 data.ValidationFitness?.ToString("F4") ?? "",
                 data.WalkForwardStatus ?? "");
             GenerationLog.Add(row);

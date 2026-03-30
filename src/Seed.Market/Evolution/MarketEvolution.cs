@@ -19,7 +19,7 @@ public sealed class MarketEvolution
     private readonly IObservatory _observatory;
     private readonly MarketEvaluator _evaluator;
     private readonly SpeciationManager _speciation;
-    private readonly InnovationTracker _innovations;
+    private InnovationTracker _innovations;
 
     private List<IGenome> _population;
     private Dictionary<Guid, MarketEvalResult> _evaluations;
@@ -32,6 +32,9 @@ public sealed class MarketEvolution
     public IReadOnlyDictionary<Guid, MarketEvalResult> Evaluations => _evaluations;
     public int SpeciesCount => _speciation.Species.Count;
     public EliteArchive Archive => _archive;
+    public InnovationTracker Innovations => _innovations;
+    public float CompatibilityThreshold => _compatibilityThreshold;
+    public int NextSpeciesId => _speciation.NextSpeciesId;
 
     public MarketEvolution(MarketConfig config, IObservatory observatory)
     {
@@ -56,40 +59,55 @@ public sealed class MarketEvolution
     /// <summary>
     /// Resume from a checkpoint: restore a previously saved population at a given generation.
     /// </summary>
-    public void InitializeFrom(List<IGenome> restoredPopulation, int generation)
+    public void InitializeFrom(List<IGenome> restoredPopulation, int generation,
+        int nextInnovationId = 0, int nextCppnNodeId = 0, float compatibilityThreshold = 0f,
+        IReadOnlyList<(int SpeciesId, IGenome Representative, int StagnationCounter, float BestFitness)>? speciesState = null,
+        int nextSpeciesId = 0,
+        IReadOnlyList<(int SpeciesId, IGenome Genome, float Fitness)>? archiveState = null)
     {
         _population = restoredPopulation;
         Generation = generation;
+        if (nextInnovationId > 0 && nextCppnNodeId > 0)
+            _innovations = new InnovationTracker(nextInnovationId, nextCppnNodeId);
+        if (compatibilityThreshold > 0f)
+            _compatibilityThreshold = compatibilityThreshold;
+        if (speciesState is { Count: > 0 })
+            _speciation.RestoreFrom(speciesState, nextSpeciesId);
+        if (archiveState is { Count: > 0 })
+            _archive.RestoreFrom(archiveState);
     }
 
     /// <summary>
     /// Run one generation: evaluate on the given data window, speciate, select, reproduce.
     /// </summary>
-    public GenerationReport RunGeneration(SignalSnapshot[] history, float[] prices)
+    public GenerationReport RunGeneration(SignalSnapshot[] history, float[] prices,
+        float[] rawVolumes, float[] rawFundingRates)
     {
-        return RunGeneration([(history, prices)]);
+        return RunGeneration([(history, prices, rawVolumes, rawFundingRates)]);
     }
 
     /// <summary>
     /// Run one generation with multi-window evaluation. Fitness = mean across windows.
     /// </summary>
-    public GenerationReport RunGeneration((SignalSnapshot[] Snaps, float[] Prices)[] windows)
+    public GenerationReport RunGeneration(
+        (SignalSnapshot[] Snaps, float[] Prices, float[] RawVolumes, float[] RawFundingRates)[] windows)
     {
         _observatory.OnEvent(new ObsEvent(
             ObsEventType.GenerationStart, Generation, Guid.Empty,
             $"{{\"pop\":{_population.Count},\"windows\":{windows.Length}}}"));
 
-        // 1. Evaluate across all windows and average
         if (windows.Length == 1)
         {
-            _evaluations = _evaluator.Evaluate(_population, windows[0].Snaps, windows[0].Prices, Generation);
+            _evaluations = _evaluator.Evaluate(_population,
+                windows[0].Snaps, windows[0].Prices,
+                windows[0].RawVolumes, windows[0].RawFundingRates, Generation);
         }
         else
         {
             var accumulated = new Dictionary<Guid, List<FitnessBreakdown>>();
-            foreach (var (snaps, prices) in windows)
+            foreach (var (snaps, prices, rawVols, rawFunding) in windows)
             {
-                var results = _evaluator.Evaluate(_population, snaps, prices, Generation);
+                var results = _evaluator.Evaluate(_population, snaps, prices, rawVols, rawFunding, Generation);
                 foreach (var (id, result) in results)
                 {
                     if (!accumulated.ContainsKey(id))
@@ -155,37 +173,23 @@ public sealed class MarketEvolution
         float lastPrice = windows[^1].Prices[^1];
         var report = BuildReport(lastPrice);
 
-        string brainDiagJson = "";
-        var bestSg = GetBestGenome() as SeedGenome;
-        if (bestSg != null)
-        {
-            try
-            {
-                var diagBudget = MarketEvaluator.MarketBrainBudget with
-                {
-                    HiddenWidth = bestSg.Dev.SubstrateWidth,
-                    HiddenHeight = bestSg.Dev.SubstrateHeight,
-                    HiddenLayers = bestSg.Dev.SubstrateLayers
-                };
-                var diagDev = new BrainDeveloper(MarketAgent.InputCount, MarketAgent.OutputCount);
-                var diagGraph = diagDev.CompileGraph(bestSg, diagBudget, new DevelopmentContext(_config.RunSeed, Generation));
-                var diagBrain = new BrainRuntime(diagGraph, bestSg.Learn, bestSg.Stable, 1);
-                diagBrain.Step(new float[MarketAgent.InputCount], new BrainStepContext(0));
-                var diag = diagBrain.GetDiagnostics();
-                brainDiagJson = $",\"brainDiag\":{{\"sat\":{diag.SaturationRate:F3},\"meanW\":{diag.MeanAbsWeightFast:F4},\"active\":{diag.ActiveEdgeCount},\"total\":{diag.TotalEdges}}}";
-            }
-            catch { }
-        }
-
         var specDetails = string.Join(",", _speciation.Species.Select(s =>
             $"{{\"id\":{s.SpeciesId},\"n\":{s.Members.Count},\"best\":{s.BestFitness:F4},\"stag\":{s.StagnationCounter}}}"));
 
+        string brainDiagJson = report.BestBrainTotalEdges > 0
+            ? $",\"brainDiag\":{{\"sat\":{report.BestBrainSaturation:F3},\"active\":{report.BestBrainActiveEdges},\"total\":{report.BestBrainTotalEdges}}}"
+            : "";
+
         _observatory.OnEvent(new ObsEvent(
             ObsEventType.GenerationEnd, Generation, report.BestGenomeId,
-            $"{{\"best\":{report.BestFitness:F4},\"mean\":{report.MeanFitness:F4}," +
+            $"{{\"best\":{report.BestFitness:F4},\"mean\":{report.MeanFitness:F4},\"median\":{report.MedianFitness:F4}," +
             $"\"species\":{report.SpeciesCount},\"trades\":{report.TotalTrades}," +
-            $"\"sharpe\":{report.BestSharpe:F2},\"substrate\":\"{report.BestSubstrate}\"," +
-            $"\"archiveSize\":{_archive.Count},\"threshold\":{_compatibilityThreshold:F2}," +
+            $"\"sharpe\":{report.BestSharpe:F2},\"sortino\":{report.BestSortino:F2}," +
+            $"\"cvar5\":{report.BestCVaR5:F4},\"maxDD\":{report.BestMaxDrawdown:F4},\"ddDur\":{report.BestMaxDrawdownDuration:F4}," +
+            $"\"inactive\":{report.InactiveCount},\"maxStag\":{report.MaxSpeciesStagnation}," +
+            $"\"substrate\":\"{report.BestSubstrate}\"," +
+            $"\"archiveSize\":{report.ArchiveSize},\"threshold\":{report.CompatibilityThreshold:F2}," +
+            $"\"innovId\":{report.InnovationId},\"shrinkage\":{report.BestShrinkageConfidence:F3}," +
             $"\"speciesDetails\":[{specDetails}]{brainDiagJson}}}"));
 
         // 5. Reproduce
@@ -293,7 +297,7 @@ public sealed class MarketEvolution
 
         var specCfg = new SpeciationConfig(
             C1: 1f, C2: 1f, C3: 0.5f,
-            CompatibilityThreshold: 3.5f,
+            CompatibilityThreshold: _compatibilityThreshold,
             TournamentSize: 3);
 
         var allocation = _speciation.AllocateOffspring(fitnesses, totalOffspring, popBudget, specCfg, _config.MinOffspringPerSpecies);
@@ -409,10 +413,45 @@ public sealed class MarketEvolution
         float mean = sorted.Average(e => e.Fitness.Fitness);
         int totalTrades = sorted.Sum(e => e.Fitness.TotalTrades);
 
+        var fitnessesSorted = sorted.Select(e => e.Fitness.Fitness).OrderBy(f => f).ToArray();
+        float median = fitnessesSorted.Length % 2 == 0
+            ? (fitnessesSorted[fitnessesSorted.Length / 2 - 1] + fitnessesSorted[fitnessesSorted.Length / 2]) / 2f
+            : fitnessesSorted[fitnessesSorted.Length / 2];
+
+        int inactiveCount = sorted.Count(e => !e.Fitness.IsActive);
+
+        int maxStag = _speciation.Species.Count > 0
+            ? _speciation.Species.Max(s => s.StagnationCounter)
+            : 0;
+
         string bestSubstrate = "16x16x3";
         var bestGenome = _population.FirstOrDefault(g => g.GenomeId == best.GenomeId) as SeedGenome;
         if (bestGenome != null)
             bestSubstrate = $"{bestGenome.Dev.SubstrateWidth}x{bestGenome.Dev.SubstrateHeight}x{bestGenome.Dev.SubstrateLayers}";
+
+        int brainActive = 0, brainTotal = 0;
+        float brainSat = 0f;
+        if (bestGenome != null)
+        {
+            try
+            {
+                var diagBudget = MarketEvaluator.MarketBrainBudget with
+                {
+                    HiddenWidth = bestGenome.Dev.SubstrateWidth,
+                    HiddenHeight = bestGenome.Dev.SubstrateHeight,
+                    HiddenLayers = bestGenome.Dev.SubstrateLayers
+                };
+                var diagDev = new BrainDeveloper(MarketAgent.InputCount, MarketAgent.OutputCount);
+                var diagGraph = diagDev.CompileGraph(bestGenome, diagBudget, new DevelopmentContext(_config.RunSeed, Generation));
+                var diagBrain = new BrainRuntime(diagGraph, bestGenome.Learn, bestGenome.Stable, 1);
+                diagBrain.Step(new float[MarketAgent.InputCount], new BrainStepContext(0));
+                var diag = diagBrain.GetDiagnostics();
+                brainActive = diag.ActiveEdgeCount;
+                brainTotal = diag.TotalEdges;
+                brainSat = diag.SaturationRate;
+            }
+            catch { }
+        }
 
         return new GenerationReport(
             Generation: Generation,
@@ -426,7 +465,29 @@ public sealed class MarketEvolution
             SpeciesCount: _speciation.Species.Count,
             TotalTrades: totalTrades,
             PopulationSize: _population.Count,
-            BestSubstrate: bestSubstrate);
+            BestSubstrate: bestSubstrate,
+            MedianFitness: median,
+            BestSortino: best.Fitness.Sortino,
+            BestMaxDrawdown: best.Fitness.MaxDrawdown,
+            BestCVaR5: best.Fitness.CVaR5,
+            BestMaxDrawdownDuration: best.Fitness.MaxDrawdownDuration,
+            BestShrinkageConfidence: best.Fitness.ShrinkageConfidence,
+            InactiveCount: inactiveCount,
+            MaxSpeciesStagnation: maxStag,
+            CompatibilityThreshold: _compatibilityThreshold,
+            ArchiveSize: _archive.Count,
+            BestBrainActiveEdges: brainActive,
+            BestBrainTotalEdges: brainTotal,
+            BestBrainSaturation: brainSat,
+            InnovationId: _innovations.NextInnovationId);
+    }
+
+    public List<(int SpeciesId, string RepresentativeJson, int StagnationCounter, float BestFitness)> GetSpeciesState()
+    {
+        var result = new List<(int, string, int, float)>();
+        foreach (var sp in _speciation.Species)
+            result.Add((sp.SpeciesId, sp.Representative.ToJson(), sp.StagnationCounter, sp.BestFitness));
+        return result;
     }
 
     public IGenome? GetBestGenome()
@@ -439,6 +500,26 @@ public sealed class MarketEvolution
     public List<int> GetSpeciesIds()
     {
         return _population.Select(g => _speciation.GetSpeciesId(g)).ToList();
+    }
+
+    public IReadOnlyList<IGenome> GetSpeciesChampions()
+    {
+        var champions = new List<IGenome>();
+        foreach (var species in _speciation.Species)
+        {
+            IGenome? best = null;
+            float bestFit = float.MinValue;
+            foreach (var member in species.Members)
+            {
+                if (_evaluations.TryGetValue(member.GenomeId, out var eval) && eval.Fitness.Fitness > bestFit)
+                {
+                    bestFit = eval.Fitness.Fitness;
+                    best = member;
+                }
+            }
+            if (best != null) champions.Add(best);
+        }
+        return champions;
     }
 }
 
@@ -454,5 +535,19 @@ public readonly record struct GenerationReport(
     int SpeciesCount,
     int TotalTrades,
     int PopulationSize,
-    string BestSubstrate = "16x16x3"
+    string BestSubstrate = "16x16x3",
+    float MedianFitness = 0f,
+    float BestSortino = 0f,
+    float BestMaxDrawdown = 0f,
+    float BestCVaR5 = 0f,
+    float BestMaxDrawdownDuration = 0f,
+    float BestShrinkageConfidence = 0f,
+    int InactiveCount = 0,
+    int MaxSpeciesStagnation = 0,
+    float CompatibilityThreshold = 3.5f,
+    int ArchiveSize = 0,
+    int BestBrainActiveEdges = 0,
+    int BestBrainTotalEdges = 0,
+    float BestBrainSaturation = 0f,
+    int InnovationId = 0
 );

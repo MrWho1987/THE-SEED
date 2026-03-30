@@ -101,9 +101,10 @@ public class FitnessTests
         Assert.False(float.IsNaN(result.Fitness));
         Assert.False(float.IsInfinity(result.Fitness));
 
+        float logReturn = MathF.Log(1f + MathF.Abs(result.ReturnPct)) * MathF.Sign(result.ReturnPct);
         float expectedFitness = result.AdjustedSharpe * 0.45f
                               + result.Sortino * 0.15f
-                              + result.ReturnPct * 0.20f
+                              + logReturn * 0.20f
                               - result.MaxDrawdownDuration * 0.10f
                               - (result.CVaR5 < 0 ? -result.CVaR5 : 0f) * 0.10f;
 
@@ -124,8 +125,8 @@ public class FitnessTests
         var rng = new Rng64(42);
         var population = new List<IGenome> { SeedGenome.CreateRandom(rng) };
 
-        var (snapshots, prices) = CreateSyntheticData(50);
-        var results = evaluator.Evaluate(population, snapshots, prices, 0);
+        var (snapshots, prices, rawVols, rawFund) = CreateSyntheticData(50);
+        var results = evaluator.Evaluate(population, snapshots, prices, rawVols, rawFund, 0);
 
         var result = results.Values.First();
         Assert.False(float.IsNaN(result.Fitness.Fitness));
@@ -151,11 +152,13 @@ public class FitnessTests
         return portfolio;
     }
 
-    private static (SignalSnapshot[], float[]) CreateSyntheticData(int length)
+    private static (SignalSnapshot[], float[], float[], float[]) CreateSyntheticData(int length)
     {
         var normalizer = new SignalNormalizer();
         var snapshots = new SignalSnapshot[length];
         var prices = new float[length];
+        var rawVolumes = new float[length];
+        var rawFundingRates = new float[length];
         float price = 50000f;
         var rng = new Random(42);
 
@@ -163,14 +166,16 @@ public class FitnessTests
         {
             price *= 1f + (float)(rng.NextDouble() - 0.498) * 0.02f;
             prices[i] = price;
+            rawVolumes[i] = 1000f + (float)rng.NextDouble() * 500f;
+            rawFundingRates[i] = 0.0001f;
             var raw = new float[SignalIndex.Count];
             raw[SignalIndex.BtcPrice] = price;
             raw[SignalIndex.BtcReturn1h] = i > 0 ? (price - prices[i - 1]) / prices[i - 1] : 0f;
-            raw[SignalIndex.BtcVolume1h] = 1000f + (float)rng.NextDouble() * 500f;
+            raw[SignalIndex.BtcVolume1h] = rawVolumes[i];
             raw[SignalIndex.FearGreedIndex] = 50f;
             raw[SignalIndex.Rsi14] = 50f;
             snapshots[i] = normalizer.Normalize(raw, DateTimeOffset.UtcNow.AddHours(i), i);
         }
-        return (snapshots, prices);
+        return (snapshots, prices, rawVolumes, rawFundingRates);
     }
 }

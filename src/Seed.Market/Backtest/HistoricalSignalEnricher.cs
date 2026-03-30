@@ -98,6 +98,15 @@ public sealed class HistoricalSignalEnricher
         }
         catch (Exception ex) { Console.WriteLine($"[ENRICH] Funding failed: {ex.Message}"); }
 
+        // Phase 7: Derivatives (OI, L/S ratio, taker ratio)
+        try
+        {
+            Console.WriteLine("[ENRICH] Downloading derivatives data...");
+            await AddDerivativesSignals(result, timestamps, start, end, n);
+            Console.WriteLine($"[ENRICH] +Derivatives: {CountSlots(result)} slots");
+        }
+        catch (Exception ex) { Console.WriteLine($"[ENRICH] Derivatives failed: {ex.Message}"); }
+
         Console.WriteLine($"[ENRICH] Complete: {CountSlots(result)} enrichment slots populated");
         return result;
     }
@@ -214,7 +223,7 @@ public sealed class HistoricalSignalEnricher
         foreach (var (sym, name) in symbols)
         {
             var daily = await FetchYahooDaily(sym, name);
-            series[name] = ForwardFillToHourly(daily, ts, n);
+            series[name] = ForwardFillToHourly(daily, ts, n, publicationDelayHours: 16);
             await Task.Delay(200);
         }
 
@@ -288,7 +297,7 @@ public sealed class HistoricalSignalEnricher
         foreach (var (chart, slot) in charts)
         {
             var daily = await FetchBlockchainChart(chart);
-            var aligned = ForwardFillToHourly(daily, ts, n);
+            var aligned = ForwardFillToHourly(daily, ts, n, publicationDelayHours: 24);
             result[slot] = aligned;
 
             if (slot == SignalIndex.HashRate) hashRate = aligned;
@@ -338,7 +347,7 @@ public sealed class HistoricalSignalEnricher
         Dictionary<int, float[]> result, DateTimeOffset[] ts, int n)
     {
         var daily = await FetchFearGreed();
-        var aligned = ForwardFillToHourly(daily, ts, n);
+        var aligned = ForwardFillToHourly(daily, ts, n, publicationDelayHours: 24);
 
         result[SignalIndex.FearGreedIndex] = aligned;
 
@@ -389,10 +398,10 @@ public sealed class HistoricalSignalEnricher
         await Task.Delay(3000);
         var usdcMcap = await FetchCoinGeckoMarketChart("usd-coin", "usdc_mcap");
 
-        var btcMcapAligned = ForwardFillToHourly(btcMcap, ts, n);
-        var ethMcapAligned = ForwardFillToHourly(ethMcap, ts, n);
-        var usdtAligned = ForwardFillToHourly(usdtMcap, ts, n);
-        var usdcAligned = ForwardFillToHourly(usdcMcap, ts, n);
+        var btcMcapAligned = ForwardFillToHourly(btcMcap, ts, n, publicationDelayHours: 1);
+        var ethMcapAligned = ForwardFillToHourly(ethMcap, ts, n, publicationDelayHours: 1);
+        var usdtAligned = ForwardFillToHourly(usdtMcap, ts, n, publicationDelayHours: 1);
+        var usdcAligned = ForwardFillToHourly(usdcMcap, ts, n, publicationDelayHours: 1);
 
         result[SignalIndex.UsdtMarketCap] = usdtAligned;
         result[SignalIndex.UsdcMarketCap] = usdcAligned;
@@ -544,6 +553,137 @@ public sealed class HistoricalSignalEnricher
         return result;
     }
 
+    // ── Phase 7: Derivatives Enrichment ─────────────────────────────────
+
+    private async Task AddDerivativesSignals(
+        Dictionary<int, float[]> result, DateTimeOffset[] ts,
+        DateTimeOffset start, DateTimeOffset end, int n)
+    {
+        var endpoints = new (string Endpoint, string Param, int Slot, string CacheName, string ValueProp)[]
+        {
+            ("/futures/data/globalLongShortAccountRatio", "BTCUSDT", SignalIndex.LongShortRatio, "btc_ls_ratio", "longShortRatio"),
+            ("/futures/data/takerlongshortRatio", "BTCUSDT", SignalIndex.TakerBuySellRatio, "btc_taker_ratio", "buySellRatio"),
+            ("/futures/data/topLongShortAccountRatio", "BTCUSDT", SignalIndex.TopTraderLongShort, "btc_top_ls", "longShortRatio"),
+        };
+
+        foreach (var (endpoint, symbol, slot, cacheName, valueProp) in endpoints)
+        {
+            try
+            {
+                var data = await FetchBinanceFuturesData(endpoint, symbol, cacheName, start, end, valueProp);
+                result[slot] = ForwardFillToHourly(data, ts, n);
+                await Task.Delay(200);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ENRICH] Derivatives {cacheName} failed: {ex.Message}");
+            }
+        }
+
+        try
+        {
+            var oiData = await FetchOpenInterestHistory("BTCUSDT", "btc_oi", start, end);
+            var oiAligned = ForwardFillToHourly(oiData, ts, n);
+            result[SignalIndex.OpenInterest] = oiAligned;
+
+            var oiChange = new float[n];
+            for (int i = 1; i < n; i++)
+                oiChange[i] = oiAligned[i - 1] > 0 ? (oiAligned[i] - oiAligned[i - 1]) / oiAligned[i - 1] : 0f;
+            result[SignalIndex.OiChange1h] = oiChange;
+        }
+        catch (Exception ex) { Console.WriteLine($"[ENRICH] BTC OI failed: {ex.Message}"); }
+
+        try
+        {
+            var ethOi = await FetchOpenInterestHistory("ETHUSDT", "eth_oi", start, end);
+            result[SignalIndex.EthOpenInterest] = ForwardFillToHourly(ethOi, ts, n);
+        }
+        catch (Exception ex) { Console.WriteLine($"[ENRICH] ETH OI failed: {ex.Message}"); }
+    }
+
+    private async Task<List<(long UnixMs, float Value)>> FetchBinanceFuturesData(
+        string endpoint, string symbol, string cacheName, DateTimeOffset start, DateTimeOffset end,
+        string valueProperty = "longShortRatio")
+    {
+        var cache = Path.Combine(_cacheDir, $"{cacheName}.jsonl");
+        if (File.Exists(cache))
+            return LoadTimeseriesCache(cache);
+
+        var data = new List<(long, float)>();
+        long startMs = start.ToUnixTimeMilliseconds();
+        long endMs = end.ToUnixTimeMilliseconds();
+
+        while (startMs < endMs)
+        {
+            try
+            {
+                var url = $"https://fapi.binance.com{endpoint}?symbol={symbol}" +
+                          $"&period=1h&startTime={startMs}&endTime={endMs}&limit=500";
+                var json = await _client.GetStringAsync(url);
+                var arr = JsonSerializer.Deserialize<JsonElement>(json);
+                int count = arr.GetArrayLength();
+                if (count == 0) break;
+
+                for (int i = 0; i < count; i++)
+                {
+                    long t = arr[i].GetProperty("timestamp").GetInt64();
+                    float val = float.Parse(
+                        arr[i].GetProperty(valueProperty).GetString()!,
+                        CultureInfo.InvariantCulture);
+                    data.Add((t, val));
+                }
+
+                startMs = data[^1].Item1 + 1;
+                await Task.Delay(200);
+            }
+            catch { break; }
+        }
+
+        SaveTimeseriesCache(cache, data);
+        return data;
+    }
+
+    private async Task<List<(long UnixMs, float Value)>> FetchOpenInterestHistory(
+        string symbol, string cacheName, DateTimeOffset start, DateTimeOffset end)
+    {
+        var cache = Path.Combine(_cacheDir, $"{cacheName}.jsonl");
+        if (File.Exists(cache))
+            return LoadTimeseriesCache(cache);
+
+        var data = new List<(long, float)>();
+        long startMs = start.ToUnixTimeMilliseconds();
+        long endMs = end.ToUnixTimeMilliseconds();
+
+        while (startMs < endMs)
+        {
+            try
+            {
+                var url = $"https://fapi.binance.com/futures/data/openInterestHist?symbol={symbol}" +
+                          $"&period=1h&startTime={startMs}&endTime={endMs}&limit=500";
+                var json = await _client.GetStringAsync(url);
+                var arr = JsonSerializer.Deserialize<JsonElement>(json);
+                int count = arr.GetArrayLength();
+                if (count == 0) break;
+
+                for (int i = 0; i < count; i++)
+                {
+                    long t = arr[i].GetProperty("timestamp").GetInt64();
+                    float val = float.Parse(
+                        arr[i].GetProperty("sumOpenInterest").GetString()!,
+                        CultureInfo.InvariantCulture);
+                    data.Add((t, val));
+                }
+
+                startMs = data[^1].Item1 + 1;
+                await Task.Delay(200);
+            }
+            catch { break; }
+        }
+
+        SaveTimeseriesCache(cache, data);
+        return data;
+    }
+
     // ── Binance Candle Downloader (reusable for ETH) ────────────────────
 
     private async Task<TechnicalIndicators.Candle[]> DownloadBinanceCandles(
@@ -615,23 +755,25 @@ public sealed class HistoricalSignalEnricher
     /// Forward-fill a daily (or irregular) time series to align with hourly candle timestamps.
     /// </summary>
     private static float[] ForwardFillToHourly(
-        List<(long UnixMs, float Value)> daily, DateTimeOffset[] ts, int n)
+        List<(long UnixMs, float Value)> daily, DateTimeOffset[] ts, int n,
+        int publicationDelayHours = 0)
     {
         var result = new float[n];
         if (daily.Count == 0) return result;
 
+        long delayMs = (long)publicationDelayHours * 3_600_000L;
         int dIdx = 0;
         float current = daily[0].Item2;
 
         for (int i = 0; i < n; i++)
         {
             long tMs = ts[i].ToUnixTimeMilliseconds();
-            while (dIdx < daily.Count - 1 && daily[dIdx + 1].Item1 <= tMs)
+            while (dIdx < daily.Count - 1 && daily[dIdx + 1].Item1 + delayMs <= tMs)
             {
                 dIdx++;
                 current = daily[dIdx].Item2;
             }
-            if (daily[dIdx].Item1 <= tMs)
+            if (daily[dIdx].Item1 + delayMs <= tMs)
                 current = daily[dIdx].Item2;
             result[i] = current;
         }

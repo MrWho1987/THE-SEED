@@ -26,7 +26,7 @@ public sealed class BacktestRunner
     /// Load historical data for the given date range and return evaluation-ready arrays.
     /// When enrich=true, downloads supplemental data (macro, on-chain, sentiment, etc.).
     /// </summary>
-    public async Task<(SignalSnapshot[] snapshots, float[] prices)> LoadData(
+    public async Task<(SignalSnapshot[] snapshots, float[] prices, float[] rawVolumes, float[] rawFundingRates)> LoadData(
         string symbol, DateTimeOffset start, DateTimeOffset end, bool enrich = false)
     {
         var candles = await _store.FetchCandles(symbol, start, end);
@@ -50,9 +50,11 @@ public sealed class BacktestRunner
         IReadOnlyList<IGenome> population,
         SignalSnapshot[] history,
         float[] prices,
+        float[] rawVolumes,
+        float[] rawFundingRates,
         int generationIndex)
     {
-        return _evaluator.Evaluate(population, history, prices, generationIndex);
+        return _evaluator.Evaluate(population, history, prices, rawVolumes, rawFundingRates, generationIndex);
     }
 
     /// <summary>

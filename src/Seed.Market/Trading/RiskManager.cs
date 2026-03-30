@@ -53,6 +53,10 @@ public sealed class RiskManager
     public decimal ComputePositionSize(TradingSignal signal, PortfolioState portfolio, decimal currentPrice)
     {
         decimal equity = portfolio.Equity(currentPrice);
+        decimal maxEquityForSizing = portfolio.InitialBalance * _config.MaxEquityMultiplier;
+        if (equity > maxEquityForSizing)
+            equity = maxEquityForSizing;
+
         decimal maxNotional = equity * _config.MaxPositionPct;
         decimal requested = maxNotional * (decimal)signal.SizePct;
 

@@ -31,6 +31,26 @@ public sealed class SpeciationManager
     private int _nextSpeciesId;
 
     public IReadOnlyList<Species> Species => _species;
+    public int NextSpeciesId => _nextSpeciesId;
+
+    /// <summary>
+    /// Restore species state from a checkpoint. Each entry provides the representative
+    /// genome directly (not by index), along with stagnation counter and best fitness.
+    /// </summary>
+    public void RestoreFrom(
+        IReadOnlyList<(int SpeciesId, IGenome Representative, int StagnationCounter, float BestFitness)> entries,
+        int nextSpeciesId)
+    {
+        _species.Clear();
+        foreach (var (speciesId, representative, stagnation, bestFit) in entries)
+        {
+            var species = new Species(speciesId, representative);
+            species.StagnationCounter = stagnation;
+            species.BestFitness = bestFit;
+            _species.Add(species);
+        }
+        _nextSpeciesId = nextSpeciesId;
+    }
 
     /// <summary>
     /// Assign genomes to species based on compatibility distance.

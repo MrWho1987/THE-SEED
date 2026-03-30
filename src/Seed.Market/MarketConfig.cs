@@ -20,6 +20,7 @@ public sealed record MarketConfig
     public decimal KillSwitchDrawdownPct { get; init; } = 0.15m;
     public int MaxConcurrentPositions { get; init; } = 3;
     public decimal MaxDailyVaRPct { get; init; } = 0.05m;
+    public decimal MaxEquityMultiplier { get; init; } = 100m;
 
     // ── Evolution ──
     public int PopulationSize { get; init; } = 50;
