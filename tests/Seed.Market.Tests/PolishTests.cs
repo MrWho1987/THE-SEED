@@ -210,7 +210,7 @@ public class PolishTests
         var budget = MarketEvaluator.MarketBrainBudget with { HiddenWidth = 8, HiddenHeight = 8, HiddenLayers = 2 };
         var graph = dev.CompileGraph(custom, budget, new DevelopmentContext(42, 0));
 
-        Assert.Equal(88, graph.InputCount);
+        Assert.Equal(SignalIndex.Count, graph.InputCount);
         Assert.Equal(5, graph.OutputCount);
 
         var brain = new BrainRuntime(graph, custom.Learn, custom.Stable, 1);
@@ -229,7 +229,7 @@ public class PolishTests
                 Fitness: _value, ReturnPct: 0, MaxDrawdown: 0,
                 TotalTrades: portfolio.TotalTrades, WinRate: 0, NetPnl: 0,
                 IsActive: true, RawSharpe: 0, AdjustedSharpe: 0,
-                Sortino: 0, CVaR5: 0, MaxDrawdownDuration: 0, ShrinkageConfidence: 0);
+                Sortino: 0, AdjustedSortino: 0, CVaR5: 0, MaxDrawdownDuration: 0, ShrinkageConfidence: 0);
         }
     }
 

@@ -10,8 +10,8 @@ namespace Seed.Market.Evolution;
 /// </summary>
 public static class MarketFitness
 {
-    public const float InactivityPenalty = -0.1f;
-    public const int MinTradesForActive = 3;
+    public const float DefaultInactivityPenalty = -0.1f;
+    public const int DefaultMinTradesForActive = 3;
     private const float AnnualizationFactor = 93.54f; // sqrt(8760)
 
     public static float Compute(PortfolioState portfolio, decimal finalPrice, float shrinkageK = 10f)
@@ -22,7 +22,10 @@ public static class MarketFitness
     public static FitnessBreakdown ComputeDetailed(
         PortfolioState portfolio, decimal finalPrice, float shrinkageK = 10f,
         float wSharpe = 0.45f, float wSortino = 0.15f, float wReturn = 0.20f,
-        float wDrawdownDuration = 0.10f, float wCVaR = 0.10f)
+        float wDrawdownDuration = 0.10f, float wCVaR = 0.10f,
+        float inactivityPenalty = -0.1f, int minTradesForActive = 3,
+        float activityBonusScale = 0f,
+        float ratioClampMax = 10f, float returnFloor = -0.50f)
     {
         decimal equity = portfolio.Equity(finalPrice);
         decimal pnl = equity - portfolio.InitialBalance;
@@ -31,21 +34,21 @@ public static class MarketFitness
             : 0f;
 
         int tradeCount = portfolio.TotalTrades;
-        bool active = tradeCount >= MinTradesForActive;
 
-        if (!active)
+        if (tradeCount == 0)
         {
             return new FitnessBreakdown(
-                Fitness: InactivityPenalty,
+                Fitness: inactivityPenalty,
                 ReturnPct: returnPct,
                 MaxDrawdown: (float)portfolio.MaxDrawdown,
-                TotalTrades: tradeCount,
-                WinRate: portfolio.WinRate,
+                TotalTrades: 0,
+                WinRate: 0f,
                 NetPnl: (float)pnl,
                 IsActive: false,
                 RawSharpe: 0f,
                 AdjustedSharpe: 0f,
                 Sortino: 0f,
+                AdjustedSortino: 0f,
                 CVaR5: 0f,
                 MaxDrawdownDuration: 0f,
                 ShrinkageConfidence: 0f);
@@ -58,20 +61,41 @@ public static class MarketFitness
         float maxDdDuration = ComputeMaxDrawdownDuration(curve);
 
         float confidence = 1f - shrinkageK / (shrinkageK + tradeCount);
-        float adjustedSharpe = rawSharpe * confidence;
+        float adjustedSharpe = Math.Clamp(rawSharpe * confidence, -ratioClampMax, ratioClampMax);
 
-        float sortinoComponent = float.IsNaN(sortino) || float.IsInfinity(sortino) ? 0f : sortino;
+        float sortinoClean = float.IsNaN(sortino) || float.IsInfinity(sortino) ? 0f : sortino;
+        float adjustedSortino = Math.Clamp(sortinoClean * confidence, -ratioClampMax, ratioClampMax);
         float cvarPenalty = cvar5 < 0f ? -cvar5 : 0f;
 
         float logReturn = MathF.Log(1f + MathF.Abs(returnPct)) * MathF.Sign(returnPct);
-        float fitness = adjustedSharpe * wSharpe
-                      + sortinoComponent * wSortino
+        float fullFitness = adjustedSharpe * wSharpe
+                      + adjustedSortino * wSortino
                       + logReturn * wReturn
                       - maxDdDuration * wDrawdownDuration
                       - cvarPenalty * wCVaR;
 
-        if (float.IsNaN(fitness) || float.IsInfinity(fitness))
-            fitness = InactivityPenalty;
+        if (float.IsNaN(fullFitness) || float.IsInfinity(fullFitness))
+            fullFitness = inactivityPenalty;
+
+        float fitness;
+        bool isActive;
+        if (tradeCount >= minTradesForActive)
+        {
+            fitness = fullFitness;
+            isActive = true;
+        }
+        else
+        {
+            float alpha = (float)tradeCount / minTradesForActive;
+            fitness = alpha * fullFitness + (1f - alpha) * inactivityPenalty;
+            isActive = false;
+        }
+
+        if (tradeCount > 0 && activityBonusScale > 0f)
+            fitness += MathF.Log(1f + tradeCount) * activityBonusScale;
+
+        if (returnPct < returnFloor)
+            fitness = Math.Min(fitness, inactivityPenalty);
 
         return new FitnessBreakdown(
             Fitness: fitness,
@@ -80,10 +104,11 @@ public static class MarketFitness
             TotalTrades: tradeCount,
             WinRate: portfolio.WinRate,
             NetPnl: (float)pnl,
-            IsActive: true,
+            IsActive: isActive,
             RawSharpe: rawSharpe,
             AdjustedSharpe: adjustedSharpe,
-            Sortino: sortinoComponent,
+            Sortino: sortinoClean,
+            AdjustedSortino: adjustedSortino,
             CVaR5: cvar5,
             MaxDrawdownDuration: maxDdDuration,
             ShrinkageConfidence: confidence);
@@ -207,6 +232,7 @@ public readonly record struct FitnessBreakdown(
     float RawSharpe,
     float AdjustedSharpe,
     float Sortino,
+    float AdjustedSortino,
     float CVaR5,
     float MaxDrawdownDuration,
     float ShrinkageConfidence

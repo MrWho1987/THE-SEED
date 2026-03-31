@@ -12,13 +12,22 @@ using Seed.Market.Signals;
 using Seed.Market.Trading;
 using Seed.Observatory;
 
-var configPath = args.Length > 0 ? args[0] : "market-config.default.json";
-var config = File.Exists(configPath)
-    ? MarketConfig.Load(configPath)
-    : MarketConfig.Default;
+var configPath = "market-config.default.json";
+if (args.Length >= 2 && args[0] == "--config")
+    configPath = args[1];
+else if (args.Length >= 1 && !args[0].StartsWith("-"))
+    configPath = args[0];
+
+if (!File.Exists(configPath))
+{
+    Console.WriteLine($"[ERROR] Config file not found: {Path.GetFullPath(configPath)}");
+    return;
+}
+var config = MarketConfig.Load(configPath);
 
 Console.WriteLine("╔══════════════════════════════════════════════════════════════╗");
 Console.WriteLine("║          THE SEED — MARKET EVOLUTION ENGINE                  ║");
+Console.WriteLine($"║  Config: {Path.GetFileName(configPath),-50}║");
 Console.WriteLine($"║  Mode: {config.Mode,-52}║");
 Console.WriteLine($"║  Capital: ${config.InitialCapital,-48:N0}║");
 Console.WriteLine($"║  Population: {config.PopulationSize,-46}║");
@@ -168,8 +177,11 @@ static async Task RunBacktest(MarketConfig config)
         }
         else
         {
+            int windowEpoch = config.WindowStabilityGens > 1
+                ? gen / config.WindowStabilityGens
+                : gen;
             var diverseWindows = RegimeDetector.SelectDiverseWindows(
-                wfPrices, remainingLen, wfEvalWindow, k, gen, config.RunSeed);
+                wfPrices, remainingLen, wfEvalWindow, k, windowEpoch, config.RunSeed);
             var windowList = new (SignalSnapshot[], float[], float[], float[])[diverseWindows.Length];
             for (int w = 0; w < diverseWindows.Length; w++)
             {
@@ -254,6 +266,10 @@ static async Task RunBacktest(MarketConfig config)
             $"{report.BestTrades,7} {report.BestMaxDrawdown,6:P1} {report.BestCVaR5,7:F4} " +
             $"{report.SpeciesCount,3} {inactPct,5:F0}% {valFitStr}");
 
+        var (bestActive, posCount, negCount, minRet, maxRet) = evolution.GetActiveStats();
+        if (bestActive is { } ba)
+            Console.WriteLine($"  [active] best:{ba.Fitness:F4} ret:{ba.ReturnPct:P1} trd:{ba.TotalTrades} wr:{ba.WinRate:P0} dd:{ba.MaxDrawdown:P1} ddDur:{ba.MaxDrawdownDuration:P1} | pos:{posCount} neg:{negCount} retRange:[{minRet:P1}..{maxRet:P1}]");
+
         bool isDetailGen = config.CheckpointIntervalGens > 0 && (gen + 1) % config.CheckpointIntervalGens == 0;
         if (isDetailGen)
         {
@@ -261,6 +277,7 @@ static async Task RunBacktest(MarketConfig config)
             lastInnovationId = report.InnovationId;
             Console.WriteLine(
                 $"  [detail] DDDur:{report.BestMaxDrawdownDuration:P1}  PopTrd:{report.TotalTrades}  " +
+                $"MedTrd:{report.MedianTradesPerAgent:F0}  ActAg:{report.TradingAgentCount}  MaxTrd:{report.MaxTradesPerAgent}  " +
                 $"MaxStag:{report.MaxSpeciesStagnation}/{config.StagnationLimit}  CtAdj:{report.CompatibilityThreshold:F2}  " +
                 $"Arch:{report.ArchiveSize}  Edges:{report.BestBrainActiveEdges}/{report.BestBrainTotalEdges}  " +
                 $"Sat:{report.BestBrainSaturation:P0}  Innov:+{innovDelta}  Shrk:{report.BestShrinkageConfidence:F2}");

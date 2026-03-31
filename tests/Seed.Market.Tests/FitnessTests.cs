@@ -83,7 +83,7 @@ public class FitnessTests
 
         var result = MarketFitness.ComputeDetailed(portfolio, 50000m);
 
-        Assert.Equal(MarketFitness.InactivityPenalty, result.Fitness);
+        Assert.Equal(MarketFitness.DefaultInactivityPenalty, result.Fitness);
         Assert.False(result.IsActive);
     }
 
@@ -103,7 +103,7 @@ public class FitnessTests
 
         float logReturn = MathF.Log(1f + MathF.Abs(result.ReturnPct)) * MathF.Sign(result.ReturnPct);
         float expectedFitness = result.AdjustedSharpe * 0.45f
-                              + result.Sortino * 0.15f
+                              + result.AdjustedSortino * 0.15f
                               + logReturn * 0.20f
                               - result.MaxDrawdownDuration * 0.10f
                               - (result.CVaR5 < 0 ? -result.CVaR5 : 0f) * 0.10f;

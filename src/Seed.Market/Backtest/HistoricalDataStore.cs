@@ -126,6 +126,8 @@ public sealed class HistoricalDataStore
         var obvSlopeArr = TechnicalIndicators.ComputeObvSlopeArray(closes, volumes, 14);
         var vwapArr = TechnicalIndicators.ComputeVwapArray(candles, 24);
 
+        var rollingVol = ComputeRollingVolatility(closes, 24);
+
         for (int i = 0; i < n; i++)
         {
             var raw = new float[SignalIndex.Count];
@@ -174,10 +176,55 @@ public sealed class HistoricalDataStore
                 }
             }
 
+            float vol = rollingVol[i];
+            raw[SignalIndex.RegimeVolatility] = MathF.Min(vol / 0.05f, 1f);
+
+            float momentum24h = raw[SignalIndex.BtcReturn24h];
+            raw[SignalIndex.RegimeTrend] = Math.Clamp(momentum24h / 0.10f, -1f, 1f);
+
+            float prevVol = i > 0 ? rollingVol[i - 1] : vol;
+            raw[SignalIndex.RegimeChange] = Math.Clamp((vol - prevVol) / 0.02f, -1f, 1f);
+
+            float vixChange = raw[SignalIndex.VixChange];
+            float liqLong = raw[SignalIndex.LiquidationLong1h];
+            float liqShort = raw[SignalIndex.LiquidationShort1h];
+            float fundingAbs = MathF.Abs(raw[SignalIndex.FundingRate]);
+            float volPct = raw[SignalIndex.RegimeVolatility];
+            raw[SignalIndex.MarketStress] = Math.Clamp(
+                MathF.Abs(vixChange) * 2f + (liqLong + liqShort) * 0.5f + fundingAbs * 10f + volPct * 0.5f,
+                0f, 1f);
+
             snapshots[i] = normalizer.Normalize(raw, c.Time, i);
         }
 
         return (snapshots, prices, rawVolumes, rawFundingRates);
+    }
+
+    private static float[] ComputeRollingVolatility(float[] closes, int window)
+    {
+        int n = closes.Length;
+        var vol = new float[n];
+        for (int i = 1; i < n; i++)
+        {
+            int start = Math.Max(1, i - window + 1);
+            float sumR = 0f, sumR2 = 0f;
+            int count = 0;
+            for (int j = start; j <= i; j++)
+            {
+                if (closes[j - 1] <= 0f) continue;
+                float r = (closes[j] - closes[j - 1]) / closes[j - 1];
+                sumR += r;
+                sumR2 += r * r;
+                count++;
+            }
+            if (count > 1)
+            {
+                float mean = sumR / count;
+                float variance = sumR2 / count - mean * mean;
+                vol[i] = variance > 0 ? MathF.Sqrt(variance) : 0f;
+            }
+        }
+        return vol;
     }
 
     private static TechnicalIndicators.Candle[] LoadCandlesFromCache(string path)

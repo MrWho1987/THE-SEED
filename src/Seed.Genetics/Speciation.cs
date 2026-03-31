@@ -12,7 +12,7 @@ public sealed class Species
     public List<IGenome> Members { get; } = new();
     public float AdjustedFitnessSum { get; set; }
     public int StagnationCounter { get; set; }
-    public float BestFitness { get; set; }
+    public float BestFitness { get; set; } = float.MinValue;
 
     public Species(int id, IGenome representative)
     {
@@ -46,7 +46,7 @@ public sealed class SpeciationManager
         {
             var species = new Species(speciesId, representative);
             species.StagnationCounter = stagnation;
-            species.BestFitness = bestFit;
+            species.BestFitness = bestFit >= 0f ? float.MinValue : bestFit;
             _species.Add(species);
         }
         _nextSpeciesId = nextSpeciesId;

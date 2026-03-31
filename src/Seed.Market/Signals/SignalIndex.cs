@@ -1,12 +1,12 @@
 namespace Seed.Market.Signals;
 
 /// <summary>
-/// Named constants for each slot in the 88-element signal vector.
+/// Named constants for each slot in the 92-element signal vector.
 /// Grouped by data category with contiguous index ranges.
 /// </summary>
 public static class SignalIndex
 {
-    public const int Count = 88;
+    public const int Count = 92;
 
     // ── Price & Volume (0-11) ──────────────────────────────────────
     public const int BtcPrice = 0;
@@ -116,6 +116,12 @@ public static class SignalIndex
     public const int EthMomentum = 86;
     public const int MomentumDivergence = 87;  // BTC momentum - ETH momentum
 
+    // ── Regime Context (88-91) ───────────────────────────────────
+    public const int RegimeVolatility = 88;    // rolling 24h realized vol percentile [0,1]
+    public const int RegimeTrend = 89;         // rolling momentum strength [-1,1]
+    public const int RegimeChange = 90;        // rate of regime transition
+    public const int MarketStress = 91;        // composite stress indicator
+
     public static class Categories
     {
         public const int PriceStart = 0;
@@ -138,5 +144,7 @@ public static class SignalIndex
         public const int AgentStateEnd = 79;
         public const int MultiAssetStart = 80;
         public const int MultiAssetEnd = 87;
+        public const int RegimeStart = 88;
+        public const int RegimeEnd = 91;
     }
 }

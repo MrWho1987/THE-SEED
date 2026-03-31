@@ -40,6 +40,7 @@ public sealed class DataAggregator : IDisposable
     private float _lastHourlyBtcPrice;
     private float _lastHourlyEthPrice;
     private int _derivedLastHour = -1;
+    private float _prevRegimeVolatility;
     private const int VolWindow = 24;
     private const int CorrWindow = 24;
 
@@ -290,6 +291,31 @@ public sealed class DataAggregator : IDisposable
         }
         _rawSignals[SignalIndex.MomentumDivergence] =
             _rawSignals[SignalIndex.BtcMomentum] - _rawSignals[SignalIndex.EthMomentum];
+
+        ComputeRegimeSignals(btcArr);
+    }
+
+    private void ComputeRegimeSignals(float[] btcReturns)
+    {
+        float vol = _rawSignals[SignalIndex.BtcVolatility];
+        float volPercentile = MathF.Min(vol / 0.05f, 1f);
+        _rawSignals[SignalIndex.RegimeVolatility] = volPercentile;
+
+        float momentum = _rawSignals[SignalIndex.BtcMomentum];
+        _rawSignals[SignalIndex.RegimeTrend] = Math.Clamp(momentum / 0.10f, -1f, 1f);
+
+        float volDelta = vol - _prevRegimeVolatility;
+        _rawSignals[SignalIndex.RegimeChange] = Math.Clamp(volDelta / 0.02f, -1f, 1f);
+        _prevRegimeVolatility = vol;
+
+        float vixChange = _rawSignals[SignalIndex.VixChange];
+        float liqLong = _rawSignals[SignalIndex.LiquidationLong1h];
+        float liqShort = _rawSignals[SignalIndex.LiquidationShort1h];
+        float fundingAbs = MathF.Abs(_rawSignals[SignalIndex.FundingRate]);
+        float stress = Math.Clamp(
+            MathF.Abs(vixChange) * 2f + (liqLong + liqShort) * 0.5f + fundingAbs * 10f + volPercentile * 0.5f,
+            0f, 1f);
+        _rawSignals[SignalIndex.MarketStress] = stress;
     }
 
     private static float PearsonCorrelation(float[] a, float[] b)

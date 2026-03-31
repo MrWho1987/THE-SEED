@@ -137,7 +137,7 @@ public class LearningSignalTests
         var dev = new BrainDeveloper(MarketAgent.InputCount, MarketAgent.OutputCount);
         var graph = dev.CompileGraph(genome, MarketEvaluator.MarketBrainBudget, new DevelopmentContext(42, 0));
 
-        Assert.Equal(88, graph.InputCount);
+        Assert.Equal(SignalIndex.Count, graph.InputCount);
         Assert.Equal(5, graph.OutputCount);
 
         var brain = new BrainRuntime(graph, genome.Learn, genome.Stable, 1);

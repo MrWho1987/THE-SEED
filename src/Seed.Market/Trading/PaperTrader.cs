@@ -43,6 +43,23 @@ public sealed class PaperTrader : ITrader
 
         _risk.UpdateWatermark(portfolio, ctx.Price);
 
+        if (!portfolio.KillSwitchTriggered && portfolio.OpenPositions.Count > 0)
+        {
+            decimal equity = portfolio.Equity(ctx.Price);
+            if (portfolio.MaxEquity > 0)
+            {
+                decimal drawdown = (portfolio.MaxEquity - equity) / portfolio.MaxEquity;
+                if (drawdown > _config.KillSwitchDrawdownPct)
+                {
+                    portfolio.KillSwitchTriggered = true;
+                    var closedCount = portfolio.OpenPositions.Count;
+                    foreach (var pos in portfolio.OpenPositions.ToList())
+                        ClosePosition(portfolio, pos, ctx);
+                    return new TradeResult(false, 0, 0, 0, 0, "Kill switch: positions closed");
+                }
+            }
+        }
+
         ApplyFundingRates(portfolio, ctx);
 
         if (signal.ExitCurrent && portfolio.OpenPositions.Count > 0)
@@ -156,11 +173,12 @@ public sealed class PaperTrader : ITrader
         {
             decimal participation = orderNotional / (hourlyVolume * 0.01m);
             if (participation > 100m) participation = 100m;
-            return _config.SlippageBps * (1m + participation * participation);
+            decimal multiplier = Math.Min(1m + participation * participation, 20m);
+            return _config.SlippageBps * multiplier;
         }
         catch (OverflowException)
         {
-            return _config.SlippageBps * 100m;
+            return _config.SlippageBps * 20m;
         }
     }
 

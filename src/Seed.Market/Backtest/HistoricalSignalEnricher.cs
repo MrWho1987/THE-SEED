@@ -458,8 +458,9 @@ public sealed class HistoricalSignalEnricher
                 json = await response.Content.ReadAsStringAsync();
                 goto parse;
             }
+            Console.WriteLine($"[ENRICH] CoinGecko {coinId} days={days}: HTTP {(int)response.StatusCode} {response.ReasonPhrase}");
         }
-        throw new HttpRequestException("CoinGecko: all day ranges failed");
+        throw new HttpRequestException($"CoinGecko: all day ranges failed for {coinId} (apiKey={(_coinGeckoApiKey != null ? "set" : "NULL")})");
         parse:
         var doc = JsonSerializer.Deserialize<JsonElement>(json);
         var mcaps = doc.GetProperty("market_caps");

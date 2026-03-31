@@ -8,7 +8,9 @@
   "maxDailyLossPct": 0.05,
   "killSwitchDrawdownPct": 0.15,
   "maxConcurrentPositions": 3,
+  "maxEquityMultiplier": 50,
 
+  "runSeed": 42,
   "maxBrainNodes": 200,
   "maxBrainEdges": 2000,
 
@@ -22,6 +24,6 @@
 
   "mode": "Paper",
   "confirmLive": false,
-  "outputDirectory": "output_deep_v2",
+  "outputDirectory": "output_phase2",
   "displayIntervalMs": 10000
 }

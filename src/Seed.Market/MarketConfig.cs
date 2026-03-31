@@ -39,12 +39,19 @@ public sealed record MarketConfig
     public float FitnessReturnWeight { get; init; } = 0.20f;
     public float FitnessDrawdownDurationWeight { get; init; } = 0.10f;
     public float FitnessCVaRWeight { get; init; } = 0.10f;
+    public float InactivityPenalty { get; init; } = -0.1f;
+    public int MinTradesForActive { get; init; } = 3;
+    public float WindowConsistencyWeight { get; init; } = 0f;
+    public float ActivityBonusScale { get; init; } = 0f;
+    public float RatioClampMax { get; init; } = 10f;
+    public float ReturnFloor { get; init; } = -0.50f;
 
     // ── Species Diversity ──
     public int TargetSpeciesMin { get; init; } = 10;
     public int TargetSpeciesMax { get; init; } = 50;
     public float CompatibilityAdjustRate { get; init; } = 0.1f;
     public int MinOffspringPerSpecies { get; init; } = 1;
+    public int MinSpeciesSizeForElitism { get; init; } = 2;
     public int StagnationLimit { get; init; } = 25;
     public float DiversityBonusScale { get; init; } = 0.02f;
     public int DiversityKNeighbors { get; init; } = 5;
@@ -78,6 +85,7 @@ public sealed record MarketConfig
     public bool WalkForwardEnabled { get; init; } = true;
     public float WalkForwardMinValFitness { get; init; } = -0.05f;
     public int WalkForwardMaxStallGens { get; init; } = 50;
+    public int WindowStabilityGens { get; init; } = 1;
 
     // ── Paper Trading ──
     public string? GenomePath { get; init; }

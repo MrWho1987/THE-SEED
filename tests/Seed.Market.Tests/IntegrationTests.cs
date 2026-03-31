@@ -73,7 +73,7 @@ public class IntegrationTests
         var dev = new BrainDeveloper(MarketAgent.InputCount, MarketAgent.OutputCount);
         var graph = dev.CompileGraph(genome, DevelopmentBudget.Default, new DevelopmentContext(42, 0));
 
-        Assert.Equal(88, graph.InputCount);
+        Assert.Equal(SignalIndex.Count, graph.InputCount);
         Assert.Equal(5, graph.OutputCount);
 
         var brain = new BrainRuntime(graph, genome.Learn, genome.Stable, 1);
@@ -146,7 +146,7 @@ public class IntegrationTests
         var developer = new BrainDeveloper(MarketAgent.InputCount, MarketAgent.OutputCount);
         var devCtx = new DevelopmentContext(42, 0);
         var graph = developer.CompileGraph(restored, MarketEvaluator.MarketBrainBudget, devCtx);
-        Assert.Equal(88, graph.InputCount);
+        Assert.Equal(SignalIndex.Count, graph.InputCount);
         Assert.Equal(5, graph.OutputCount);
 
         // 4. Create agent (same wiring as paper mode)

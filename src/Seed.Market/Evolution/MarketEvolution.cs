@@ -119,7 +119,7 @@ public sealed class MarketEvolution
             _evaluations = new Dictionary<Guid, MarketEvalResult>();
             foreach (var (id, breakdowns) in accumulated)
             {
-                var avg = AverageBreakdowns(breakdowns);
+                var avg = AverageBreakdowns(breakdowns, _config.WindowConsistencyWeight);
                 _evaluations[id] = new MarketEvalResult(id, avg);
             }
         }
@@ -200,14 +200,29 @@ public sealed class MarketEvolution
         return report;
     }
 
-    private static FitnessBreakdown AverageBreakdowns(List<FitnessBreakdown> breakdowns)
+    private static FitnessBreakdown AverageBreakdowns(List<FitnessBreakdown> breakdowns, float consistencyWeight)
     {
         int n = breakdowns.Count;
         if (n == 0) return default;
         if (n == 1) return breakdowns[0];
 
+        float meanFitness = breakdowns.Average(b => b.Fitness);
+
+        float adjustedFitness = meanFitness;
+        if (consistencyWeight > 0f && n > 1)
+        {
+            float sumSqDiff = 0f;
+            foreach (var b in breakdowns)
+            {
+                float d = b.Fitness - meanFitness;
+                sumSqDiff += d * d;
+            }
+            float stdFitness = MathF.Sqrt(sumSqDiff / n);
+            adjustedFitness = meanFitness - consistencyWeight * stdFitness;
+        }
+
         return new FitnessBreakdown(
-            Fitness: breakdowns.Average(b => b.Fitness),
+            Fitness: adjustedFitness,
             ReturnPct: breakdowns.Average(b => b.ReturnPct),
             MaxDrawdown: breakdowns.Max(b => b.MaxDrawdown),
             TotalTrades: (int)breakdowns.Average(b => b.TotalTrades),
@@ -217,6 +232,7 @@ public sealed class MarketEvolution
             RawSharpe: breakdowns.Average(b => b.RawSharpe),
             AdjustedSharpe: breakdowns.Average(b => b.AdjustedSharpe),
             Sortino: breakdowns.Average(b => b.Sortino),
+            AdjustedSortino: breakdowns.Average(b => b.AdjustedSortino),
             CVaR5: breakdowns.Average(b => b.CVaR5),
             MaxDrawdownDuration: breakdowns.Max(b => b.MaxDrawdownDuration),
             ShrinkageConfidence: breakdowns.Average(b => b.ShrinkageConfidence)
@@ -249,7 +265,7 @@ public sealed class MarketEvolution
 
         foreach (var (id, bonus) in bonuses)
         {
-            if (_evaluations.TryGetValue(id, out var eval))
+            if (_evaluations.TryGetValue(id, out var eval) && eval.Fitness.IsActive)
             {
                 var f = eval.Fitness;
                 var boosted = f with { Fitness = f.Fitness + bonus };
@@ -289,18 +305,23 @@ public sealed class MarketEvolution
             kv => kv.Key,
             kv => kv.Value.Fitness.Fitness);
 
+        var globalBestEval = _evaluations.Values
+            .OrderByDescending(e => e.Fitness.Fitness)
+            .First();
+        nextGen.Add(_population.First(g => g.GenomeId == globalBestEval.GenomeId).CloneGenome());
+
         var popBudget = new PopulationBudget(
             PopulationSize: _config.PopulationSize,
             ArenaRounds: 1,
             ElitesPerSpecies: 1,
-            MinSpeciesSizeForElitism: 3);
+            MinSpeciesSizeForElitism: _config.MinSpeciesSizeForElitism);
 
         var specCfg = new SpeciationConfig(
             C1: 1f, C2: 1f, C3: 0.5f,
             CompatibilityThreshold: _compatibilityThreshold,
             TournamentSize: 3);
 
-        var allocation = _speciation.AllocateOffspring(fitnesses, totalOffspring, popBudget, specCfg, _config.MinOffspringPerSpecies);
+        var allocation = _speciation.AllocateOffspring(fitnesses, totalOffspring - 1, popBudget, specCfg, _config.MinOffspringPerSpecies);
 
         var mutCfg = MutationConfig.Default;
         int childOrdinal = 0;
@@ -311,18 +332,29 @@ public sealed class MarketEvolution
             int numOffspring = allocation.GetValueOrDefault(species.SpeciesId, 0);
             if (numOffspring == 0) continue;
 
-            // Stagnation reseeding: replace half of offspring with mutated archive elites
-            if (species.StagnationCounter >= _config.StagnationLimit && archiveElites.Count > 0)
+            // Stagnation reseeding: replace half of offspring with fresh genetic material
+            if (species.StagnationCounter >= _config.StagnationLimit)
             {
                 int replaceCount = numOffspring / 2;
+                bool archiveDegenerate = archiveElites.Count == 0 ||
+                    _archive.Champions.Values.Max(c => c.Fitness) <= _config.InactivityPenalty + 0.001f;
+
                 for (int r = 0; r < replaceCount && nextGen.Count < totalOffspring; r++)
                 {
                     ulong rseed = SeedDerivation.MutationSeed(
                         _config.RunSeed, Generation, species.SpeciesId, childOrdinal++);
                     var rrng = new Rng64(rseed);
-                    var elite = archiveElites[rrng.NextInt(archiveElites.Count)].CloneGenome();
-                    var rctx = new MutationContext(_config.RunSeed, Generation, mutCfg, _innovations, rrng);
-                    nextGen.Add(elite.Mutate(rctx));
+
+                    if (archiveDegenerate)
+                    {
+                        nextGen.Add(SeedGenome.CreateRandom(rrng));
+                    }
+                    else
+                    {
+                        var elite = archiveElites[rrng.NextInt(archiveElites.Count)].CloneGenome();
+                        var rctx = new MutationContext(_config.RunSeed, Generation, mutCfg, _innovations, rrng);
+                        nextGen.Add(elite.Mutate(rctx));
+                    }
                 }
                 numOffspring -= replaceCount;
             }
@@ -332,7 +364,7 @@ public sealed class MarketEvolution
                 .ToList();
 
             // Elites
-            if (sortedMembers.Count >= 3)
+            if (sortedMembers.Count >= _config.MinSpeciesSizeForElitism)
             {
                 nextGen.Add(sortedMembers[0].CloneGenome());
                 numOffspring--;
@@ -420,6 +452,13 @@ public sealed class MarketEvolution
 
         int inactiveCount = sorted.Count(e => !e.Fitness.IsActive);
 
+        var tradeCounts = sorted.Select(e => e.Fitness.TotalTrades).OrderBy(t => t).ToArray();
+        float medianTrades = tradeCounts.Length % 2 == 0
+            ? (tradeCounts[tradeCounts.Length / 2 - 1] + tradeCounts[tradeCounts.Length / 2]) / 2f
+            : tradeCounts[tradeCounts.Length / 2];
+        int tradingAgentCount = tradeCounts.Count(t => t > 0);
+        int maxTradesPerAgent = tradeCounts.Length > 0 ? tradeCounts[^1] : 0;
+
         int maxStag = _speciation.Species.Count > 0
             ? _speciation.Species.Max(s => s.StagnationCounter)
             : 0;
@@ -479,7 +518,10 @@ public sealed class MarketEvolution
             BestBrainActiveEdges: brainActive,
             BestBrainTotalEdges: brainTotal,
             BestBrainSaturation: brainSat,
-            InnovationId: _innovations.NextInnovationId);
+            InnovationId: _innovations.NextInnovationId,
+            MedianTradesPerAgent: medianTrades,
+            TradingAgentCount: tradingAgentCount,
+            MaxTradesPerAgent: maxTradesPerAgent);
     }
 
     public List<(int SpeciesId, string RepresentativeJson, int StagnationCounter, float BestFitness)> GetSpeciesState()
@@ -488,6 +530,20 @@ public sealed class MarketEvolution
         foreach (var sp in _speciation.Species)
             result.Add((sp.SpeciesId, sp.Representative.ToJson(), sp.StagnationCounter, sp.BestFitness));
         return result;
+    }
+
+    public (FitnessBreakdown? Best, int PosCount, int NegCount, float MinRet, float MaxRet) GetActiveStats()
+    {
+        var active = _evaluations.Values
+            .Where(e => e.Fitness.TotalTrades > 0)
+            .ToList();
+        if (active.Count == 0) return (null, 0, 0, 0, 0);
+        var best = active.OrderByDescending(e => e.Fitness.Fitness).First();
+        int pos = active.Count(e => e.Fitness.ReturnPct > 0);
+        int neg = active.Count(e => e.Fitness.ReturnPct <= 0);
+        float minRet = active.Min(e => e.Fitness.ReturnPct);
+        float maxRet = active.Max(e => e.Fitness.ReturnPct);
+        return (best.Fitness, pos, neg, minRet, maxRet);
     }
 
     public IGenome? GetBestGenome()
@@ -549,5 +605,8 @@ public readonly record struct GenerationReport(
     int BestBrainActiveEdges = 0,
     int BestBrainTotalEdges = 0,
     float BestBrainSaturation = 0f,
-    int InnovationId = 0
+    int InnovationId = 0,
+    float MedianTradesPerAgent = 0f,
+    int TradingAgentCount = 0,
+    int MaxTradesPerAgent = 0
 );

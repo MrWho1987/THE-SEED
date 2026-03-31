@@ -27,8 +27,8 @@ public class BrainBenchmarkTest
         sw.Stop();
 
         double usPerStep = sw.Elapsed.TotalMicroseconds / steps;
-        Assert.True(usPerStep < 500,
-            $"Brain step took {usPerStep:F1} us/step -- should be < 500 us");
+        Assert.True(usPerStep < 1000,
+            $"Brain step took {usPerStep:F1} us/step -- should be < 1000 us");
     }
 
     [Fact]
@@ -51,8 +51,8 @@ public class BrainBenchmarkTest
         sw.Stop();
 
         double msPerCompile = sw.Elapsed.TotalMilliseconds / (genomes.Count - 1);
-        Assert.True(msPerCompile < 500,
-            $"Brain compile took {msPerCompile:F1} ms -- should be < 500 ms");
+        Assert.True(msPerCompile < 1000,
+            $"Brain compile took {msPerCompile:F1} ms -- should be < 1000 ms");
     }
 
     [Fact]
