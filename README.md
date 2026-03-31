@@ -7,7 +7,7 @@ A neuroevolutionary system that evolves neural network trading agents using NEAT
 ```
 Seed.Core           Pure-math foundation: RNG, budgets, parameter types
 Seed.Genetics       CPPN genomes, NEAT mutation/crossover, speciation
-Seed.Brain          Substrate-developed spiking neural networks
+Seed.Brain          Continuous rate-based neural network runtime
 Seed.Development    CPPN → Brain compiler (HyperNEAT-style)
 Seed.Observatory    File-based observation and logging
 Seed.Market         Market arena: signals, agents, fitness, evolution, trading
@@ -19,9 +19,9 @@ Seed.Dashboard      WPF control room (Windows only)
 
 1. **Genome encoding.** Each agent is defined by a CPPN (Compositional Pattern-Producing Network) genome that encodes neural connectivity patterns rather than direct weights.
 
-2. **Brain development.** The CPPN is queried across a substrate grid to produce a spiking neural network with hundreds to thousands of neurons and synapses.
+2. **Brain development.** The CPPN is queried across a substrate grid to produce a continuous rate-based neural network with leaky integration, neuromodulation, and Hebbian plasticity — hundreds to thousands of neurons and synapses.
 
-3. **Market signals.** The system ingests 30+ normalized market signals: price action, volume, funding rates, on-chain metrics, sentiment, macroeconomic indicators, and technical indicators.
+3. **Market signals.** The system ingests 92 normalized market signals spanning price action, volume, derivatives, on-chain metrics, sentiment, macroeconomic indicators, stablecoin flows, technical indicators, temporal encoding, agent state, multi-asset correlations, and regime context.
 
 4. **Neuroevolution.** Populations of agents compete in simulated market environments. Fitness combines Sharpe ratio, Sortino ratio, raw return, drawdown duration, and CVaR (Conditional Value at Risk). NEAT speciation maintains diversity.
 
@@ -139,7 +139,7 @@ The Seed/
 ├── src/
 │   ├── Seed.Core/              Core math, RNG, types
 │   ├── Seed.Genetics/          CPPN genomes, NEAT, speciation
-│   ├── Seed.Brain/             Spiking neural network runtime
+│   ├── Seed.Brain/             Continuous rate-based neural network runtime
 │   ├── Seed.Development/       CPPN → Brain compiler
 │   ├── Seed.Observatory/       File-based logging
 │   ├── Seed.Market/            Market arena and evolution
@@ -158,7 +158,7 @@ The Seed/
 ├── tools/
 │   └── Seed.Backtest/          Standalone backtest analysis tool
 ├── genomes/                    Pre-trained genome files
-├── Docs/                       Technical specs and research papers
+├── Docs/                       Technical documentation
 ├── market-config.*.json        Training and deployment configurations
 └── Seed.sln                    Visual Studio solution file
 ```
@@ -174,10 +174,18 @@ Training and paper trading create output directories (gitignored) containing:
 
 ## Documentation
 
-- [`Docs/MarketEvolution_DraftPaper.md`](Docs/MarketEvolution_DraftPaper.md) — Research paper on the market evolution architecture
-- [`Docs/SeedCoreV1_TechnicalSpec.md`](Docs/SeedCoreV1_TechnicalSpec.md) — Core system technical specification
-- [`Docs/TheSeed.md`](Docs/TheSeed.md) — Seed v1/v2 contract specification
-- [`Docs/PaperTradingFindings.md`](Docs/PaperTradingFindings.md) — Paper trading session analysis and findings
+| Document | Contents |
+|---|---|
+| [`Docs/Architecture.md`](Docs/Architecture.md) | System overview, project dependencies, data flow diagrams |
+| [`Docs/CoreEngine.md`](Docs/CoreEngine.md) | Seed.Core types, interfaces, RNG, budgets, contexts |
+| [`Docs/Genome.md`](Docs/Genome.md) | CPPN genome, NEAT mutation/crossover, speciation |
+| [`Docs/Brain.md`](Docs/Brain.md) | Brain development pipeline, runtime mechanics, learning |
+| [`Docs/Signals.md`](Docs/Signals.md) | Complete 92-signal catalog with sources and formulas |
+| [`Docs/FitnessAndEvolution.md`](Docs/FitnessAndEvolution.md) | Exact fitness formula, evolution loop, walk-forward validation |
+| [`Docs/Trading.md`](Docs/Trading.md) | Agent bridge, action interpreter, paper trader, risk manager |
+| [`Docs/Configuration.md`](Docs/Configuration.md) | Every MarketConfig property documented |
+| [`Docs/RunningTheSystem.md`](Docs/RunningTheSystem.md) | CLI modes, Dashboard, experiments, how-to guides |
+| [`Docs/PaperTradingFindings.md`](Docs/PaperTradingFindings.md) | Paper trading session analysis and findings |
 
 ## License
 
