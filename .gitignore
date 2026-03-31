@@ -51,7 +51,7 @@ $RECYCLE.BIN/
 .AppleDouble
 .LSOverride
 
-# User-specific config overrides
+# User-specific config overrides (local configs with real API keys)
 config.json
 market-config.json
 !market-config.default.json
@@ -59,7 +59,7 @@ market-config.json
 # Cached market data
 data_cache/
 
-# Run outputs
+# Run outputs (checkpoints, heartbeats, trade logs)
 output/
 output_*/
 

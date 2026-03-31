@@ -20,10 +20,11 @@
   "onChainPollMs": 3600000,
   "macroPollMs": 3600000,
 
-  "coinGeckoApiKey": "CG-grHkUd2py1dRkcUhXG9BfBS4",
+  "coinGeckoApiKey": "YOUR_COINGECKO_API_KEY",
 
   "mode": "Paper",
   "confirmLive": false,
-  "outputDirectory": "output_phase2",
+  "genomePath": "genomes/phase2_best.json",
+  "outputDirectory": "output_paper",
   "displayIntervalMs": 10000
 }

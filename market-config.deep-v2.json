@@ -27,7 +27,7 @@
   "onChainPollMs": 3600000,
   "macroPollMs": 3600000,
 
-  "coinGeckoApiKey": "CG-grHkUd2py1dRkcUhXG9BfBS4",
+  "coinGeckoApiKey": "YOUR_COINGECKO_API_KEY",
 
   "mode": "Backtest",
   "confirmLive": false,

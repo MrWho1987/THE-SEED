@@ -1,0 +1,583 @@
+{
+  "schema": "Seed.Genome",
+  "schemaVersion": 1,
+  "genomeType": "SeedGenome.CPPN.NEAT",
+  "genomeId": "bff5ecde-2322-4f4b-b737-0760efd2f7c0",
+  "cppn": {
+    "nextNodeId": 15,
+    "nodes": [
+      {
+        "nodeId": 0,
+        "type": "Input",
+        "activation": "Identity",
+        "bias": 0
+      },
+      {
+        "nodeId": 1,
+        "type": "Input",
+        "activation": "Identity",
+        "bias": 0
+      },
+      {
+        "nodeId": 2,
+        "type": "Input",
+        "activation": "Identity",
+        "bias": 0
+      },
+      {
+        "nodeId": 3,
+        "type": "Input",
+        "activation": "Identity",
+        "bias": 0
+      },
+      {
+        "nodeId": 4,
+        "type": "Input",
+        "activation": "Identity",
+        "bias": 0
+      },
+      {
+        "nodeId": 5,
+        "type": "Input",
+        "activation": "Identity",
+        "bias": 0
+      },
+      {
+        "nodeId": 6,
+        "type": "Input",
+        "activation": "Identity",
+        "bias": 0
+      },
+      {
+        "nodeId": 7,
+        "type": "Input",
+        "activation": "Identity",
+        "bias": 0
+      },
+      {
+        "nodeId": 8,
+        "type": "Input",
+        "activation": "Identity",
+        "bias": 0
+      },
+      {
+        "nodeId": 24,
+        "type": "Hidden",
+        "activation": "Tanh",
+        "bias": 0.013021328
+      },
+      {
+        "nodeId": 32,
+        "type": "Hidden",
+        "activation": "Tanh",
+        "bias": 0.1464201
+      },
+      {
+        "nodeId": 9,
+        "type": "Output",
+        "activation": "Tanh",
+        "bias": 0.02999571
+      },
+      {
+        "nodeId": 10,
+        "type": "Output",
+        "activation": "Tanh",
+        "bias": 0.0913799
+      },
+      {
+        "nodeId": 11,
+        "type": "Output",
+        "activation": "Tanh",
+        "bias": -0.11511594
+      },
+      {
+        "nodeId": 12,
+        "type": "Output",
+        "activation": "Tanh",
+        "bias": -0.41672724
+      },
+      {
+        "nodeId": 13,
+        "type": "Output",
+        "activation": "Tanh",
+        "bias": -0.095247194
+      },
+      {
+        "nodeId": 14,
+        "type": "Output",
+        "activation": "Tanh",
+        "bias": -0.29625168
+      }
+    ],
+    "connections": [
+      {
+        "innovationId": 0,
+        "srcNodeId": 0,
+        "dstNodeId": 9,
+        "weight": -0.9595866,
+        "enabled": true
+      },
+      {
+        "innovationId": 1,
+        "srcNodeId": 0,
+        "dstNodeId": 10,
+        "weight": 0.09778507,
+        "enabled": true
+      },
+      {
+        "innovationId": 2,
+        "srcNodeId": 0,
+        "dstNodeId": 11,
+        "weight": -0.5698682,
+        "enabled": true
+      },
+      {
+        "innovationId": 3,
+        "srcNodeId": 0,
+        "dstNodeId": 12,
+        "weight": 0.94652534,
+        "enabled": true
+      },
+      {
+        "innovationId": 4,
+        "srcNodeId": 0,
+        "dstNodeId": 13,
+        "weight": 0.69636244,
+        "enabled": true
+      },
+      {
+        "innovationId": 5,
+        "srcNodeId": 0,
+        "dstNodeId": 14,
+        "weight": 0.9651706,
+        "enabled": true
+      },
+      {
+        "innovationId": 6,
+        "srcNodeId": 1,
+        "dstNodeId": 9,
+        "weight": 0.8105549,
+        "enabled": true
+      },
+      {
+        "innovationId": 7,
+        "srcNodeId": 1,
+        "dstNodeId": 10,
+        "weight": 0.67104614,
+        "enabled": true
+      },
+      {
+        "innovationId": 8,
+        "srcNodeId": 1,
+        "dstNodeId": 11,
+        "weight": 0.13466421,
+        "enabled": true
+      },
+      {
+        "innovationId": 9,
+        "srcNodeId": 1,
+        "dstNodeId": 12,
+        "weight": 0.2674859,
+        "enabled": true
+      },
+      {
+        "innovationId": 10,
+        "srcNodeId": 1,
+        "dstNodeId": 13,
+        "weight": -1.0885409,
+        "enabled": true
+      },
+      {
+        "innovationId": 11,
+        "srcNodeId": 1,
+        "dstNodeId": 14,
+        "weight": -0.34860438,
+        "enabled": true
+      },
+      {
+        "innovationId": 12,
+        "srcNodeId": 2,
+        "dstNodeId": 9,
+        "weight": -0.058697253,
+        "enabled": true
+      },
+      {
+        "innovationId": 13,
+        "srcNodeId": 2,
+        "dstNodeId": 10,
+        "weight": -0.241318,
+        "enabled": true
+      },
+      {
+        "innovationId": 14,
+        "srcNodeId": 2,
+        "dstNodeId": 11,
+        "weight": -0.99046564,
+        "enabled": true
+      },
+      {
+        "innovationId": 15,
+        "srcNodeId": 2,
+        "dstNodeId": 12,
+        "weight": 0.13995484,
+        "enabled": true
+      },
+      {
+        "innovationId": 16,
+        "srcNodeId": 2,
+        "dstNodeId": 13,
+        "weight": 0.043345034,
+        "enabled": true
+      },
+      {
+        "innovationId": 17,
+        "srcNodeId": 2,
+        "dstNodeId": 14,
+        "weight": 0.11455573,
+        "enabled": true
+      },
+      {
+        "innovationId": 18,
+        "srcNodeId": 3,
+        "dstNodeId": 9,
+        "weight": -0.74519753,
+        "enabled": true
+      },
+      {
+        "innovationId": 19,
+        "srcNodeId": 3,
+        "dstNodeId": 10,
+        "weight": 0.6516244,
+        "enabled": true
+      },
+      {
+        "innovationId": 20,
+        "srcNodeId": 3,
+        "dstNodeId": 11,
+        "weight": 0.9652653,
+        "enabled": true
+      },
+      {
+        "innovationId": 21,
+        "srcNodeId": 3,
+        "dstNodeId": 12,
+        "weight": 0.14455725,
+        "enabled": true
+      },
+      {
+        "innovationId": 22,
+        "srcNodeId": 3,
+        "dstNodeId": 13,
+        "weight": 0.05291927,
+        "enabled": true
+      },
+      {
+        "innovationId": 23,
+        "srcNodeId": 3,
+        "dstNodeId": 14,
+        "weight": 0.5060471,
+        "enabled": true
+      },
+      {
+        "innovationId": 24,
+        "srcNodeId": 4,
+        "dstNodeId": 9,
+        "weight": -0.42010593,
+        "enabled": true
+      },
+      {
+        "innovationId": 25,
+        "srcNodeId": 4,
+        "dstNodeId": 10,
+        "weight": 1.2637652,
+        "enabled": true
+      },
+      {
+        "innovationId": 26,
+        "srcNodeId": 4,
+        "dstNodeId": 11,
+        "weight": -0.09028235,
+        "enabled": true
+      },
+      {
+        "innovationId": 27,
+        "srcNodeId": 4,
+        "dstNodeId": 12,
+        "weight": 0.9020204,
+        "enabled": true
+      },
+      {
+        "innovationId": 28,
+        "srcNodeId": 4,
+        "dstNodeId": 13,
+        "weight": 0.20163158,
+        "enabled": true
+      },
+      {
+        "innovationId": 29,
+        "srcNodeId": 4,
+        "dstNodeId": 14,
+        "weight": -0.19291437,
+        "enabled": true
+      },
+      {
+        "innovationId": 30,
+        "srcNodeId": 5,
+        "dstNodeId": 9,
+        "weight": -0.3140094,
+        "enabled": true
+      },
+      {
+        "innovationId": 31,
+        "srcNodeId": 5,
+        "dstNodeId": 10,
+        "weight": 0.49394107,
+        "enabled": true
+      },
+      {
+        "innovationId": 32,
+        "srcNodeId": 5,
+        "dstNodeId": 11,
+        "weight": 0.008509706,
+        "enabled": true
+      },
+      {
+        "innovationId": 33,
+        "srcNodeId": 5,
+        "dstNodeId": 12,
+        "weight": -0.16489291,
+        "enabled": true
+      },
+      {
+        "innovationId": 34,
+        "srcNodeId": 5,
+        "dstNodeId": 13,
+        "weight": 0.23468773,
+        "enabled": true
+      },
+      {
+        "innovationId": 35,
+        "srcNodeId": 5,
+        "dstNodeId": 14,
+        "weight": -0.09471309,
+        "enabled": true
+      },
+      {
+        "innovationId": 36,
+        "srcNodeId": 6,
+        "dstNodeId": 9,
+        "weight": 0.6091076,
+        "enabled": true
+      },
+      {
+        "innovationId": 37,
+        "srcNodeId": 6,
+        "dstNodeId": 10,
+        "weight": 0.8635481,
+        "enabled": true
+      },
+      {
+        "innovationId": 38,
+        "srcNodeId": 6,
+        "dstNodeId": 11,
+        "weight": 0.08367408,
+        "enabled": true
+      },
+      {
+        "innovationId": 39,
+        "srcNodeId": 6,
+        "dstNodeId": 12,
+        "weight": 0.7142164,
+        "enabled": true
+      },
+      {
+        "innovationId": 40,
+        "srcNodeId": 6,
+        "dstNodeId": 13,
+        "weight": 0.26542467,
+        "enabled": true
+      },
+      {
+        "innovationId": 41,
+        "srcNodeId": 6,
+        "dstNodeId": 14,
+        "weight": 0.74006325,
+        "enabled": true
+      },
+      {
+        "innovationId": 42,
+        "srcNodeId": 7,
+        "dstNodeId": 9,
+        "weight": -0.7460328,
+        "enabled": true
+      },
+      {
+        "innovationId": 43,
+        "srcNodeId": 7,
+        "dstNodeId": 10,
+        "weight": 1.1193902,
+        "enabled": true
+      },
+      {
+        "innovationId": 44,
+        "srcNodeId": 7,
+        "dstNodeId": 11,
+        "weight": 0.88250256,
+        "enabled": true
+      },
+      {
+        "innovationId": 45,
+        "srcNodeId": 7,
+        "dstNodeId": 12,
+        "weight": -0.20378256,
+        "enabled": true
+      },
+      {
+        "innovationId": 46,
+        "srcNodeId": 7,
+        "dstNodeId": 13,
+        "weight": -0.28985044,
+        "enabled": true
+      },
+      {
+        "innovationId": 47,
+        "srcNodeId": 7,
+        "dstNodeId": 14,
+        "weight": 0.30537403,
+        "enabled": true
+      },
+      {
+        "innovationId": 48,
+        "srcNodeId": 8,
+        "dstNodeId": 9,
+        "weight": 0.6660779,
+        "enabled": true
+      },
+      {
+        "innovationId": 49,
+        "srcNodeId": 8,
+        "dstNodeId": 10,
+        "weight": -0.79081666,
+        "enabled": true
+      },
+      {
+        "innovationId": 50,
+        "srcNodeId": 8,
+        "dstNodeId": 11,
+        "weight": -0.45892942,
+        "enabled": true
+      },
+      {
+        "innovationId": 51,
+        "srcNodeId": 8,
+        "dstNodeId": 12,
+        "weight": -0.2741318,
+        "enabled": true
+      },
+      {
+        "innovationId": 52,
+        "srcNodeId": 8,
+        "dstNodeId": 13,
+        "weight": -0.7293856,
+        "enabled": true
+      },
+      {
+        "innovationId": 53,
+        "srcNodeId": 8,
+        "dstNodeId": 14,
+        "weight": 0.16442311,
+        "enabled": true
+      },
+      {
+        "innovationId": 64,
+        "srcNodeId": 11,
+        "dstNodeId": 10,
+        "weight": 0.26026458,
+        "enabled": true
+      },
+      {
+        "innovationId": 79,
+        "srcNodeId": 0,
+        "dstNodeId": 24,
+        "weight": -1.0958583,
+        "enabled": true
+      },
+      {
+        "innovationId": 80,
+        "srcNodeId": 24,
+        "dstNodeId": 11,
+        "weight": 0.33739647,
+        "enabled": true
+      },
+      {
+        "innovationId": 115,
+        "srcNodeId": 11,
+        "dstNodeId": 32,
+        "weight": 0.9305314,
+        "enabled": true
+      },
+      {
+        "innovationId": 116,
+        "srcNodeId": 32,
+        "dstNodeId": 10,
+        "weight": -0.29275745,
+        "enabled": true
+      },
+      {
+        "innovationId": 175,
+        "srcNodeId": 24,
+        "dstNodeId": 12,
+        "weight": 0.5742707,
+        "enabled": true
+      }
+    ]
+  },
+  "params": {
+    "development": {
+      "topKInMin": 6,
+      "topKInMax": 16,
+      "maxOutMin": 8,
+      "maxOutMax": 24,
+      "connectionThreshold": 0.20428118,
+      "initialWeightScale": 0.9583798,
+      "globalSampleRate": 0.012170787,
+      "substrateWidth": 16,
+      "substrateHeight": 16,
+      "substrateLayers": 3
+    },
+    "learning": {
+      "eta": 0.01032407,
+      "eligibilityDecay": 0.9406827,
+      "alphaReward": 1,
+      "alphaPain": -1,
+      "alphaCuriosity": 0.19064805,
+      "betaConsolidate": 0.01,
+      "gammaRecall": 0.01,
+      "criticalPeriodTicks": 1000,
+      "criticalPeriodHours": 1000
+    },
+    "stability": {
+      "weightMaxAbs": 3.0296812,
+      "homeostasisStrength": 0.007822513,
+      "activationTarget": 0.25878128,
+      "incomingNormEps": 1E-05,
+      "enableIncomingNormalization": true
+    }
+  },
+  "reserved": {
+    "cppnOutputNames": [
+      "c",
+      "w",
+      "delay",
+      "tau",
+      "module_tag",
+      "gate"
+    ],
+    "reservedMutationScales": [
+      1,
+      1,
+      1,
+      1
+    ]
+  }
+}
