@@ -61,10 +61,12 @@ public static class MarketFitness
         float maxDdDuration = ComputeMaxDrawdownDuration(curve);
 
         float confidence = 1f - shrinkageK / (shrinkageK + tradeCount);
-        float adjustedSharpe = Math.Clamp(rawSharpe * confidence, -ratioClampMax, ratioClampMax);
+        float clampScale = Math.Min(1f, (float)tradeCount / (minTradesForActive * 3f));
+        float effectiveClamp = ratioClampMax * clampScale;
+        float adjustedSharpe = Math.Clamp(rawSharpe * confidence, -effectiveClamp, effectiveClamp);
 
         float sortinoClean = float.IsNaN(sortino) || float.IsInfinity(sortino) ? 0f : sortino;
-        float adjustedSortino = Math.Clamp(sortinoClean * confidence, -ratioClampMax, ratioClampMax);
+        float adjustedSortino = Math.Clamp(sortinoClean * confidence, -effectiveClamp, effectiveClamp);
         float cvarPenalty = cvar5 < 0f ? -cvar5 : 0f;
 
         float logReturn = MathF.Log(1f + MathF.Abs(returnPct)) * MathF.Sign(returnPct);
@@ -92,7 +94,11 @@ public static class MarketFitness
         }
 
         if (tradeCount > 0 && activityBonusScale > 0f)
-            fitness += MathF.Log(1f + tradeCount) * activityBonusScale;
+        {
+            float rawBonus = MathF.Log(1f + tradeCount) * activityBonusScale;
+            float maxBonus = MathF.Log(1f + minTradesForActive * 3f) * activityBonusScale;
+            fitness += Math.Min(rawBonus, maxBonus);
+        }
 
         if (returnPct < returnFloor)
             fitness = Math.Min(fitness, inactivityPenalty);
@@ -161,7 +167,7 @@ public static class MarketFitness
         }
 
         float mean = sumR / n;
-        if (negCount == 0) return mean > 0 ? AnnualizationFactor : 0f;
+        if (negCount == 0) return mean > 0 ? 20f : 0f;
 
         float downsideDeviation = MathF.Sqrt(sumNegSq / n);
         if (downsideDeviation <= 0f) return 0f;

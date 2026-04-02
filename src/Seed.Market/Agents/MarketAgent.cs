@@ -75,7 +75,7 @@ public sealed class MarketAgent
         modulators[0] = reward;
         modulators[1] = pain;
         modulators[2] = curiosity;
-        _brain.Learn(modulators, new BrainLearnContext(_tick, ctx.ElapsedHours));
+        _brain.Learn(modulators, new BrainLearnContext(_tick, (float)_tick));
 
         if (_portfolio.OpenPositions.Count > 0)
         {
@@ -101,8 +101,7 @@ public sealed class MarketAgent
             signals[SignalIndex.CurrentPnl] = Math.Clamp(pnlPct, -1f, 1f);
             signals[SignalIndex.PositionDirection] = pos.Direction == TradeDirection.Long ? 1f
                 : pos.Direction == TradeDirection.Short ? -1f : 0f;
-            float holdingHours = elapsedHours - _elapsedHoursAtEntry;
-            signals[SignalIndex.HoldingDuration] = Math.Min(holdingHours / 100f, 1f);
+            signals[SignalIndex.HoldingDuration] = Math.Min(_ticksSinceEntry / 100f, 1f);
         }
         else
         {

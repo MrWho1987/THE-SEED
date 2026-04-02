@@ -77,10 +77,10 @@ Not part of the five-term sum; applied after the core `fullFitness` path.
 | Property (JSON) | Type | Default | Description |
 |-----------------|------|---------|-------------|
 | `inactivityPenalty` | `float` | `-0.1` | Fitness when there are no trades; also used in blending for low trade counts and as a floor when `returnPct &lt; returnFloor`. |
-| `minTradesForActive` | `int` | `3` | Below this trade count, fitness blends toward `inactivityPenalty`. |
-| `ratioClampMax` | `float` | `10` | Clamp bound for adjusted Sharpe and Sortino. |
+| `minTradesForActive` | `int` | `3` | Below this trade count, fitness blends toward `inactivityPenalty`. Also used to scale the ratio clamp (`effectiveClamp = ratioClampMax * min(1, tradeCount / (minTradesForActive * 3))`) and cap the activity bonus. |
+| `ratioClampMax` | `float` | `10` | Maximum clamp bound for adjusted Sharpe and Sortino. Effective clamp scales with trade count: agents need `3 * minTradesForActive` trades to access full range. Prevents low-trade agents from exploiting extreme ratio values. |
 | `returnFloor` | `float` | `-0.50` | If total return is below this fraction, fitness is forced to at most `inactivityPenalty`. |
-| `activityBonusScale` | `float` | `0` | If &gt; 0, adds `log(1 + tradeCount) * activityBonusScale` to fitness. |
+| `activityBonusScale` | `float` | `0` | If &gt; 0, adds `min(log(1 + tradeCount), log(1 + minTradesForActive * 3)) * activityBonusScale` to fitness. Capped at the bonus a `3 * minTradesForActive` trade agent would receive to prevent churn exploitation. |
 
 ### Multi-window consistency (evolution)
 
@@ -221,6 +221,11 @@ These are C# only; they are not required in JSON for loading (deserialization ty
 | `market-config.exp2-stagnation.json` | **Experiment**: Same parameters as `market-config.exp1-stable-windows.json` except **`outputDirectory`** (`output_exp2` vs `output_exp1`); filename suggests stagnation-focused runs. |
 | `market-config.exp3-low-dd.json` | **Experiment**: Like exp1/exp2 but **`fitnessDrawdownDurationWeight` `0.02`** (lower drawdown-duration penalty weight). `output_exp3`. |
 | `market-config.exp4-short-windows.json` | **Experiment**: Like exp3 but **`evalWindowHours` `500`** (shorter eval windows). `output_exp4`. |
+| `market-config.phase1-v2.json` | **Phase 1 v2 — Trade Activation**: return-heavy (60%), no Sharpe/Sortino, `minTradesForActive` 3, `activityBonusScale` 0.06, `shrinkageK` 1.0, single eval window 2000h; `output_phase1_v2`. |
+| `market-config.phase2-v2.json` | **Phase 2 v2 — Directional Quality**: return 55%, still no Sharpe/Sortino, `minTradesForActive` 5, `activityBonusScale` 0.05, `shrinkageK` 2.0, single window 3000h; `output_phase2_v2`. |
+| `market-config.phase3-v2.json` | **Phase 3 v2 — Exit Mastery**: Sharpe 0.05 introduced, return 50%, `ddDurationWeight` 0.20 (strongest), `minTradesForActive` 6, 2 eval windows 5000h; `output_phase3_v2`. |
+| `market-config.phase4-v2.json` | **Phase 4 v2 — Risk-Adjusted Returns**: Sharpe 0.15 + Sortino 0.05, return 40%, `minTradesForActive` 8, 3 eval windows 6000h, `shrinkageK` 4.0; `output_phase4_v2`. |
+| `market-config.phase5-v2.json` | **Phase 5 v2 — Regime Adaptation**: Sharpe 0.20 + Sortino 0.10, return 35%, `minTradesForActive` 10, `shrinkageK` 5.0, `walkForwardMinValFitness` -0.03 (strictest); `output_phase5_v2`. |
 
 ---
 

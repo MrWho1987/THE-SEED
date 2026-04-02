@@ -42,7 +42,7 @@ public sealed class DataAggregator : IDisposable
     private int _derivedLastHour = -1;
     private float _prevRegimeVolatility;
     private const int VolWindow = 24;
-    private const int CorrWindow = 24;
+    private const int CorrWindow = 168;
 
     public DataAggregator(MarketConfig? config = null)
     {
@@ -301,8 +301,8 @@ public sealed class DataAggregator : IDisposable
         float volPercentile = MathF.Min(vol / 0.05f, 1f);
         _rawSignals[SignalIndex.RegimeVolatility] = volPercentile;
 
-        float momentum = _rawSignals[SignalIndex.BtcMomentum];
-        _rawSignals[SignalIndex.RegimeTrend] = Math.Clamp(momentum / 0.10f, -1f, 1f);
+        float ret24h = _rawSignals[SignalIndex.BtcReturn24h];
+        _rawSignals[SignalIndex.RegimeTrend] = Math.Clamp(ret24h / 0.10f, -1f, 1f);
 
         float volDelta = vol - _prevRegimeVolatility;
         _rawSignals[SignalIndex.RegimeChange] = Math.Clamp(volDelta / 0.02f, -1f, 1f);

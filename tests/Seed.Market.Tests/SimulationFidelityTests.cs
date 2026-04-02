@@ -11,7 +11,7 @@ public class SimulationFidelityTests
         var trader = new PaperTrader(config);
         var portfolio = trader.CreatePortfolio();
 
-        var smallCtx = new TickContext(50000m, 1_000_000m, 0f, 1);
+        var smallCtx = new TickContext(50000m, 200m, 0f, 1);
         var signal = new TradingSignal(TradeDirection.Long, 0.5f, 0.9f, false);
         var r1 = trader.ProcessSignal(signal, portfolio, smallCtx);
 
@@ -20,13 +20,33 @@ public class SimulationFidelityTests
         var largeConfig = config with { InitialCapital = 100_000m, MaxPositionPct = 0.5m };
         var trader2 = new PaperTrader(largeConfig);
         var portfolio3 = trader2.CreatePortfolio();
-        var largeCtx = new TickContext(50000m, 1_000_000m, 0f, 1);
+        var largeCtx = new TickContext(50000m, 200m, 0f, 1);
         var r2 = trader2.ProcessSignal(signal, portfolio3, largeCtx);
 
         if (r1.Executed && r2.Executed)
         {
             Assert.True(r2.Slippage >= r1.Slippage,
                 $"Larger order should have >= slippage ({r2.Slippage} vs {r1.Slippage})");
+        }
+    }
+
+    [Fact]
+    public void VolumeSlippage_BtcVolumeConvertedToUsd()
+    {
+        var config = MarketConfig.Default with { SlippageBps = 5m };
+        var trader = new PaperTrader(config);
+        var portfolio = trader.CreatePortfolio();
+
+        var ctx = new TickContext(67000m, 200m, 0f, 1);
+        var signal = new TradingSignal(TradeDirection.Long, 0.5f, 0.9f, false);
+        var result = trader.ProcessSignal(signal, portfolio, ctx);
+
+        if (result.Executed)
+        {
+            decimal maxReasonableSlippage = 67000m * 10m / 10000m;
+            Assert.True(result.Slippage < maxReasonableSlippage,
+                $"Slippage {result.Slippage} should be < {maxReasonableSlippage} (10 bps). " +
+                $"If >$600, volume unit mismatch bug is present.");
         }
     }
 

@@ -132,9 +132,18 @@ public sealed class MarketEvaluator
         float lastP = rawPrices[^1];
         decimal finalPrice = (float.IsNaN(lastP) || float.IsInfinity(lastP) || lastP <= 0f)
             ? agent.Portfolio.InitialBalance : (decimal)lastP;
+
+        int openAtEnd = agent.Portfolio.OpenPositions.Count;
         trader.CloseAllPositions(agent.Portfolio, finalPrice, agent.Tick);
 
         var breakdown = _fitnessFunction.ComputeDetailed(agent.Portfolio, finalPrice);
+
+        if (openAtEnd > 0)
+        {
+            float penalty = openAtEnd * 0.05f;
+            breakdown = breakdown with { Fitness = breakdown.Fitness - penalty };
+        }
+
         return new MarketEvalResult(sg.GenomeId, breakdown);
     }
 

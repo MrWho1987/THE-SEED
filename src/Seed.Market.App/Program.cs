@@ -410,8 +410,8 @@ static async Task RunPaper(MarketConfig config)
     Console.WriteLine($"[PAPER] Trade log: {config.ResolvedTradeLogPath}");
     Console.WriteLine("[PAPER] Paper trading active. Press Ctrl+C to stop.\n");
 
-    Console.WriteLine($"{"Tick",-7} {"Price",11} {"Pos",6} {"Unrl P&L",10} {"Equity",12} {"Trades",7} {"WR",5} {"rSharpe",8} {"rDD",6}");
-    Console.WriteLine(new string('─', 82));
+    Console.WriteLine($"{"Tick",-7} {"Price",11} {"Pos",6} {"Entry",11} {"Unrl%",7} {"Net P&L",10} {"Equity",12} {"Trades",7} {"WR",5} {"Exit",5} {"rSharpe",8} {"rDD",6} {"Elapsed",8}");
+    Console.WriteLine(new string('─', 110));
     var rolling = new RollingMetrics(100);
 
     var cts = new CancellationTokenSource();
@@ -419,6 +419,7 @@ static async Task RunPaper(MarketConfig config)
 
     int tick = 0;
     int prevTradeCount = 0;
+    int prevOpenCount = 0;
     var lastDisplay = DateTimeOffset.MinValue;
     var lastHeartbeat = DateTimeOffset.MinValue;
     var sessionStart = DateTimeOffset.UtcNow;
@@ -438,14 +439,28 @@ static async Task RunPaper(MarketConfig config)
 
             float elapsedHours = (float)(DateTimeOffset.UtcNow - sessionStart).TotalHours;
             var ctx = new TickContext(price, (decimal)aggregator.LastRawVolume, aggregator.LastRawFundingRate, tick, elapsedHours);
+            prevOpenCount = agent.Portfolio.OpenPositions.Count;
             agent.ProcessTick(snapshot, ctx);
             agent.Portfolio.RecordEquity(price);
             rolling.Add((float)agent.Portfolio.Equity(price));
 
+            if (agent.Portfolio.OpenPositions.Count > prevOpenCount)
+            {
+                var pos = agent.Portfolio.OpenPositions[^1];
+                Console.WriteLine(
+                    $"  >>> OPENED {pos.Direction} @ ${pos.EntryPrice:N2} | Size {pos.Size:F6} BTC");
+            }
+
             if (agent.Portfolio.TradeHistory.Count > prevTradeCount)
             {
                 for (int i = prevTradeCount; i < agent.Portfolio.TradeHistory.Count; i++)
-                    tradeLog.LogTrade(agent.Portfolio.TradeHistory[i]);
+                {
+                    var closed = agent.Portfolio.TradeHistory[i];
+                    Console.WriteLine(
+                        $"  >>> CLOSED {closed.Direction} | Entry ${closed.EntryPrice:N2} -> Exit ${closed.ExitPrice:N2} | " +
+                        $"P&L {closed.Pnl:+#,##0.00;-#,##0.00} | Fee {closed.Fee:F2} | Held {closed.HoldingTicks} ticks");
+                    tradeLog.LogTrade(closed);
+                }
                 prevTradeCount = agent.Portfolio.TradeHistory.Count;
             }
 
@@ -455,16 +470,22 @@ static async Task RunPaper(MarketConfig config)
                 lastDisplay = now;
                 var portfolio = agent.Portfolio;
                 decimal equity = portfolio.Equity(price);
-                decimal unrealized = equity - portfolio.Balance;
                 string pos = portfolio.OpenPositions.Count > 0
                     ? portfolio.OpenPositions[0].Direction == TradeDirection.Long ? "LONG" : "SHORT"
                     : "FLAT";
+                string entry = portfolio.OpenPositions.Count > 0
+                    ? $"${portfolio.OpenPositions[0].EntryPrice,9:N2}" : $"{"---",11}";
+                string unrlPct = portfolio.OpenPositions.Count > 0
+                    ? $"{(float)portfolio.OpenPositions[0].UnrealizedPnlPct(price) / 100f,6:+0.0%;-0.0%}" : $"{"",7}";
+                string exitFlag = agent.LastGeneratedSignal.ExitCurrent ? " EXIT" : "     ";
+                var elapsed = now - sessionStart;
+                string elapsedStr = $"{(int)elapsed.TotalHours}:{elapsed.Minutes:D2}";
 
                 Console.WriteLine(
-                    $"{tick,-7} ${price,10:N2} {pos,6} " +
-                    $"{unrealized,9:+#,##0.00;-#,##0.00;0.00} " +
+                    $"{tick,-7} ${price,10:N2} {pos,6} {entry} {unrlPct} " +
+                    $"{portfolio.TotalPnl,9:+#,##0.00;-#,##0.00;0.00} " +
                     $"${equity,10:N2} {portfolio.TotalTrades,7} " +
-                    $"{portfolio.WinRate,4:P0} {rolling.RollingSharpe,8:F2} {rolling.RollingDrawdown,5:P1}");
+                    $"{portfolio.WinRate,4:P0} {exitFlag} {rolling.RollingSharpe,8:F2} {rolling.RollingDrawdown,5:P1} {elapsedStr,8}");
 
                 if (portfolio.KillSwitchTriggered)
                 {
@@ -472,19 +493,26 @@ static async Task RunPaper(MarketConfig config)
                 }
             }
 
-            // Heartbeat logging
             if ((DateTimeOffset.UtcNow - lastHeartbeat).TotalSeconds >= 60)
             {
+                var sig = agent.LastGeneratedSignal;
+                string dir = sig.Direction == TradeDirection.Long ? "Long" : sig.Direction == TradeDirection.Short ? "Short" : "Flat";
                 var hb = $"{{\"ts\":\"{DateTimeOffset.UtcNow:O}\",\"equity\":{agent.Portfolio.Equity(price):F2}," +
-                         $"\"trades\":{agent.Portfolio.TotalTrades},\"positions\":{agent.Portfolio.OpenPositions.Count}}}";
+                         $"\"balance\":{agent.Portfolio.Balance:F2}," +
+                         $"\"trades\":{agent.Portfolio.TotalTrades},\"positions\":{agent.Portfolio.OpenPositions.Count}," +
+                         $"\"pnl\":{agent.Portfolio.TotalPnl:F2},\"maxDD\":{(float)agent.Portfolio.MaxDrawdown:F4}," +
+                         $"\"health\":\"{snapshot.Health}\",\"dir\":\"{dir}\",\"exit\":{(sig.ExitCurrent ? "true" : "false")}," +
+                         $"\"rSharpe\":{rolling.RollingSharpe:F2},\"rDD\":{rolling.RollingDrawdown:F4}}}";
                 Directory.CreateDirectory(config.OutputDirectory);
                 File.AppendAllText(Path.Combine(config.OutputDirectory, "heartbeat.jsonl"), hb + "\n");
                 lastHeartbeat = DateTimeOffset.UtcNow;
             }
 
-            // Feed staleness detection
             if ((DateTimeOffset.UtcNow - aggregator.LastTickTime).TotalMinutes > 5)
                 Console.WriteLine($"  [STALE] Data feed not updated for {(DateTimeOffset.UtcNow - aggregator.LastTickTime).TotalMinutes:F0} minutes");
+
+            if (snapshot.Health != Seed.Market.Signals.SignalHealth.Full)
+                Console.WriteLine($"  [SIGNAL] Health: {snapshot.Health} — some feeds degraded");
 
             tick++;
             await Task.Delay(config.SpotPollMs, cts.Token);
@@ -501,13 +529,29 @@ static async Task RunPaper(MarketConfig config)
     if (lastMarketPrice <= 0) lastMarketPrice = config.InitialCapital;
     trader.CloseAllPositions(agent.Portfolio, lastMarketPrice, tick);
 
+    var sessionDuration = DateTimeOffset.UtcNow - sessionStart;
     Console.WriteLine($"\n{"═══ SESSION SUMMARY ═══",-64}");
+    Console.WriteLine($"  Session time:    {sessionDuration.TotalHours:F1}h");
     Console.WriteLine($"  Ticks processed: {tick}");
     Console.WriteLine($"  Total trades:    {agent.Portfolio.TotalTrades}");
     Console.WriteLine($"  Win rate:        {agent.Portfolio.WinRate:P0}");
     Console.WriteLine($"  Net P&L:         {agent.Portfolio.TotalPnl:+#,##0.00;-#,##0.00;0.00}");
+    Console.WriteLine($"  Return:          {(agent.Portfolio.InitialBalance > 0 ? agent.Portfolio.TotalPnl / agent.Portfolio.InitialBalance : 0m):P2}");
+    Console.WriteLine($"  Peak equity:     ${agent.Portfolio.MaxEquity:N2}");
     Console.WriteLine($"  Max drawdown:    {agent.Portfolio.MaxDrawdown:P2}");
     Console.WriteLine($"  Final balance:   ${agent.Portfolio.Balance:N2}");
+    Console.WriteLine($"  Rolling Sharpe:  {rolling.RollingSharpe:F2}");
+    if (agent.Portfolio.TradeHistory.Count > 0)
+    {
+        var trades = agent.Portfolio.TradeHistory;
+        Console.WriteLine($"  Avg P&L/trade:   {trades.Average(t => (double)t.Pnl):+#,##0.00;-#,##0.00}");
+        Console.WriteLine($"  Best trade:      {trades.Max(t => t.Pnl):+#,##0.00;-#,##0.00}");
+        Console.WriteLine($"  Worst trade:     {trades.Min(t => t.Pnl):+#,##0.00;-#,##0.00}");
+        Console.WriteLine($"  Avg hold ticks:  {trades.Average(t => t.HoldingTicks):F0}");
+    }
+    var diag = brain.GetDiagnostics();
+    Console.WriteLine($"  Brain sat rate:  {diag.SaturationRate:P1}");
+    Console.WriteLine($"  Brain wt drift:  fast={diag.MeanAbsWeightFast:F4} slow={diag.MeanAbsWeightSlow:F4}");
     Console.WriteLine($"  Trade log:       {config.ResolvedTradeLogPath}");
     Console.WriteLine("\n[PAPER] Stopped.");
 }

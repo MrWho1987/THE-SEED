@@ -45,17 +45,19 @@ All ratio metrics use the **equity curve** (`List<float>`): for each step `i = 1
 
 - `mean = sumR / n` (same `n` as Sharpe).
 - Accumulate `sumNegSq` for negative `r` only; also count negatives in `negCount`.
-- If `negCount == 0`: return `AnnualizationFactor` if `mean > 0`, else `0`.
+- If `negCount == 0`: return `20` if `mean > 0`, else `0` (capped to prevent extreme values when all hourly returns are positive).
 - Otherwise: `downsideDeviation = sqrt(sumNegSq / n)` — **divisor is `n` (all steps), not `negCount`**.
 - If `downsideDeviation <= 0`, return `0`.
 - **Sortino** = `(mean / downsideDeviation) * AnnualizationFactor`.
 
-### 1.5 Bayesian shrinkage and clamped adjusted ratios
+### 1.5 Bayesian shrinkage and trade-count-scaled clamp
 
 - `confidence = 1 - shrinkageK / (shrinkageK + tradeCount)`.
-- `adjustedSharpe = clamp(rawSharpe * confidence, -ratioClampMax, ratioClampMax)`.
+- `clampScale = min(1, tradeCount / (minTradesForActive * 3))` — scales the ratio clamp proportionally to trade count. Agents need `3 * minTradesForActive` trades to access the full clamp range. This prevents low-trade agents from exploiting extreme Sharpe/Sortino values.
+- `effectiveClamp = ratioClampMax * clampScale`.
+- `adjustedSharpe = clamp(rawSharpe * confidence, -effectiveClamp, effectiveClamp)`.
 - Sortino is sanitized: if NaN or infinity, treated as `0` before adjustment.
-- `adjustedSortino = clamp(sortinoClean * confidence, -ratioClampMax, ratioClampMax)`.
+- `adjustedSortino = clamp(sortinoClean * confidence, -effectiveClamp, effectiveClamp)`.
 
 ### 1.6 CVaR (5%)
 
@@ -85,14 +87,23 @@ All ratio metrics use the **equity curve** (`List<float>`): for each step `i = 1
 - If `tradeCount >= minTradesForActive`: `fitness = fullFitness`, `isActive = true`.
 - Else: `alpha = tradeCount / minTradesForActive`, `fitness = alpha * fullFitness + (1 - alpha) * inactivityPenalty`, `isActive = false`.
 
-### 1.11 Activity bonus
+### 1.11 Activity bonus (capped)
 
 - If `tradeCount > 0` and `activityBonusScale > 0`:  
-  `fitness += log(1 + tradeCount) * activityBonusScale` (`MathF.Log`).
+  `rawBonus = log(1 + tradeCount) * activityBonusScale`.  
+  `maxBonus = log(1 + minTradesForActive * 3) * activityBonusScale`.  
+  `fitness += min(rawBonus, maxBonus)`.  
+  The cap prevents agents from exploiting high trade counts (churn) to inflate fitness. Beyond `3 * minTradesForActive` trades, the activity bonus no longer increases.
 
 ### 1.12 Return floor
 
 - If `returnPct < returnFloor`: `fitness = min(fitness, inactivityPenalty)`.
+
+### 1.13 Open-position penalty (evaluation only)
+
+- After the agent processes all ticks and before fitness is computed, the evaluator counts how many positions remain open. These are then force-closed for scoring, but a penalty is applied:  
+  `fitness -= openAtEnd * 0.05`.  
+  This creates evolutionary pressure for agents to learn voluntary exits rather than relying on the system to close positions at evaluation end. Applied in `MarketEvaluator.RunAgent`, not in the fitness function itself.
 
 ### 1.13 Defaults (`MarketConfig`)
 

@@ -9,23 +9,14 @@
   "killSwitchDrawdownPct": 0.15,
   "maxConcurrentPositions": 3,
   "maxEquityMultiplier": 50,
-
   "runSeed": 42,
   "maxBrainNodes": 200,
   "maxBrainEdges": 2000,
-
   "spotPollMs": 5000,
-  "futuresPollMs": 15000,
-  "sentimentPollMs": 300000,
-  "onChainPollMs": 3600000,
-  "macroPollMs": 3600000,
-
   "coinGeckoApiKey": "YOUR_COINGECKO_API_KEY",
-
   "mode": "Paper",
-  "confirmLive": false,
   "genomePath": "genomes/best_overall.json",
-  "outputDirectory": "output_paper_v2",
+  "outputDirectory": "output_paper_g1",
   "displayIntervalMs": 10000
 }
 

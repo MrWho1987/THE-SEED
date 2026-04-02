@@ -95,7 +95,8 @@ public sealed class PaperTrader : ITrader
 
         decimal size = notional / ctx.Price;
 
-        decimal dynamicSlippageBps = ComputeDynamicSlippage(notional, ctx.HourlyVolume);
+        decimal volumeUsd = ctx.HourlyVolume * ctx.Price;
+        decimal dynamicSlippageBps = ComputeDynamicSlippage(notional, volumeUsd);
         decimal slippage = ctx.Price * dynamicSlippageBps / 10000m;
         decimal fillPrice = signal.Direction == TradeDirection.Long
             ? ctx.Price + slippage
@@ -123,7 +124,8 @@ public sealed class PaperTrader : ITrader
     private TradeResult ClosePosition(
         PortfolioState portfolio, Position position, TickContext ctx)
     {
-        decimal dynamicSlippageBps = ComputeDynamicSlippage(position.Size * ctx.Price, ctx.HourlyVolume);
+        decimal volumeUsd = ctx.HourlyVolume * ctx.Price;
+        decimal dynamicSlippageBps = ComputeDynamicSlippage(position.Size * ctx.Price, volumeUsd);
         decimal slippage = ctx.Price * dynamicSlippageBps / 10000m;
         decimal fillPrice = position.Direction == TradeDirection.Long
             ? ctx.Price - slippage
