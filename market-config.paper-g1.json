@@ -9,14 +9,22 @@
   "killSwitchDrawdownPct": 0.15,
   "maxConcurrentPositions": 3,
   "maxEquityMultiplier": 50,
+
   "runSeed": 42,
   "maxBrainNodes": 200,
   "maxBrainEdges": 2000,
+
   "spotPollMs": 5000,
-  "coinGeckoApiKey": "YOUR_COINGECKO_API_KEY",
+  "futuresPollMs": 15000,
+  "sentimentPollMs": 300000,
+  "onChainPollMs": 3600000,
+  "macroPollMs": 3600000,
+
+  "coinGeckoApiKey": "CG-grHkUd2py1dRkcUhXG9BfBS4",
+
   "mode": "Paper",
-  "genomePath": "genomes/best_overall.json",
+  "confirmLive": false,
+  "genomePath": "output_phase5_v3/best_market_genome.json",
   "outputDirectory": "output_paper_g1",
   "displayIntervalMs": 10000
 }
-

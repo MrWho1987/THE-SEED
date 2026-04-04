@@ -46,7 +46,7 @@
   "walkForwardMinValFitness": -0.05,
   "walkForwardMaxStallGens": 30,
 
-  "coinGeckoApiKey": "YOUR_COINGECKO_API_KEY",
+  "coinGeckoApiKey": "CG-grHkUd2py1dRkcUhXG9BfBS4",
 
   "mode": "Backtest",
   "confirmLive": false,
@@ -56,5 +56,6 @@
   "maxBrainNodes": 200,
   "maxBrainEdges": 2000
 }
+
 
 

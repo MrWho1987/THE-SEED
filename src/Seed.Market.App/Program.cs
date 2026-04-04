@@ -13,10 +13,22 @@ using Seed.Market.Trading;
 using Seed.Observatory;
 
 var configPath = "market-config.default.json";
-if (args.Length >= 2 && args[0] == "--config")
+string[]? pipelineConfigs = null;
+
+if (args.Length >= 2 && args[0] == "--pipeline")
+{
+    pipelineConfigs = args[1].Split(',');
+}
+else if (args.Length >= 2 && args[0] == "--config")
     configPath = args[1];
 else if (args.Length >= 1 && !args[0].StartsWith("-"))
     configPath = args[0];
+
+if (pipelineConfigs != null)
+{
+    await RunPipeline(pipelineConfigs);
+    return;
+}
 
 if (!File.Exists(configPath))
 {
@@ -69,15 +81,17 @@ switch (config.Mode)
 // ─────────────────────────────────────────────────────────────────────────────
 // BACKTEST MODE — with checkpointing and resume support
 // ─────────────────────────────────────────────────────────────────────────────
-static async Task RunBacktest(MarketConfig config)
+static async Task RunBacktest(MarketConfig config, DateTimeOffset? fixedEnd = null)
 {
     Console.WriteLine("\n[BACKTEST] Downloading historical data...");
 
     var runner = new BacktestRunner(config);
-    var end = DateTimeOffset.UtcNow.AddHours(-1);
+    var end = fixedEnd ?? DateTimeOffset.UtcNow.AddHours(-1);
     var start = end.AddHours(-config.TrainingWindowHours - config.ValidationWindowHours);
 
-    var (snapshots, prices, rawVolumes, rawFundingRates) = await runner.LoadData(config.Symbols[0], start, end, enrich: true);
+    var (snapshots, prices, rawVolumes, rawFundingRates, enrichReport) = await runner.LoadData(config.Symbols[0], start, end, enrich: true);
+    enrichReport?.PrintSummary();
+    enrichReport?.SaveManifest(runner.CacheDir);
     Console.WriteLine($"[BACKTEST] Loaded {snapshots.Length} candles ({start:yyyy-MM-dd} to {end:yyyy-MM-dd})");
 
     int trainLen = Math.Min(config.TrainingWindowHours, snapshots.Length - config.ValidationWindowHours);
@@ -408,16 +422,19 @@ static async Task RunPaper(MarketConfig config)
     using var tradeLog = new TradeLogger(config.ResolvedTradeLogPath);
 
     Console.WriteLine($"[PAPER] Trade log: {config.ResolvedTradeLogPath}");
+    Console.WriteLine("[PAPER] Brain decisions run on hourly boundaries (matching training regime).");
     Console.WriteLine("[PAPER] Paper trading active. Press Ctrl+C to stop.\n");
 
-    Console.WriteLine($"{"Tick",-7} {"Price",11} {"Pos",6} {"Entry",11} {"Unrl%",7} {"Net P&L",10} {"Equity",12} {"Trades",7} {"WR",5} {"Exit",5} {"rSharpe",8} {"rDD",6} {"Elapsed",8}");
+    Console.WriteLine($"{"Feed",-7} {"Price",11} {"Pos",6} {"Entry",11} {"Unrl%",7} {"Net P&L",10} {"Equity",12} {"Trades",7} {"WR",5} {"Exit",5} {"rSharpe",8} {"rDD",6} {"Elapsed",8}");
     Console.WriteLine(new string('─', 110));
     var rolling = new RollingMetrics(100);
 
     var cts = new CancellationTokenSource();
     Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };
 
-    int tick = 0;
+    int feedTick = 0;
+    int decisionTick = 0;
+    int lastDecisionHour = -1;
     int prevTradeCount = 0;
     int prevOpenCount = 0;
     var lastDisplay = DateTimeOffset.MinValue;
@@ -437,32 +454,43 @@ static async Task RunPaper(MarketConfig config)
                 continue;
             }
 
-            float elapsedHours = (float)(DateTimeOffset.UtcNow - sessionStart).TotalHours;
-            var ctx = new TickContext(price, (decimal)aggregator.LastRawVolume, aggregator.LastRawFundingRate, tick, elapsedHours);
-            prevOpenCount = agent.Portfolio.OpenPositions.Count;
-            agent.ProcessTick(snapshot, ctx);
+            int currentHour = DateTimeOffset.UtcNow.DayOfYear * 24 + DateTimeOffset.UtcNow.Hour;
+            bool isDecisionTick = lastDecisionHour == -1 || currentHour != lastDecisionHour;
+
+            if (isDecisionTick)
+            {
+                lastDecisionHour = currentHour;
+                float elapsedHours = (float)(DateTimeOffset.UtcNow - sessionStart).TotalHours;
+                var ctx = new TickContext(price, (decimal)aggregator.LastRawVolume, aggregator.LastRawFundingRate, decisionTick, elapsedHours);
+                prevOpenCount = agent.Portfolio.OpenPositions.Count;
+                agent.ProcessTick(snapshot, ctx);
+
+                Console.WriteLine($"  [BRAIN] Hourly decision #{decisionTick} at {DateTimeOffset.UtcNow:HH:mm:ss} UTC | price ${price:N2}");
+                decisionTick++;
+
+                if (agent.Portfolio.OpenPositions.Count > prevOpenCount)
+                {
+                    var pos = agent.Portfolio.OpenPositions[^1];
+                    Console.WriteLine(
+                        $"  >>> OPENED {pos.Direction} @ ${pos.EntryPrice:N2} | Size {pos.Size:F6} BTC");
+                }
+
+                if (agent.Portfolio.TradeHistory.Count > prevTradeCount)
+                {
+                    for (int i = prevTradeCount; i < agent.Portfolio.TradeHistory.Count; i++)
+                    {
+                        var closed = agent.Portfolio.TradeHistory[i];
+                        Console.WriteLine(
+                            $"  >>> CLOSED {closed.Direction} | Entry ${closed.EntryPrice:N2} -> Exit ${closed.ExitPrice:N2} | " +
+                            $"P&L {closed.Pnl:+#,##0.00;-#,##0.00} | Fee {closed.Fee:F2} | Held {closed.HoldingTicks} ticks");
+                        tradeLog.LogTrade(closed);
+                    }
+                    prevTradeCount = agent.Portfolio.TradeHistory.Count;
+                }
+            }
+
             agent.Portfolio.RecordEquity(price);
             rolling.Add((float)agent.Portfolio.Equity(price));
-
-            if (agent.Portfolio.OpenPositions.Count > prevOpenCount)
-            {
-                var pos = agent.Portfolio.OpenPositions[^1];
-                Console.WriteLine(
-                    $"  >>> OPENED {pos.Direction} @ ${pos.EntryPrice:N2} | Size {pos.Size:F6} BTC");
-            }
-
-            if (agent.Portfolio.TradeHistory.Count > prevTradeCount)
-            {
-                for (int i = prevTradeCount; i < agent.Portfolio.TradeHistory.Count; i++)
-                {
-                    var closed = agent.Portfolio.TradeHistory[i];
-                    Console.WriteLine(
-                        $"  >>> CLOSED {closed.Direction} | Entry ${closed.EntryPrice:N2} -> Exit ${closed.ExitPrice:N2} | " +
-                        $"P&L {closed.Pnl:+#,##0.00;-#,##0.00} | Fee {closed.Fee:F2} | Held {closed.HoldingTicks} ticks");
-                    tradeLog.LogTrade(closed);
-                }
-                prevTradeCount = agent.Portfolio.TradeHistory.Count;
-            }
 
             var now = DateTimeOffset.UtcNow;
             if ((now - lastDisplay).TotalMilliseconds >= config.DisplayIntervalMs)
@@ -482,7 +510,7 @@ static async Task RunPaper(MarketConfig config)
                 string elapsedStr = $"{(int)elapsed.TotalHours}:{elapsed.Minutes:D2}";
 
                 Console.WriteLine(
-                    $"{tick,-7} ${price,10:N2} {pos,6} {entry} {unrlPct} " +
+                    $"{feedTick,-7} ${price,10:N2} {pos,6} {entry} {unrlPct} " +
                     $"{portfolio.TotalPnl,9:+#,##0.00;-#,##0.00;0.00} " +
                     $"${equity,10:N2} {portfolio.TotalTrades,7} " +
                     $"{portfolio.WinRate,4:P0} {exitFlag} {rolling.RollingSharpe,8:F2} {rolling.RollingDrawdown,5:P1} {elapsedStr,8}");
@@ -514,7 +542,7 @@ static async Task RunPaper(MarketConfig config)
             if (snapshot.Health != Seed.Market.Signals.SignalHealth.Full)
                 Console.WriteLine($"  [SIGNAL] Health: {snapshot.Health} — some feeds degraded");
 
-            tick++;
+            feedTick++;
             await Task.Delay(config.SpotPollMs, cts.Token);
         }
         catch (OperationCanceledException) { break; }
@@ -527,12 +555,13 @@ static async Task RunPaper(MarketConfig config)
 
     decimal lastMarketPrice = (decimal)aggregator.LastRawBtcPrice;
     if (lastMarketPrice <= 0) lastMarketPrice = config.InitialCapital;
-    trader.CloseAllPositions(agent.Portfolio, lastMarketPrice, tick);
+    trader.CloseAllPositions(agent.Portfolio, lastMarketPrice, decisionTick);
 
     var sessionDuration = DateTimeOffset.UtcNow - sessionStart;
     Console.WriteLine($"\n{"═══ SESSION SUMMARY ═══",-64}");
     Console.WriteLine($"  Session time:    {sessionDuration.TotalHours:F1}h");
-    Console.WriteLine($"  Ticks processed: {tick}");
+    Console.WriteLine($"  Feed ticks:      {feedTick}");
+    Console.WriteLine($"  Brain decisions: {decisionTick}");
     Console.WriteLine($"  Total trades:    {agent.Portfolio.TotalTrades}");
     Console.WriteLine($"  Win rate:        {agent.Portfolio.WinRate:P0}");
     Console.WriteLine($"  Net P&L:         {agent.Portfolio.TotalPnl:+#,##0.00;-#,##0.00;0.00}");
@@ -582,7 +611,7 @@ static async Task RunCompare(MarketConfig config)
     var runner = new BacktestRunner(config);
     var end = DateTimeOffset.UtcNow.AddHours(-1);
     var start = end.AddHours(-config.TrainingWindowHours);
-    var (snapshots, prices, rawVolumes, rawFundingRates) = await runner.LoadData(config.Symbols[0], start, end, enrich: true);
+    var (snapshots, prices, rawVolumes, rawFundingRates, _) = await runner.LoadData(config.Symbols[0], start, end, enrich: true);
 
     var genomePath = config.ResolvedGenomePath;
     if (!File.Exists(genomePath))
@@ -650,7 +679,7 @@ static async Task RunAblation(MarketConfig config)
     var runner = new BacktestRunner(config);
     var end = DateTimeOffset.UtcNow.AddHours(-1);
     var start = end.AddHours(-config.ValidationWindowHours);
-    var (snapshots, prices, rawVolumes, rawFundingRates) = await runner.LoadData(config.Symbols[0], start, end, enrich: true);
+    var (snapshots, prices, rawVolumes, rawFundingRates, _) = await runner.LoadData(config.Symbols[0], start, end, enrich: true);
 
     var genomePath = config.ResolvedGenomePath;
     if (!File.Exists(genomePath))
@@ -726,7 +755,7 @@ static async Task RunStressTest(MarketConfig config)
     var runner = new BacktestRunner(config);
     var end = DateTimeOffset.UtcNow.AddHours(-1);
     var start = end.AddHours(-config.TrainingWindowHours);
-    var (snapshots, prices, rawVolumes, rawFundingRates) = await runner.LoadData(config.Symbols[0], start, end, enrich: true);
+    var (snapshots, prices, rawVolumes, rawFundingRates, _) = await runner.LoadData(config.Symbols[0], start, end, enrich: true);
 
     var genomePath = config.ResolvedGenomePath;
     if (!File.Exists(genomePath))
@@ -766,7 +795,7 @@ static async Task RunMonteCarlo(MarketConfig config)
     var runner = new BacktestRunner(config);
     var end = DateTimeOffset.UtcNow.AddHours(-1);
     var start = end.AddHours(-config.TrainingWindowHours);
-    var (snapshots, prices, rawVolumes, rawFundingRates) = await runner.LoadData(config.Symbols[0], start, end, enrich: true);
+    var (snapshots, prices, rawVolumes, rawFundingRates, _) = await runner.LoadData(config.Symbols[0], start, end, enrich: true);
 
     var genomePath = config.ResolvedGenomePath;
     if (!File.Exists(genomePath))
@@ -832,7 +861,7 @@ static async Task RunNeuroAblation(MarketConfig config)
     var runner = new BacktestRunner(config);
     var end = DateTimeOffset.UtcNow.AddHours(-1);
     var start = end.AddHours(-config.ValidationWindowHours);
-    var (snapshots, prices, rawVolumes, rawFundingRates) = await runner.LoadData(config.Symbols[0], start, end, enrich: true);
+    var (snapshots, prices, rawVolumes, rawFundingRates, _) = await runner.LoadData(config.Symbols[0], start, end, enrich: true);
 
     var genomePath = config.ResolvedGenomePath;
     if (!File.Exists(genomePath))
@@ -898,4 +927,81 @@ static async Task RunNeuroAblation(MarketConfig config)
     Console.WriteLine($"  - Largest negative delta = most important modulator channel");
     Console.WriteLine($"  - Near-zero delta = that channel adds little value");
     Console.WriteLine($"  - Positive delta = that channel is actively hurting (noise)");
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PIPELINE MODE — run multiple backtest phases sequentially
+// ─────────────────────────────────────────────────────────────────────────────
+static async Task RunPipeline(string[] configPaths)
+{
+    Console.WriteLine("╔══════════════════════════════════════════════════════════════╗");
+    Console.WriteLine("║          THE SEED — PIPELINE TRAINING                       ║");
+    Console.WriteLine($"║  Phases: {configPaths.Length,-50}║");
+    Console.WriteLine("╚══════════════════════════════════════════════════════════════╝");
+
+    for (int i = 0; i < configPaths.Length; i++)
+    {
+        var path = configPaths[i].Trim();
+        if (!File.Exists(path))
+        {
+            Console.WriteLine($"[PIPELINE] ERROR: Config not found: {path}");
+            return;
+        }
+        var cfg = MarketConfig.Load(path);
+        Console.WriteLine($"  Phase {i + 1}: {Path.GetFileName(path)} -> {cfg.OutputDirectory} (gen {cfg.Generations})");
+    }
+
+    var pipelineEnd = DateTimeOffset.UtcNow.AddHours(-1);
+    Console.WriteLine($"  Fixed date range end: {pipelineEnd:yyyy-MM-dd HH:mm} UTC");
+
+    string sharedCacheDir = Path.Combine(
+        Path.GetDirectoryName(Path.GetFullPath(configPaths[0].Trim())) ?? ".",
+        "pipeline_shared_cache");
+    Directory.CreateDirectory(sharedCacheDir);
+    Console.WriteLine($"  Shared cache: {sharedCacheDir}");
+
+    string? prevOutputDir = null;
+
+    for (int phase = 0; phase < configPaths.Length; phase++)
+    {
+        var path = configPaths[phase].Trim();
+        var config = MarketConfig.Load(path);
+        config = config with { DataCacheDirectory = sharedCacheDir };
+
+        Console.WriteLine($"\n{"═══════════════════════════════════════════════════════════",-64}");
+        Console.WriteLine($"  PIPELINE PHASE {phase + 1}/{configPaths.Length}: {Path.GetFileName(path)}");
+        Console.WriteLine($"  Generations: {config.Generations}");
+        Console.WriteLine($"  Output: {config.OutputDirectory}");
+        Console.WriteLine($"  Data cache: {sharedCacheDir}");
+        Console.WriteLine($"{"═══════════════════════════════════════════════════════════",-64}");
+
+        Directory.CreateDirectory(config.OutputDirectory);
+
+        if (prevOutputDir != null)
+        {
+            var prevCheckpointDir = Path.Combine(prevOutputDir, "checkpoints");
+            var latestCp = CheckpointState.FindLatest(prevCheckpointDir);
+            if (latestCp != null)
+            {
+                var destDir = Path.Combine(config.OutputDirectory, "checkpoints");
+                Directory.CreateDirectory(destDir);
+                var destPath = Path.Combine(destDir, Path.GetFileName(latestCp));
+                File.Copy(latestCp, destPath, overwrite: true);
+                Console.WriteLine($"  Checkpoint copied: {Path.GetFileName(latestCp)}");
+            }
+            else
+            {
+                Console.WriteLine($"  [WARNING] No checkpoint found in {prevCheckpointDir}");
+            }
+        }
+
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        await RunBacktest(config, pipelineEnd);
+        sw.Stop();
+
+        prevOutputDir = config.OutputDirectory;
+        Console.WriteLine($"\n  Phase {phase + 1} complete in {sw.Elapsed.TotalHours:F1}h.");
+    }
+
+    Console.WriteLine($"\n[PIPELINE] All {configPaths.Length} phases complete.");
 }

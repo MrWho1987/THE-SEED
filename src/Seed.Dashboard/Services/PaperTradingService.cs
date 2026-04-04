@@ -66,7 +66,9 @@ public class PaperTradingService
         using var tradeLog = new TradeLogger(_config.ResolvedTradeLogPath);
 
         var rolling = new RollingMetrics(100);
-        int tick = 0;
+        int feedTick = 0;
+        int decisionTick = 0;
+        int lastDecisionHour = -1;
         int prevTradeCount = 0;
         var startTime = DateTimeOffset.UtcNow;
 
@@ -83,24 +85,33 @@ public class PaperTradingService
                     continue;
                 }
 
-                agent.ProcessTick(snapshot, price);
+                int currentHour = DateTimeOffset.UtcNow.DayOfYear * 24 + DateTimeOffset.UtcNow.Hour;
+                bool isDecisionTick = lastDecisionHour == -1 || currentHour != lastDecisionHour;
+
+                if (isDecisionTick)
+                {
+                    lastDecisionHour = currentHour;
+                    agent.ProcessTick(snapshot, price);
+                    decisionTick++;
+
+                    if (agent.Portfolio.TradeHistory.Count > prevTradeCount)
+                    {
+                        for (int i = prevTradeCount; i < agent.Portfolio.TradeHistory.Count; i++)
+                        {
+                            var t = agent.Portfolio.TradeHistory[i];
+                            tradeLog.LogTrade(t);
+                            _onTrade(new TradeRow(
+                                i + 1, t.CloseTime.ToString("HH:mm:ss"),
+                                t.Direction.ToString(), t.EntryPrice, t.ExitPrice,
+                                t.Size, t.Pnl, t.Fee, t.HoldingTicks,
+                                t.EntryPrice > 0 ? (t.Pnl / (t.EntryPrice * t.Size) * 100).ToString("F2") + "%" : "0%"));
+                        }
+                        prevTradeCount = agent.Portfolio.TradeHistory.Count;
+                    }
+                }
+
                 agent.Portfolio.RecordEquity(price);
                 rolling.Add((float)agent.Portfolio.Equity(price));
-
-                if (agent.Portfolio.TradeHistory.Count > prevTradeCount)
-                {
-                    for (int i = prevTradeCount; i < agent.Portfolio.TradeHistory.Count; i++)
-                    {
-                        var t = agent.Portfolio.TradeHistory[i];
-                        tradeLog.LogTrade(t);
-                        _onTrade(new TradeRow(
-                            i + 1, t.CloseTime.ToString("HH:mm:ss"),
-                            t.Direction.ToString(), t.EntryPrice, t.ExitPrice,
-                            t.Size, t.Pnl, t.Fee, t.HoldingTicks,
-                            t.EntryPrice > 0 ? (t.Pnl / (t.EntryPrice * t.Size) * 100).ToString("F2") + "%" : "0%"));
-                    }
-                    prevTradeCount = agent.Portfolio.TradeHistory.Count;
-                }
 
                 var portfolio = agent.Portfolio;
                 decimal equity = portfolio.Equity(price);
@@ -110,7 +121,7 @@ public class PaperTradingService
                     : "FLAT";
 
                 var elapsed = DateTimeOffset.UtcNow - startTime;
-                bool isWarmup = tick < (3600 / (_config.SpotPollMs / 1000)) * 24;
+                bool isWarmup = decisionTick < 24;
 
                 var feedHealth = new FeedHealthInfo[]
                 {
@@ -125,13 +136,13 @@ public class PaperTradingService
                 decimal maxDd = portfolio.MaxDrawdown;
 
                 _onTick(new TickData(
-                    tick, price, pos, unrealized, equity, portfolio.TotalPnl,
+                    feedTick, price, pos, unrealized, equity, portfolio.TotalPnl,
                     portfolio.TotalTrades, portfolio.WinRate,
                     rolling.RollingSharpe, rolling.RollingDrawdown,
                     portfolio.KillSwitchTriggered, maxDd,
                     FormatDuration(elapsed), isWarmup, feedHealth));
 
-                tick++;
+                feedTick++;
                 await Task.Delay(_config.SpotPollMs, ct);
             }
             catch (OperationCanceledException) { break; }
@@ -145,7 +156,7 @@ public class PaperTradingService
         decimal finalPrice = agent.Portfolio.OpenPositions.Count > 0
             ? (decimal)aggregator.LastRawBtcPrice
             : _config.InitialCapital;
-        trader.CloseAllPositions(agent.Portfolio, finalPrice, tick);
+        trader.CloseAllPositions(agent.Portfolio, finalPrice, decisionTick);
     }
 
     public void Stop() => _cts?.Cancel();

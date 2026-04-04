@@ -77,6 +77,7 @@ public sealed record MarketConfig
 
     // ── Output ──
     public string OutputDirectory { get; init; } = "output_market";
+    public string? DataCacheDirectory { get; init; }
 
     // ── Validation ──
     public int ValidationIntervalGens { get; init; } = 10;

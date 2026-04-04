@@ -26,19 +26,24 @@ public sealed class HistoricalSignalEnricher
     }
 
     /// <summary>
-    /// Download all supplemental data and return per-slot arrays aligned to BTC candle timestamps.
-    /// Returns a dictionary of signal-index -> float[n] where n = btcCandles.Length.
+    /// Download all supplemental data and return per-slot arrays aligned to BTC candle timestamps,
+    /// along with an EnrichmentReport tracking the status of each data source.
     /// </summary>
-    public async Task<Dictionary<int, float[]>> EnrichAsync(
+    public async Task<(Dictionary<int, float[]> Data, EnrichmentReport Report)> EnrichAsync(
         TechnicalIndicators.Candle[] btcCandles, DateTimeOffset start, DateTimeOffset end)
     {
         int n = btcCandles.Length;
         var timestamps = btcCandles.Select(c => c.Time).ToArray();
         var result = new Dictionary<int, float[]>();
+        var report = new EnrichmentReport
+        {
+            Timestamp = DateTimeOffset.UtcNow,
+            DateRange = $"{start:yyyy-MM-dd} to {end:yyyy-MM-dd}"
+        };
 
         var btcCloses = btcCandles.Select(c => c.Close).ToArray();
 
-        // Phase 1: ETH candles + multi-asset derived
+        // 1: ETH candles + multi-asset derived
         try
         {
             Console.WriteLine("[ENRICH] Downloading ETH candles...");
@@ -47,68 +52,124 @@ public sealed class HistoricalSignalEnricher
             AddEthSignals(result, btcCandles, aligned, n);
             AddMultiAssetSignals(result, btcCloses, aligned, n);
             Console.WriteLine($"[ENRICH] ETH + multi-asset: {CountSlots(result)} slots");
+            report.Sources.Add(new("ETH + Multi-Asset", DataSourceStatus.Success, ethCandles.Length));
         }
-        catch (Exception ex) { Console.WriteLine($"[ENRICH] ETH failed: {ex.Message}"); }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ENRICH] ETH failed: {ex.Message}");
+            report.Sources.Add(new("ETH + Multi-Asset", DataSourceStatus.Failed, 0, Error: ex.Message));
+        }
 
-        // BTC volume ratio (slot 5) - computed from BTC candles alone
         AddBtcVolumeRatio(result, btcCandles, n);
 
-        // Phase 2: Macro (Yahoo Finance)
+        // 2: Macro (Yahoo Finance)
         try
         {
             Console.WriteLine("[ENRICH] Downloading macro data...");
+            int slotsBefore = CountSlots(result);
             await AddMacroSignals(result, timestamps, btcCloses, n);
+            int slotsAdded = CountSlots(result) - slotsBefore;
             Console.WriteLine($"[ENRICH] +Macro: {CountSlots(result)} slots");
+            report.Sources.Add(new("Macro (Yahoo)", DataSourceStatus.Success, slotsAdded));
         }
-        catch (Exception ex) { Console.WriteLine($"[ENRICH] Macro failed: {ex.Message}"); }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ENRICH] Macro failed: {ex.Message}");
+            report.Sources.Add(new("Macro (Yahoo)", DataSourceStatus.Failed, 0, Error: ex.Message));
+        }
 
-        // Phase 3: On-chain (blockchain.info)
+        // 3: On-chain (blockchain.info)
         try
         {
             Console.WriteLine("[ENRICH] Downloading on-chain data...");
+            int slotsBefore = CountSlots(result);
             await AddOnChainSignals(result, timestamps, n);
+            int slotsAdded = CountSlots(result) - slotsBefore;
             Console.WriteLine($"[ENRICH] +On-chain: {CountSlots(result)} slots");
+            report.Sources.Add(new("On-Chain (blockchain.info)", DataSourceStatus.Success, slotsAdded));
         }
-        catch (Exception ex) { Console.WriteLine($"[ENRICH] On-chain failed: {ex.Message}"); }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ENRICH] On-chain failed: {ex.Message}");
+            report.Sources.Add(new("On-Chain (blockchain.info)", DataSourceStatus.Failed, 0, Error: ex.Message));
+        }
 
-        // Phase 4: Fear & Greed (alternative.me)
+        // 4: Fear & Greed (alternative.me)
         try
         {
             Console.WriteLine("[ENRICH] Downloading Fear & Greed...");
+            int slotsBefore = CountSlots(result);
             await AddFearGreedSignals(result, timestamps, n);
+            int slotsAdded = CountSlots(result) - slotsBefore;
             Console.WriteLine($"[ENRICH] +Fear/Greed: {CountSlots(result)} slots");
+            report.Sources.Add(new("Fear & Greed (alternative.me)", DataSourceStatus.Success, slotsAdded));
         }
-        catch (Exception ex) { Console.WriteLine($"[ENRICH] Fear/Greed failed: {ex.Message}"); }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ENRICH] Fear/Greed failed: {ex.Message}");
+            report.Sources.Add(new("Fear & Greed (alternative.me)", DataSourceStatus.Failed, 0, Error: ex.Message));
+        }
 
-        // Phase 5: Stablecoin (CoinGecko)
+        // 5: Stablecoin (CoinGecko)
         try
         {
             Console.WriteLine("[ENRICH] Downloading stablecoin/market data...");
+            int slotsBefore = CountSlots(result);
             await AddStablecoinSignals(result, timestamps, n);
+            int slotsAdded = CountSlots(result) - slotsBefore;
             Console.WriteLine($"[ENRICH] +Stablecoin: {CountSlots(result)} slots");
+            report.Sources.Add(new("Stablecoin (CoinGecko)", DataSourceStatus.Success, slotsAdded));
         }
-        catch (Exception ex) { Console.WriteLine($"[ENRICH] Stablecoin failed: {ex.Message}"); }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ENRICH] Stablecoin failed: {ex.Message}");
+            report.Sources.Add(new("Stablecoin (CoinGecko)", DataSourceStatus.Failed, 0, Error: ex.Message));
+        }
 
-        // Phase 6: Funding rates (Binance Futures)
+        // 6: Funding rates (Binance Futures)
         try
         {
             Console.WriteLine("[ENRICH] Downloading funding rates...");
+            int slotsBefore = CountSlots(result);
             await AddFundingRateSignals(result, timestamps, start, end, n);
+            int slotsAdded = CountSlots(result) - slotsBefore;
             Console.WriteLine($"[ENRICH] +Funding: {CountSlots(result)} slots");
+            report.Sources.Add(new("Funding Rates (Binance)", DataSourceStatus.Success, slotsAdded));
         }
-        catch (Exception ex) { Console.WriteLine($"[ENRICH] Funding failed: {ex.Message}"); }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ENRICH] Funding failed: {ex.Message}");
+            report.Sources.Add(new("Funding Rates (Binance)", DataSourceStatus.Failed, 0, Error: ex.Message));
+        }
 
-        // Phase 7: Derivatives (OI, L/S ratio, taker ratio)
+        // 7: Derivatives (OI, L/S ratio, taker ratio)
         try
         {
             Console.WriteLine("[ENRICH] Downloading derivatives data...");
-            await AddDerivativesSignals(result, timestamps, start, end, n);
-            Console.WriteLine($"[ENRICH] +Derivatives: {CountSlots(result)} slots");
+            int slotsBefore = CountSlots(result);
+            var derivativesTask = AddDerivativesSignals(result, timestamps, start, end, n);
+            if (await Task.WhenAny(derivativesTask, Task.Delay(TimeSpan.FromSeconds(60))) == derivativesTask)
+            {
+                await derivativesTask;
+                int slotsAdded = CountSlots(result) - slotsBefore;
+                Console.WriteLine($"[ENRICH] +Derivatives: {CountSlots(result)} slots");
+                report.Sources.Add(new("Derivatives (Binance)", DataSourceStatus.Success, slotsAdded));
+            }
+            else
+            {
+                Console.WriteLine("[ENRICH] Derivatives download timed out after 60s, skipping");
+                report.Sources.Add(new("Derivatives (Binance)", DataSourceStatus.Timeout, 0,
+                    Error: "Download timed out after 60s"));
+            }
         }
-        catch (Exception ex) { Console.WriteLine($"[ENRICH] Derivatives failed: {ex.Message}"); }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ENRICH] Derivatives failed: {ex.Message}");
+            report.Sources.Add(new("Derivatives (Binance)", DataSourceStatus.Failed, 0, Error: ex.Message));
+        }
 
         Console.WriteLine($"[ENRICH] Complete: {CountSlots(result)} enrichment slots populated");
-        return result;
+        return (result, report);
     }
 
     private static int CountSlots(Dictionary<int, float[]> d) => d.Count;
@@ -255,7 +316,10 @@ public sealed class HistoricalSignalEnricher
     {
         var cache = Path.Combine(_cacheDir, $"yahoo_{name}_daily.jsonl");
         if (File.Exists(cache))
-            return LoadTimeseriesCache(cache);
+        {
+            var cached = LoadTimeseriesCache(cache);
+            if (cached != null) return cached;
+        }
 
         var url = $"https://query1.finance.yahoo.com/v8/finance/chart/" +
                   $"{Uri.EscapeDataString(symbol)}?range=max&interval=1d";
@@ -322,7 +386,10 @@ public sealed class HistoricalSignalEnricher
     {
         var cache = Path.Combine(_cacheDir, $"blockchain_{chart}.jsonl");
         if (File.Exists(cache))
-            return LoadTimeseriesCache(cache);
+        {
+            var cached = LoadTimeseriesCache(cache);
+            if (cached != null) return cached;
+        }
 
         var url = $"https://api.blockchain.info/charts/{chart}?timespan=all&format=json";
         var json = await _client.GetStringAsync(url);
@@ -366,7 +433,10 @@ public sealed class HistoricalSignalEnricher
     {
         var cache = Path.Combine(_cacheDir, "feargreed.jsonl");
         if (File.Exists(cache))
-            return LoadTimeseriesCache(cache);
+        {
+            var cached = LoadTimeseriesCache(cache);
+            if (cached != null) return cached;
+        }
 
         var json = await _client.GetStringAsync("https://api.alternative.me/fng/?limit=0&format=json");
         var doc = JsonSerializer.Deserialize<JsonElement>(json);
@@ -443,25 +513,28 @@ public sealed class HistoricalSignalEnricher
     {
         var cache = Path.Combine(_cacheDir, $"coingecko_{name}.jsonl");
         if (File.Exists(cache))
-            return LoadTimeseriesCache(cache);
+        {
+            var cached = LoadTimeseriesCache(cache);
+            if (cached != null) return cached;
+        }
 
-        string json;
+        string? json = null;
         foreach (var days in new[] { "max", "365" })
         {
             var url = $"https://api.coingecko.com/api/v3/coins/{coinId}/market_chart?vs_currency=usd&days={days}";
-            var request = new HttpRequestMessage(HttpMethod.Get, url);
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
             if (!string.IsNullOrEmpty(_coinGeckoApiKey))
                 request.Headers.Add("x-cg-demo-api-key", _coinGeckoApiKey);
-            var response = await _client.SendAsync(request);
+            using var response = await _client.SendAsync(request);
             if (response.IsSuccessStatusCode)
             {
                 json = await response.Content.ReadAsStringAsync();
-                goto parse;
+                break;
             }
             Console.WriteLine($"[ENRICH] CoinGecko {coinId} days={days}: HTTP {(int)response.StatusCode} {response.ReasonPhrase}");
         }
-        throw new HttpRequestException($"CoinGecko: all day ranges failed for {coinId} (apiKey={(_coinGeckoApiKey != null ? "set" : "NULL")})");
-        parse:
+        if (json == null)
+            throw new HttpRequestException($"CoinGecko: all day ranges failed for {coinId} (apiKey={(_coinGeckoApiKey != null ? "set" : "NULL")})");
         var doc = JsonSerializer.Deserialize<JsonElement>(json);
         var mcaps = doc.GetProperty("market_caps");
 
@@ -495,18 +568,22 @@ public sealed class HistoricalSignalEnricher
     {
         var cache = Path.Combine(_cacheDir, $"funding_{name}.jsonl");
         if (File.Exists(cache))
-            return LoadTimeseriesCache(cache);
+        {
+            var cached = LoadTimeseriesCache(cache);
+            if (cached != null) return cached;
+        }
 
         var data = new List<(long, float)>();
         long startMs = start.ToUnixTimeMilliseconds();
         long endMs = end.ToUnixTimeMilliseconds();
+        const int limit = 1000;
 
         while (startMs < endMs)
         {
             try
             {
                 var url = $"https://fapi.binance.com/fapi/v1/fundingRate?symbol={symbol}" +
-                          $"&startTime={startMs}&endTime={endMs}&limit=1000";
+                          $"&startTime={startMs}&endTime={endMs}&limit={limit}";
                 var json = await _client.GetStringAsync(url);
                 var arr = JsonSerializer.Deserialize<JsonElement>(json);
                 int count = arr.GetArrayLength();
@@ -521,7 +598,9 @@ public sealed class HistoricalSignalEnricher
                     data.Add((t, rate));
                 }
 
-                startMs = data[^1].Item1 + 1;
+                long newStart = data[^1].Item1 + 1;
+                if (newStart <= startMs || count < limit) break;
+                startMs = newStart;
                 await Task.Delay(100);
             }
             catch { break; }
@@ -608,19 +687,24 @@ public sealed class HistoricalSignalEnricher
     {
         var cache = Path.Combine(_cacheDir, $"{cacheName}.jsonl");
         if (File.Exists(cache))
-            return LoadTimeseriesCache(cache);
+        {
+            var cached = LoadTimeseriesCache(cache);
+            if (cached != null) return cached;
+        }
 
         var data = new List<(long, float)>();
         long startMs = start.ToUnixTimeMilliseconds();
         long endMs = end.ToUnixTimeMilliseconds();
+        const int limit = 500;
 
         while (startMs < endMs)
         {
             try
             {
                 var url = $"https://fapi.binance.com{endpoint}?symbol={symbol}" +
-                          $"&period=1h&startTime={startMs}&endTime={endMs}&limit=500";
-                var json = await _client.GetStringAsync(url);
+                          $"&period=1h&startTime={startMs}&endTime={endMs}&limit={limit}";
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+                var json = await _client.GetStringAsync(url, cts.Token);
                 var arr = JsonSerializer.Deserialize<JsonElement>(json);
                 int count = arr.GetArrayLength();
                 if (count == 0) break;
@@ -634,7 +718,9 @@ public sealed class HistoricalSignalEnricher
                     data.Add((t, val));
                 }
 
-                startMs = data[^1].Item1 + 1;
+                long newStart = data[^1].Item1 + 1;
+                if (newStart <= startMs || count < limit) break;
+                startMs = newStart;
                 await Task.Delay(200);
             }
             catch { break; }
@@ -649,19 +735,24 @@ public sealed class HistoricalSignalEnricher
     {
         var cache = Path.Combine(_cacheDir, $"{cacheName}.jsonl");
         if (File.Exists(cache))
-            return LoadTimeseriesCache(cache);
+        {
+            var cached = LoadTimeseriesCache(cache);
+            if (cached != null) return cached;
+        }
 
         var data = new List<(long, float)>();
         long startMs = start.ToUnixTimeMilliseconds();
         long endMs = end.ToUnixTimeMilliseconds();
+        const int limit = 500;
 
         while (startMs < endMs)
         {
             try
             {
                 var url = $"https://fapi.binance.com/futures/data/openInterestHist?symbol={symbol}" +
-                          $"&period=1h&startTime={startMs}&endTime={endMs}&limit=500";
-                var json = await _client.GetStringAsync(url);
+                          $"&period=1h&startTime={startMs}&endTime={endMs}&limit={limit}";
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+                var json = await _client.GetStringAsync(url, cts.Token);
                 var arr = JsonSerializer.Deserialize<JsonElement>(json);
                 int count = arr.GetArrayLength();
                 if (count == 0) break;
@@ -675,7 +766,9 @@ public sealed class HistoricalSignalEnricher
                     data.Add((t, val));
                 }
 
-                startMs = data[^1].Item1 + 1;
+                long newStart = data[^1].Item1 + 1;
+                if (newStart <= startMs || count < limit) break;
+                startMs = newStart;
                 await Task.Delay(200);
             }
             catch { break; }
@@ -694,7 +787,10 @@ public sealed class HistoricalSignalEnricher
             $"{symbol}_{start:yyyyMMdd}_{end:yyyyMMdd}_1h.jsonl");
 
         if (File.Exists(cache))
-            return LoadCandleCache(cache);
+        {
+            var cached = LoadCandleCache(cache);
+            if (cached != null) return cached;
+        }
 
         var candles = new List<TechnicalIndicators.Candle>();
         long startMs = start.ToUnixTimeMilliseconds();
@@ -839,16 +935,17 @@ public sealed class HistoricalSignalEnricher
 
     // ── Cache Utilities ─────────────────────────────────────────────────
 
-    private static void SaveTimeseriesCache(string path, List<(long UnixMs, float Value)> data)
+    internal static void SaveTimeseriesCache(string path, List<(long UnixMs, float Value)> data)
     {
+        if (data.Count == 0) return;
         var lines = data.Select(d =>
             string.Create(CultureInfo.InvariantCulture, $"{d.Item1},{d.Item2}"));
         File.WriteAllLines(path, lines);
     }
 
-    private static List<(long UnixMs, float Value)> LoadTimeseriesCache(string path)
+    internal static List<(long UnixMs, float Value)>? LoadTimeseriesCache(string path)
     {
-        return File.ReadAllLines(path)
+        var result = File.ReadAllLines(path)
             .Where(l => !string.IsNullOrWhiteSpace(l))
             .Select(l =>
             {
@@ -856,19 +953,27 @@ public sealed class HistoricalSignalEnricher
                 return (UnixMs: long.Parse(parts[0]),
                         Value: float.Parse(parts[1], CultureInfo.InvariantCulture));
             }).ToList();
+        if (result.Count == 0)
+        {
+            Console.WriteLine($"[CACHE] Deleting empty cache file: {Path.GetFileName(path)}");
+            File.Delete(path);
+            return null;
+        }
+        return result;
     }
 
     private static void SaveCandleCache(string path, TechnicalIndicators.Candle[] candles)
     {
+        if (candles.Length == 0) return;
         var lines = candles.Select(c =>
             string.Create(CultureInfo.InvariantCulture,
                 $"{c.Open},{c.High},{c.Low},{c.Close},{c.Volume},{c.Time.ToUnixTimeMilliseconds()}"));
         File.WriteAllLines(path, lines);
     }
 
-    private static TechnicalIndicators.Candle[] LoadCandleCache(string path)
+    internal static TechnicalIndicators.Candle[]? LoadCandleCache(string path)
     {
-        return File.ReadAllLines(path)
+        var result = File.ReadAllLines(path)
             .Where(l => !string.IsNullOrWhiteSpace(l))
             .Select(l =>
             {
@@ -881,6 +986,13 @@ public sealed class HistoricalSignalEnricher
                     float.Parse(p[4], CultureInfo.InvariantCulture),
                     DateTimeOffset.FromUnixTimeMilliseconds(long.Parse(p[5])));
             }).ToArray();
+        if (result.Length == 0)
+        {
+            Console.WriteLine($"[CACHE] Deleting empty cache file: {Path.GetFileName(path)}");
+            File.Delete(path);
+            return null;
+        }
+        return result;
     }
 
     private static float Pf(JsonElement el) =>

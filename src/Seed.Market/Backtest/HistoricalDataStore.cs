@@ -33,7 +33,10 @@ public sealed class HistoricalDataStore
             $"{symbol}_{start:yyyyMMdd}_{end:yyyyMMdd}_1h.jsonl");
 
         if (File.Exists(cacheFile))
-            return LoadCandlesFromCache(cacheFile);
+        {
+            var cached = LoadCandlesFromCache(cacheFile);
+            if (cached != null) return cached;
+        }
 
         var candles = await DownloadCandles(symbol, start, end);
         SaveCandlesToCache(cacheFile, candles);
@@ -227,10 +230,9 @@ public sealed class HistoricalDataStore
         return vol;
     }
 
-    private static TechnicalIndicators.Candle[] LoadCandlesFromCache(string path)
+    private static TechnicalIndicators.Candle[]? LoadCandlesFromCache(string path)
     {
-        var lines = File.ReadAllLines(path);
-        return lines
+        var result = File.ReadAllLines(path)
             .Where(l => !string.IsNullOrWhiteSpace(l))
             .Select(l =>
             {
@@ -244,10 +246,18 @@ public sealed class HistoricalDataStore
                     DateTimeOffset.FromUnixTimeMilliseconds(long.Parse(parts[5]))
                 );
             }).ToArray();
+        if (result.Length == 0)
+        {
+            Console.WriteLine($"[CACHE] Deleting empty cache file: {Path.GetFileName(path)}");
+            File.Delete(path);
+            return null;
+        }
+        return result;
     }
 
     private static void SaveCandlesToCache(string path, TechnicalIndicators.Candle[] candles)
     {
+        if (candles.Length == 0) return;
         var lines = candles.Select(c =>
             string.Create(CultureInfo.InvariantCulture,
                 $"{c.Open},{c.High},{c.Low},{c.Close},{c.Volume},{c.Time.ToUnixTimeMilliseconds()}"));

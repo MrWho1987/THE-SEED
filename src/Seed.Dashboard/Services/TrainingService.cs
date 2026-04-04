@@ -50,7 +50,7 @@ public class TrainingService
         var runner = new BacktestRunner(_config);
         var end = DateTimeOffset.UtcNow.AddHours(-1);
         var start = end.AddHours(-_config.TrainingWindowHours - _config.ValidationWindowHours);
-        var (snapshots, prices, rawVolumes, rawFundingRates) = runner.LoadData(_config.Symbols[0], start, end, enrich: true).GetAwaiter().GetResult();
+        var (snapshots, prices, rawVolumes, rawFundingRates, _) = runner.LoadData(_config.Symbols[0], start, end, enrich: true).GetAwaiter().GetResult();
 
         int trainLen = Math.Min(_config.TrainingWindowHours, snapshots.Length - _config.ValidationWindowHours);
         var trainSnapshots = snapshots[..trainLen];

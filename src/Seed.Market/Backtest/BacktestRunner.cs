@@ -14,11 +14,14 @@ public sealed class BacktestRunner
     private readonly HistoricalDataStore _store;
     private readonly MarketEvaluator _evaluator;
 
+    public string CacheDir { get; }
+
     public BacktestRunner(MarketConfig config)
     {
         _config = config;
-        _store = new HistoricalDataStore(
-            Path.Combine(config.OutputDirectory, "data_cache"));
+        CacheDir = config.DataCacheDirectory
+            ?? Path.Combine(config.OutputDirectory, "data_cache");
+        _store = new HistoricalDataStore(CacheDir);
         _evaluator = new MarketEvaluator(config);
     }
 
@@ -26,21 +29,21 @@ public sealed class BacktestRunner
     /// Load historical data for the given date range and return evaluation-ready arrays.
     /// When enrich=true, downloads supplemental data (macro, on-chain, sentiment, etc.).
     /// </summary>
-    public async Task<(SignalSnapshot[] snapshots, float[] prices, float[] rawVolumes, float[] rawFundingRates)> LoadData(
+    public async Task<(SignalSnapshot[] snapshots, float[] prices, float[] rawVolumes, float[] rawFundingRates, EnrichmentReport? report)> LoadData(
         string symbol, DateTimeOffset start, DateTimeOffset end, bool enrich = false)
     {
         var candles = await _store.FetchCandles(symbol, start, end);
 
         Dictionary<int, float[]>? enrichment = null;
+        EnrichmentReport? report = null;
         if (enrich)
         {
-            var enricher = new HistoricalSignalEnricher(
-                Path.Combine(_config.OutputDirectory, "data_cache"),
-                _config.CoinGeckoApiKey);
-            enrichment = await enricher.EnrichAsync(candles, start, end);
+            var enricher = new HistoricalSignalEnricher(CacheDir, _config.CoinGeckoApiKey);
+            (enrichment, report) = await enricher.EnrichAsync(candles, start, end);
         }
 
-        return HistoricalDataStore.CandlesToSignals(candles, enrichment);
+        var signals = HistoricalDataStore.CandlesToSignals(candles, enrichment);
+        return (signals.snapshots, signals.prices, signals.rawVolumes, signals.rawFundingRates, report);
     }
 
     /// <summary>
