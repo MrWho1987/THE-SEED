@@ -63,6 +63,9 @@ data_cache/
 output/
 output_*/
 
+# Archive (old training data, configs, genomes)
+archive/
+
 # Test results
 [Tt]est[Rr]esult*/
 *.trx
