@@ -83,12 +83,12 @@ public class ActionInterpreterTests
         Assert.False(signal.ExitCurrent);
     }
 
-    // ── Tier 1.1 Leverage tests ─────────────────────────────────────────────────
+    // ── Leverage tests (tanh-based log-scale mapping) ──────────────────────────
 
     [Fact]
     public void Leverage_WithMaxLeverage1_AlwaysOne()
     {
-        // With MaxLeverage=1, the leverage output is ignored and all trades run at 1x.
+        // With MaxLeverage=1, the leverage output collapses: MaxLev^positiveSignal = 1^x = 1.
         var highConfidence = ActionInterpreter.Interpret([0f, 0f, 0f, 0f, 0f, 10f], maxLeverage: 1.0f);
         Assert.Equal(1.0f, highConfidence.Leverage, 3);
 
@@ -97,34 +97,46 @@ public class ActionInterpreterTests
     }
 
     [Fact]
-    public void Leverage_WithMaxLeverage3_HighConfidence_NearCeiling()
+    public void Leverage_WithMaxLeverage125_DormantOutput_ReturnsOne()
     {
-        // sigmoid(10) ≈ 0.99995 → leverage ≈ 1 + 0.99995 × (3-1) = 2.9999
-        var signal = ActionInterpreter.Interpret([0f, 0f, 0f, 0f, 0f, 10f], maxLeverage: 3.0f);
-        Assert.InRange(signal.Leverage, 2.99f, 3.01f);
+        // Dormant output (neuron = 0): tanh(0) = 0 → max(0, 0) = 0 → 125^0 = 1.
+        // This is the key safe-default behavior: a dormant leverage neuron yields 1x, NOT some
+        // midpoint value that would be catastrophic at high MaxLeverage.
+        var signal = ActionInterpreter.Interpret([0f, 0f, 0f, 0f, 0f, 0f], maxLeverage: 125f);
+        Assert.Equal(1.0f, signal.Leverage, 3);
     }
 
     [Fact]
-    public void Leverage_WithMaxLeverage3_LowConfidence_NearOne()
+    public void Leverage_WithMaxLeverage125_NegativeOutput_ReturnsOne()
     {
-        // sigmoid(-10) ≈ 0.00005 → leverage ≈ 1 + 0.00005 × 2 ≈ 1.0001
-        var signal = ActionInterpreter.Interpret([0f, 0f, 0f, 0f, 0f, -10f], maxLeverage: 3.0f);
-        Assert.InRange(signal.Leverage, 1.0f, 1.01f);
+        // Negative output: tanh(-10) ≈ -1 → max(0, -1) = 0 → 125^0 = 1.
+        // "Brain is not confident" → no leverage, safe default.
+        var signal = ActionInterpreter.Interpret([0f, 0f, 0f, 0f, 0f, -10f], maxLeverage: 125f);
+        Assert.Equal(1.0f, signal.Leverage, 3);
     }
 
     [Fact]
-    public void Leverage_WithMaxLeverage3_ZeroOutput_Midpoint()
+    public void Leverage_WithMaxLeverage125_FullPositive_ReachesCeiling()
     {
-        // sigmoid(0) = 0.5 → leverage = 1 + 0.5 × 2 = 2.0 exactly
-        var signal = ActionInterpreter.Interpret([0f, 0f, 0f, 0f, 0f, 0f], maxLeverage: 3.0f);
-        Assert.Equal(2.0f, signal.Leverage, 3);
+        // Strong positive output: tanh(10) ≈ 1 → positiveSignal ≈ 1 → 125^1 = 125.
+        var signal = ActionInterpreter.Interpret([0f, 0f, 0f, 0f, 0f, 10f], maxLeverage: 125f);
+        Assert.InRange(signal.Leverage, 124.9f, 125.01f);
+    }
+
+    [Fact]
+    public void Leverage_LogScale_IntermediatePositiveSmoothlyScales()
+    {
+        // tanh(atanh(0.5)) = 0.5 → 125^0.5 = sqrt(125) ≈ 11.18
+        // Use atanh(0.5) ≈ 0.5493 as input.
+        var signal = ActionInterpreter.Interpret([0f, 0f, 0f, 0f, 0f, 0.5493f], maxLeverage: 125f);
+        Assert.InRange(signal.Leverage, 11.0f, 11.4f);  // allow small tanh precision error
     }
 
     [Fact]
     public void Leverage_MissingOutput_DefaultsToOne()
     {
-        // Only 5 outputs (v1-style, no leverage) → leverage = 1.0 (default safe)
-        var signal = ActionInterpreter.Interpret([0f, 0f, 0f, 0f, 0f], maxLeverage: 3.0f);
+        // Only 5 outputs (no leverage output) → positiveSignal = 0 → leverage = 1.
+        var signal = ActionInterpreter.Interpret([0f, 0f, 0f, 0f, 0f], maxLeverage: 125f);
         Assert.Equal(1.0f, signal.Leverage, 3);
     }
 
@@ -133,18 +145,23 @@ public class ActionInterpreterTests
     {
         // Verify both the raw sigmoid and the clamped [0,1] value are exposed.
         var signal = ActionInterpreter.Interpret([0f, 0f, 0f, 0f, 0f, 0f]);
-        // sigmoid(0) = 0.5 for rawSize
         Assert.Equal(0.5f, signal.RawSizePct, 3);
         Assert.Equal(0.5f, signal.SizePct, 3);
     }
 
     [Fact]
-    public void RawLeverage_Sigmoid_BeforeScaling()
+    public void RawLeverage_StoredAsPositiveSignal_ClampedToZero()
     {
-        // rawLeverage should be the pre-scaled sigmoid value, not the scaled leverage
-        var signal = ActionInterpreter.Interpret([0f, 0f, 0f, 0f, 0f, 0f], maxLeverage: 5.0f);
-        Assert.Equal(0.5f, signal.RawLeverage, 3);
-        // Scaled leverage = 1 + 0.5 × (5-1) = 3.0
-        Assert.Equal(3.0f, signal.Leverage, 3);
+        // RawLeverage stores max(0, tanh(output[5])) — the signal before log scaling.
+        // Dormant: 0, negative: 0, positive: tanh value.
+        var dormant = ActionInterpreter.Interpret([0f, 0f, 0f, 0f, 0f, 0f], maxLeverage: 125f);
+        Assert.Equal(0f, dormant.RawLeverage, 3);
+
+        var negative = ActionInterpreter.Interpret([0f, 0f, 0f, 0f, 0f, -5f], maxLeverage: 125f);
+        Assert.Equal(0f, negative.RawLeverage, 3);
+
+        // tanh(atanh(0.5)) = 0.5
+        var midPositive = ActionInterpreter.Interpret([0f, 0f, 0f, 0f, 0f, 0.5493f], maxLeverage: 125f);
+        Assert.InRange(midPositive.RawLeverage, 0.49f, 0.51f);
     }
 }

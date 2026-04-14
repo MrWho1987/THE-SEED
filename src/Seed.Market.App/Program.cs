@@ -443,7 +443,7 @@ static async Task RunPaper(MarketConfig config)
     Console.WriteLine($"[PAPER] Brain compiled: {graph.NodeCount} neurons, {graph.EdgeCount} synapses");
 
     var trader = new PaperTrader(config);
-    var agent = new MarketAgent(genome.GenomeId, brain, trader, maxLeverage: config.MaxLeverage);
+    var agent = new MarketAgent(genome.GenomeId, brain, trader, maxLeverage: config.MaxLeverage, explicitExitBonus: config.ExplicitExitBonus);
 
     Console.WriteLine("[PAPER] Connecting to live data feeds...");
     using var aggregator = new DataAggregator(config);
@@ -743,7 +743,7 @@ static async Task RunAblation(MarketConfig config)
             MarketEvaluator.SignalCategoryMap, MarketEvaluator.RegimeStart, MarketEvaluator.RegimeEnd);
         var brain = new BrainRuntime(graph, sg.Learn, sg.Stable, 1, abl);
         var trader = new PaperTrader(config);
-        var agent = new MarketAgent(sg.GenomeId, brain, trader, abl, maxLeverage: config.MaxLeverage);
+        var agent = new MarketAgent(sg.GenomeId, brain, trader, abl, maxLeverage: config.MaxLeverage, explicitExitBonus: config.ExplicitExitBonus);
         for (int t = 0; t < snapshots.Length; t++)
         {
             decimal price = (decimal)prices[t];
@@ -862,7 +862,7 @@ static async Task RunMonteCarlo(MarketConfig config)
         MarketEvaluator.SignalCategoryMap, MarketEvaluator.RegimeStart, MarketEvaluator.RegimeEnd);
     var brain = new BrainRuntime(graph, sg.Learn, sg.Stable, 1);
     var trader = new PaperTrader(config);
-    var agent = new MarketAgent(sg.GenomeId, brain, trader, maxLeverage: config.MaxLeverage);
+    var agent = new MarketAgent(sg.GenomeId, brain, trader, maxLeverage: config.MaxLeverage, explicitExitBonus: config.ExplicitExitBonus);
 
     for (int t = 0; t < snapshots.Length; t++)
     {
@@ -926,7 +926,7 @@ static async Task RunNeuroAblation(MarketConfig config)
             MarketEvaluator.SignalCategoryMap, MarketEvaluator.RegimeStart, MarketEvaluator.RegimeEnd);
         var brain = new BrainRuntime(graph, lp, genome.Stable, 1);
         var trader = new PaperTrader(config);
-        var agent = new MarketAgent(genome.GenomeId, brain, trader, maxLeverage: config.MaxLeverage);
+        var agent = new MarketAgent(genome.GenomeId, brain, trader, maxLeverage: config.MaxLeverage, explicitExitBonus: config.ExplicitExitBonus);
         for (int t = 0; t < snapshots.Length; t++)
         {
             decimal price = (decimal)prices[t];

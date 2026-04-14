@@ -55,6 +55,69 @@ public class EnsembleTests
         Assert.False(consensus.ExitCurrent);
     }
 
+    // ── EvaluateEnsemble top-K fitness-weighted voting test ──────────────────
+
+    [Fact]
+    public void EvaluateEnsemble_TopKWeightedVoting_ProducesValidFitness()
+    {
+        // Verify EvaluateEnsemble doesn't crash and produces a valid fitness when given
+        // a small synthetic population. The key invariant: the ensemble evaluation runs
+        // each champion individually first, then ensembles the top-K by fitness-weighted vote.
+        var config = MarketConfig.Default with
+        {
+            PopulationSize = 10,
+            MinTradesForActive = 1,
+            MaxLeverage = 1.0f,
+            ExplicitExitBonus = 0f,  // disable exit bonus to keep test deterministic
+            FitnessSharpeWeight = 0.45f,
+            FitnessSortinoWeight = 0.15f,
+            FitnessReturnWeight = 0.20f,
+            FitnessDrawdownDurationWeight = 0.10f,
+            FitnessCVaRWeight = 0.10f,
+        };
+        var evaluator = new MarketEvaluator(config);
+
+        // Create 5 random champions
+        var rng = new Rng64(42);
+        var champions = new List<Seed.Core.IGenome>();
+        for (int i = 0; i < 5; i++)
+            champions.Add(SeedGenome.CreateRandom(rng));
+
+        // Synthetic price history (small but nonzero)
+        int len = 300;
+        var snapshots = new SignalSnapshot[len];
+        var prices = new float[len];
+        var volumes = new float[len];
+        var funding = new float[len];
+        for (int i = 0; i < len; i++)
+        {
+            snapshots[i] = new SignalSnapshot(new float[SignalIndex.Count], DateTimeOffset.UtcNow.AddHours(-len + i), i);
+            prices[i] = 50000f + MathF.Sin(i * 0.1f) * 500f;  // gentle sine wave
+            volumes[i] = 100f;
+            funding[i] = 0.0001f;
+        }
+
+        // Should not throw, should return a finite fitness
+        var result = evaluator.EvaluateEnsemble(champions, snapshots, prices, volumes, funding, 0);
+        Assert.False(float.IsNaN(result.Fitness));
+        Assert.False(float.IsInfinity(result.Fitness));
+    }
+
+    [Fact]
+    public void EvaluateEnsemble_EmptyChampions_ReturnsDefault()
+    {
+        var config = MarketConfig.Default;
+        var evaluator = new MarketEvaluator(config);
+
+        var snapshots = new SignalSnapshot[] { new(new float[SignalIndex.Count], DateTimeOffset.UtcNow, 0) };
+        var prices = new float[] { 50000f };
+        var volumes = new float[] { 100f };
+        var funding = new float[] { 0f };
+
+        var result = evaluator.EvaluateEnsemble([], snapshots, prices, volumes, funding, 0);
+        Assert.Equal(default(Seed.Market.Evolution.FitnessBreakdown), result);
+    }
+
     private static List<(MarketAgent, float)> CreateMembers(int count)
     {
         var members = new List<(MarketAgent, float)>();

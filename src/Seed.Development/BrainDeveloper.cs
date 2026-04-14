@@ -231,7 +231,7 @@ public sealed class BrainDeveloper
         }
 
         // ── Force minimum output connectivity ───────────────────────────────────────
-        // v2 fix: the CPPN substrate development can leave output neurons with zero incoming
+        // The CPPN substrate development can leave output neurons with zero incoming
         // edges if the CPPN outputs near-zero connection scores at their coordinates, or if
         // earlier source neurons saturated their MaxOut budget. The dormant output manifests
         // at runtime as `sigmoid(0) = 0.5` exactly — we observed this for the exit output in v1
@@ -326,9 +326,17 @@ public sealed class BrainDeveloper
                         genome.Stable.WeightMaxAbs
                     );
 
-                    // Force-wire as Normal edge type. Dormant outputs didn't develop edge-type
-                    // preferences, so we default to plain excitatory/inhibitory connections.
-                    var edgeType = EdgeType.Normal;
+                    // Use the same CPPN gate-driven edge type logic as the main loop.
+                    // This preserves the CPPN's intent for edge semantics on force-wired edges,
+                    // so the brain can develop memory/modulatory behaviors on outputs that
+                    // would otherwise have been dormant.
+                    EdgeType edgeType;
+                    if (gate > ModulatoryGateThreshold)
+                        edgeType = EdgeType.Modulatory;
+                    else if (gate < MemoryGateThreshold)
+                        edgeType = EdgeType.Memory;
+                    else
+                        edgeType = EdgeType.Normal;
                     float plasticityGain = 2f / (1f + MathF.Exp(-gate));
 
                     int delayTicks = 0;

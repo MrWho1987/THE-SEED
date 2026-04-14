@@ -22,7 +22,7 @@ public sealed class Position
     public decimal StopPrice { get; init; }
     public DateTimeOffset OpenTime { get; init; }
     public int OpenTick { get; init; }
-    public float Leverage { get; init; } = 1.0f;  // leverage applied when the position opened (v2+)
+    public float Leverage { get; init; } = 1.0f;  // leverage applied at position open (for analytics)
 
     public decimal UnrealizedPnl(decimal currentPrice) =>
         Direction == TradeDirection.Long

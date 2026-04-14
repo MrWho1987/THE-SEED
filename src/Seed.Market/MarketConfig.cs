@@ -22,10 +22,18 @@ public sealed record MarketConfig
     public decimal MaxDailyVaRPct { get; init; } = 0.05m;
     public decimal MaxEquityMultiplier { get; init; } = 100m;
 
-    // MaxLeverage: ceiling for the brain's leverage output. Brain output[5] is scaled to [1, MaxLeverage].
-    // Default 1.0f disables leverage (backward-compat with v1 genomes that have no leverage output).
-    // v2 phase configs will set this per-phase (1x → 1x → 2x → 3x → 3x) to curriculum-ramp leverage.
+    // MaxLeverage: ceiling for the brain's leverage output. Brain output[5] is log-scaled to
+    // [1, MaxLeverage] via ActionInterpreter. Default 1.0f disables leverage entirely (the
+    // brain's leverage output has no effect). Production training uses 125 to match Binance
+    // BTCUSDT retail maximum. The brain learns to calibrate leverage vs position size.
     public float MaxLeverage { get; init; } = 1.0f;
+
+    // ExplicitExitBonus: reward bonus applied when a trade closes via the brain's explicit
+    // exit output (output[3]) vs direction-flip / stop-loss / kill-switch. Conservative default
+    // is 0.02 (2% of the ±1 reward range). Tips evolution toward developing connectivity to
+    // output[3] without warping overall reward signal. Configurable so we can increase if
+    // explicit exits fail to emerge.
+    public float ExplicitExitBonus { get; init; } = 0.02f;
 
     // ── Evolution ──
     public int PopulationSize { get; init; } = 50;
@@ -151,10 +159,15 @@ public sealed record MarketConfig
             throw new InvalidOperationException(
                 $"BarsPerHour must be > 0 (derived from CandleInterval '{CandleInterval}'), got {BarsPerHour}");
 
-        if (MaxLeverage < 1.0f || MaxLeverage > 10.0f)
+        if (MaxLeverage < 1.0f || MaxLeverage > 125.0f)
             throw new InvalidOperationException(
-                $"MaxLeverage must be in [1, 10], got {MaxLeverage}. " +
-                $"Use 1.0 for no leverage; 3.0 recommended for leveraged training.");
+                $"MaxLeverage must be in [1, 125] (Binance BTCUSDT retail max), got {MaxLeverage}. " +
+                $"Use 1.0 for no leverage; 125.0 for full Binance range.");
+
+        if (ExplicitExitBonus < 0f || ExplicitExitBonus > 0.5f)
+            throw new InvalidOperationException(
+                $"ExplicitExitBonus must be in [0, 0.5], got {ExplicitExitBonus}. " +
+                $"Recommended default: 0.02. Above 0.5 risks warping training reward.");
     }
 
     public void Save(string path)

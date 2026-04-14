@@ -133,30 +133,84 @@ public sealed class CoinglassFeed : IDataFeed
 
     private static float ComputeLatestTotalBalance(JsonElement balData)
     {
-        // Response format: { "time_list": [...], "exchange_name": { "price_list": [...] } }
-        if (!balData.TryGetProperty("time_list", out var timeList))
-            return 0f;
+        // Real Coinglass v4 response format for /api/exchange/balance/chart:
+        //   { "code":"0", "msg":"success", "data": [ { "time_list":[...],
+        //       "price_list":[...], "data_map": { "binance":[...], "okx":[...], ... } } ] }
+        // "data" is an ARRAY containing a single object. The exchange balances live under
+        // "data_map" (exchange name → array of balances aligned with time_list).
+        // "price_list" at the top of the object is the BTC price series, not balance.
 
-        int count = timeList.GetArrayLength();
-        if (count == 0) return 0f;
-
-        // Sum all exchange balances at the latest timestamp
-        float total = 0f;
-        foreach (var prop in balData.EnumerateObject())
+        JsonElement root;
+        if (balData.ValueKind == JsonValueKind.Array)
         {
-            if (prop.Name == "time_list") continue;
+            if (balData.GetArrayLength() == 0) return 0f;
+            root = balData[0];
+        }
+        else if (balData.ValueKind == JsonValueKind.Object)
+        {
+            // Legacy/compat: some tiers or older endpoints may return data as an object directly.
+            root = balData;
+        }
+        else
+        {
+            return 0f;
+        }
 
-            if (prop.Value.TryGetProperty("price_list", out var priceList))
+        if (root.ValueKind != JsonValueKind.Object) return 0f;
+        if (!root.TryGetProperty("time_list", out var timeList)) return 0f;
+        if (timeList.ValueKind != JsonValueKind.Array || timeList.GetArrayLength() == 0) return 0f;
+
+        // Prefer data_map; fall back to scanning the object (some older format variants).
+        JsonElement exchangeMap;
+        if (root.TryGetProperty("data_map", out var dataMap) && dataMap.ValueKind == JsonValueKind.Object)
+        {
+            exchangeMap = dataMap;
+        }
+        else
+        {
+            // Fallback: root itself as a map, skipping metadata fields.
+            exchangeMap = root;
+        }
+
+        float total = 0f;
+        foreach (var prop in exchangeMap.EnumerateObject())
+        {
+            // Skip known non-exchange fields in fallback mode
+            if (prop.Name is "time_list" or "price_list" or "data_map") continue;
+
+            var exchangeData = prop.Value;
+            // Each exchange's value can be:
+            //   (a) an Array of balances aligned with time_list  (data_map format)
+            //   (b) an Object with "price_list": [...] inside  (legacy format)
+            JsonElement balanceArray;
+            if (exchangeData.ValueKind == JsonValueKind.Array)
             {
-                int len = priceList.GetArrayLength();
-                if (len > 0)
+                balanceArray = exchangeData;
+            }
+            else if (exchangeData.ValueKind == JsonValueKind.Object
+                     && exchangeData.TryGetProperty("price_list", out var nested)
+                     && nested.ValueKind == JsonValueKind.Array)
+            {
+                balanceArray = nested;
+            }
+            else
+            {
+                continue;
+            }
+
+            int len = balanceArray.GetArrayLength();
+            if (len == 0) continue;
+
+            // Walk backward from the latest entry, skipping nulls (some exchanges have sparse data)
+            for (int i = len - 1; i >= 0; i--)
+            {
+                var v = balanceArray[i];
+                if (v.ValueKind == JsonValueKind.Number)
                 {
-                    var lastVal = priceList[len - 1];
-                    if (lastVal.ValueKind == JsonValueKind.Number)
-                        total += (float)lastVal.GetDouble();
-                    else if (lastVal.ValueKind == JsonValueKind.Null)
-                        continue; // exchange has no data for this date
+                    total += (float)v.GetDouble();
+                    break;
                 }
+                if (v.ValueKind != JsonValueKind.Null) break;
             }
         }
 

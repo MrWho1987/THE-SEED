@@ -127,7 +127,7 @@ public sealed class MarketEvaluator
         var sg = (SeedGenome)entry.Genome;
         var brain = new BrainRuntime(entry.Graph, sg.Learn, sg.Stable, 1);
         var trader = new PaperTrader(_config);
-        var agent = new MarketAgent(sg.GenomeId, brain, trader, maxLeverage: _config.MaxLeverage);
+        var agent = new MarketAgent(sg.GenomeId, brain, trader, maxLeverage: _config.MaxLeverage, explicitExitBonus: _config.ExplicitExitBonus);
 
         for (int t = 0; t < history.Length; t++)
         {
@@ -164,9 +164,9 @@ public sealed class MarketEvaluator
 
     /// <summary>
     /// How many top-fitness champions to include in the ensemble vote.
-    /// v1 used ALL champions with arithmetic-mean voting, which diluted aggressive signals
-    /// (30 champions × 0.8 + 1 × 0.1 averaged 0.76 instead of reflecting the top performer).
-    /// v2 uses top-3 with fitness-weighted voting for sharper consensus.
+    /// Old behavior used ALL champions with arithmetic-mean voting, which diluted aggressive
+    /// signals (30 champions × 0.8 + 1 × 0.1 averaged 0.76 instead of reflecting the top
+    /// performer). Fixed: top-3 with fitness-weighted voting for sharper consensus.
     /// </summary>
     public const int EnsembleTopK = 3;
 
@@ -229,7 +229,7 @@ public sealed class MarketEvaluator
             var graph = _developer.CompileGraph(sg, genomeBudget, devCtx, SignalCategoryMap, RegimeStart, RegimeEnd);
             var brain = new BrainRuntime(graph, sg.Learn, sg.Stable, 1);
             var trader = new PaperTrader(_config);
-            agents.Add((new MarketAgent(sg.GenomeId, brain, trader, maxLeverage: _config.MaxLeverage), trader, weights[i]));
+            agents.Add((new MarketAgent(sg.GenomeId, brain, trader, maxLeverage: _config.MaxLeverage, explicitExitBonus: _config.ExplicitExitBonus), trader, weights[i]));
         }
 
         var ensembleTrader = new PaperTrader(_config);

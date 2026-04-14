@@ -13,22 +13,14 @@ namespace Seed.Market.Agents;
 public sealed class MarketAgent
 {
     public const int InputCount = SignalIndex.Count;
-    public const int OutputCount = ActionInterpreter.OutputCount; // 6 in v2
-
-    /// <summary>
-    /// Bonus reward applied when a trade is closed via the brain's explicit exit output
-    /// (as opposed to direction-flip, stop-loss, or kill-switch). This tips evolution toward
-    /// developing meaningful connectivity to the exit output (output[3]). The bonus is small
-    /// relative to the ±1.0f P&amp;L reward range — it only matters when two close strategies
-    /// have similar P&amp;L.
-    /// </summary>
-    public const float ExplicitExitBonus = 0.05f;
+    public const int OutputCount = ActionInterpreter.OutputCount; // 6: dir/size/urgency/exit/predict/leverage
 
     private readonly BrainRuntime _brain;
     private readonly PaperTrader _trader;
     private readonly AblationConfig _ablation;
     private readonly PortfolioState _portfolio;
     private readonly float _maxLeverage;
+    private readonly float _explicitExitBonus;
     private int _tick;
     private int _ticksSinceEntry;
     private float _elapsedHoursAtEntry;
@@ -54,13 +46,14 @@ public sealed class MarketAgent
     public float MaxLeverage => _maxLeverage;
 
     public MarketAgent(Guid genomeId, BrainRuntime brain, PaperTrader trader,
-        AblationConfig? ablation = null, float maxLeverage = 1.0f)
+        AblationConfig? ablation = null, float maxLeverage = 1.0f, float explicitExitBonus = 0.02f)
     {
         GenomeId = genomeId;
         _brain = brain;
         _trader = trader;
         _ablation = ablation ?? AblationConfig.Default;
         _maxLeverage = MathF.Max(1.0f, maxLeverage);
+        _explicitExitBonus = MathF.Max(0f, explicitExitBonus);
         _portfolio = trader.CreatePortfolio();
         _prevEquity = _portfolio.InitialBalance;
     }
@@ -200,9 +193,9 @@ public sealed class MarketAgent
             // Explicit-exit bonus: reward the brain for USING the exit output (output[3])
             // rather than relying solely on direction reversals. Tips evolution toward
             // developing meaningful connectivity to the exit neuron. Magnitude kept small
-            // relative to the ±1.0 P&L reward range.
+            // relative to the ±1.0 P&L reward range. Configurable via MarketConfig.
             if (last.ClosedByExitSignal)
-                reward += ExplicitExitBonus;
+                reward += _explicitExitBonus;
 
             _lastTradeCount = _portfolio.TradeHistory.Count;
         }

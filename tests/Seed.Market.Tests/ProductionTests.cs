@@ -242,13 +242,31 @@ public class ProductionTests
         var cfg1 = MarketConfig.Default with { MaxLeverage = 0.5f };
         Assert.Throws<InvalidOperationException>(() => cfg1.Validate());
 
-        // Leverage > 10 should be rejected
-        var cfg2 = MarketConfig.Default with { MaxLeverage = 15f };
+        // Leverage > 125 (Binance retail max) should be rejected
+        var cfg2 = MarketConfig.Default with { MaxLeverage = 150f };
         Assert.Throws<InvalidOperationException>(() => cfg2.Validate());
 
-        // Leverage 1 and 10 should be accepted
+        // Leverage in [1, 125] should be accepted
         MarketConfig.Default.Validate();  // default is 1.0, should pass
         (MarketConfig.Default with { MaxLeverage = 10f }).Validate();
+        (MarketConfig.Default with { MaxLeverage = 125f }).Validate();  // Binance max
+    }
+
+    [Fact]
+    public void MarketConfig_Validate_RejectsInvalidExitBonus()
+    {
+        // ExplicitExitBonus < 0 should be rejected
+        var cfg1 = MarketConfig.Default with { ExplicitExitBonus = -0.01f };
+        Assert.Throws<InvalidOperationException>(() => cfg1.Validate());
+
+        // ExplicitExitBonus > 0.5 should be rejected (would warp reward signal)
+        var cfg2 = MarketConfig.Default with { ExplicitExitBonus = 0.6f };
+        Assert.Throws<InvalidOperationException>(() => cfg2.Validate());
+
+        // Values in [0, 0.5] should be accepted
+        (MarketConfig.Default with { ExplicitExitBonus = 0.02f }).Validate();  // default
+        (MarketConfig.Default with { ExplicitExitBonus = 0f }).Validate();    // disabled
+        (MarketConfig.Default with { ExplicitExitBonus = 0.5f }).Validate();  // max
     }
 
     [Fact]

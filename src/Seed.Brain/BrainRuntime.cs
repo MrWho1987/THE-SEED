@@ -9,7 +9,7 @@ public readonly record struct BrainDiagnostics(
     float MeanAbsWeightSlow,
     int ActiveEdgeCount,
     int TotalEdges,
-    // v2: gate activation stats for observability. When no gates are present, these are 0.
+    // Gate activation stats for observability. When no gates are present, these are 0.
     int GateCount = 0,
     float GateMean = 0f,
     float GateMin = 0f,

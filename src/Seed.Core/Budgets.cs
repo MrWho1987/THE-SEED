@@ -14,7 +14,7 @@ public readonly record struct DevelopmentBudget(
     int MaxSynapticDelay = 5,
     int ModuleCount = 8,
     int GateNeuronCount = 0,
-    int MinOutputConnectivity = 1  // v2: guarantee output neurons get at least N incoming edges
+    int MinOutputConnectivity = 1  // guarantee output neurons get at least N incoming edges
 )
 {
     public int TotalHiddenNeurons => HiddenWidth * HiddenHeight * HiddenLayers;
