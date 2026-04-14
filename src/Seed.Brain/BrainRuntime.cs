@@ -8,7 +8,12 @@ public readonly record struct BrainDiagnostics(
     float MeanAbsWeightFast,
     float MeanAbsWeightSlow,
     int ActiveEdgeCount,
-    int TotalEdges
+    int TotalEdges,
+    // v2: gate activation stats for observability. When no gates are present, these are 0.
+    int GateCount = 0,
+    float GateMean = 0f,
+    float GateMin = 0f,
+    float GateMax = 0f
 );
 
 /// <summary>
@@ -461,13 +466,37 @@ public sealed class BrainRuntime : IBrain
             if (MathF.Abs(_wFast[i]) > ActiveEdgeEpsilon) active++;
         }
 
+        // Gate activation stats (v2): useful for verifying regime gating is active at runtime.
+        // When the brain has no gate neurons, all values are 0.
+        float gateMean = 0f, gateMin = 0f, gateMax = 0f;
+        if (_gateCount > 0)
+        {
+            float sum = 0f;
+            float min = float.MaxValue;
+            float max = float.MinValue;
+            for (int g = 0; g < _gateCount; g++)
+            {
+                float a = _activations[_gateStartIndex + g];
+                sum += a;
+                if (a < min) min = a;
+                if (a > max) max = a;
+            }
+            gateMean = sum / _gateCount;
+            gateMin = min;
+            gateMax = max;
+        }
+
         return new BrainDiagnostics(
             MeanAbsActivation: sumAct / hiddenCount,
             SaturationRate: (float)satCount / hiddenCount,
             MeanAbsWeightFast: _wFast.Length > 0 ? sumWf / _wFast.Length : 0f,
             MeanAbsWeightSlow: _wSlow.Length > 0 ? sumWs / _wSlow.Length : 0f,
             ActiveEdgeCount: active,
-            TotalEdges: _wFast.Length
+            TotalEdges: _wFast.Length,
+            GateCount: _gateCount,
+            GateMean: gateMean,
+            GateMin: gateMin,
+            GateMax: gateMax
         );
     }
 

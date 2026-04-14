@@ -12,6 +12,7 @@
   "killSwitchDrawdownPct": 0.15,
   "maxConcurrentPositions": 3,
   "maxDailyVaRPct": 0.05,
+  "maxLeverage": 1.0,
   "populationSize": 100,
   "generations": 1000,
   "trainingWindowHours": 720,

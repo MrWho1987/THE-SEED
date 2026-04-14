@@ -222,6 +222,75 @@ public class BrainEnhancementTests
         Assert.Equal(11, SignalIndex.GetCategoryIndex(92));  // RiskAwareness
     }
 
+    // ── Tier 1.2 BrainDeveloper force-wire tests ──────────────────────────────
+
+    [Fact]
+    public void ForceMinOutputConnectivity_EveryOutputGetsAtLeastOneEdge()
+    {
+        // Use the standard MarketBrainBudget with MinOutputConnectivity=1.
+        // Every output neuron must have at least 1 incoming edge after compilation.
+        var rng = new Rng64(42);
+        var genome = SeedGenome.CreateRandom(rng);
+        var dev = new BrainDeveloper(MarketAgent.InputCount, MarketAgent.OutputCount);
+        var graph = dev.CompileGraph(genome, MarketEvaluator.MarketBrainBudget, new DevelopmentContext(42, 0));
+
+        // Every output node must have >= 1 incoming edge
+        var outputNodes = graph.Nodes.Where(n => n.Type == BrainNodeType.Output).ToList();
+        Assert.Equal(6, outputNodes.Count);  // v2 has 6 outputs
+
+        foreach (var outputNode in outputNodes)
+        {
+            int incomingCount = graph.IncomingByDst.TryGetValue(outputNode.NodeId, out var edges)
+                ? edges.Count : 0;
+            Assert.True(incomingCount >= 1,
+                $"Output neuron {outputNode.NodeId} has {incomingCount} incoming edges, expected >= 1 due to MinOutputConnectivity fix");
+        }
+    }
+
+    [Fact]
+    public void ForceMinOutputConnectivity_Deterministic()
+    {
+        // Compiling the same genome with the same RNG seed twice must produce the same graph,
+        // including force-wired edges.
+        var rng1 = new Rng64(42);
+        var genome1 = SeedGenome.CreateRandom(rng1);
+        var dev1 = new BrainDeveloper(MarketAgent.InputCount, MarketAgent.OutputCount);
+        var graph1 = dev1.CompileGraph(genome1, MarketEvaluator.MarketBrainBudget, new DevelopmentContext(42, 0));
+
+        var rng2 = new Rng64(42);
+        var genome2 = SeedGenome.CreateRandom(rng2);
+        var dev2 = new BrainDeveloper(MarketAgent.InputCount, MarketAgent.OutputCount);
+        var graph2 = dev2.CompileGraph(genome2, MarketEvaluator.MarketBrainBudget, new DevelopmentContext(42, 0));
+
+        Assert.Equal(graph1.NodeCount, graph2.NodeCount);
+        Assert.Equal(graph1.EdgeCount, graph2.EdgeCount);
+
+        // Compare per-output incoming edge count
+        var outputs1 = graph1.Nodes.Where(n => n.Type == BrainNodeType.Output).Select(n => n.NodeId).ToList();
+        foreach (var id in outputs1)
+        {
+            int c1 = graph1.IncomingByDst.TryGetValue(id, out var e1) ? e1.Count : 0;
+            int c2 = graph2.IncomingByDst.TryGetValue(id, out var e2) ? e2.Count : 0;
+            Assert.Equal(c1, c2);
+        }
+    }
+
+    [Fact]
+    public void ForceMinOutputConnectivity_CanBeDisabled()
+    {
+        // Setting MinOutputConnectivity=0 should skip the force-wire pass.
+        // Some outputs may still end up dormant (which is fine for this test).
+        var rng = new Rng64(42);
+        var genome = SeedGenome.CreateRandom(rng);
+        var dev = new BrainDeveloper(MarketAgent.InputCount, MarketAgent.OutputCount);
+        var budget = MarketEvaluator.MarketBrainBudget with { MinOutputConnectivity = 0 };
+        var graph = dev.CompileGraph(genome, budget, new DevelopmentContext(42, 0));
+
+        // Just verify the compilation succeeded with MinOutputConnectivity=0
+        Assert.True(graph.NodeCount > 0);
+        Assert.Equal(6, graph.OutputCount);
+    }
+
     // --- Helpers ---
 
     private static BrainGraph CompileMarketGraph(int seed)

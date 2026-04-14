@@ -12,13 +12,23 @@ namespace Seed.Market.Agents;
 /// </summary>
 public sealed class MarketAgent
 {
-    public const int InputCount = SignalIndex.Count;   // 88
-    public const int OutputCount = ActionInterpreter.OutputCount; // 5
+    public const int InputCount = SignalIndex.Count;
+    public const int OutputCount = ActionInterpreter.OutputCount; // 6 in v2
+
+    /// <summary>
+    /// Bonus reward applied when a trade is closed via the brain's explicit exit output
+    /// (as opposed to direction-flip, stop-loss, or kill-switch). This tips evolution toward
+    /// developing meaningful connectivity to the exit output (output[3]). The bonus is small
+    /// relative to the ±1.0f P&amp;L reward range — it only matters when two close strategies
+    /// have similar P&amp;L.
+    /// </summary>
+    public const float ExplicitExitBonus = 0.05f;
 
     private readonly BrainRuntime _brain;
     private readonly PaperTrader _trader;
     private readonly AblationConfig _ablation;
     private readonly PortfolioState _portfolio;
+    private readonly float _maxLeverage;
     private int _tick;
     private int _ticksSinceEntry;
     private float _elapsedHoursAtEntry;
@@ -41,14 +51,16 @@ public sealed class MarketAgent
     public PortfolioState Portfolio => _portfolio;
     public int Tick => _tick;
     public TradingSignal LastGeneratedSignal => _lastGeneratedSignal;
+    public float MaxLeverage => _maxLeverage;
 
     public MarketAgent(Guid genomeId, BrainRuntime brain, PaperTrader trader,
-        AblationConfig? ablation = null)
+        AblationConfig? ablation = null, float maxLeverage = 1.0f)
     {
         GenomeId = genomeId;
         _brain = brain;
         _trader = trader;
         _ablation = ablation ?? AblationConfig.Default;
+        _maxLeverage = MathF.Max(1.0f, maxLeverage);
         _portfolio = trader.CreatePortfolio();
         _prevEquity = _portfolio.InitialBalance;
     }
@@ -66,7 +78,7 @@ public sealed class MarketAgent
 
         var outputs = _brain.Step(signals, new BrainStepContext(_tick));
 
-        var currentSignal = ActionInterpreter.Interpret(outputs);
+        var currentSignal = ActionInterpreter.Interpret(outputs, _maxLeverage);
         _lastGeneratedSignal = currentSignal;
 
         var signalToExecute = _pendingSignal ?? new TradingSignal(TradeDirection.Flat, 0f, 0f, false);
@@ -184,6 +196,14 @@ public sealed class MarketAgent
         {
             var last = _portfolio.TradeHistory[^1];
             reward += Math.Clamp((float)(last.Pnl / _portfolio.InitialBalance) * 50f, -1f, 1f);
+
+            // Explicit-exit bonus: reward the brain for USING the exit output (output[3])
+            // rather than relying solely on direction reversals. Tips evolution toward
+            // developing meaningful connectivity to the exit neuron. Magnitude kept small
+            // relative to the ±1.0 P&L reward range.
+            if (last.ClosedByExitSignal)
+                reward += ExplicitExitBonus;
+
             _lastTradeCount = _portfolio.TradeHistory.Count;
         }
 

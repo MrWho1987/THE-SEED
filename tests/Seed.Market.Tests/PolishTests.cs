@@ -211,12 +211,12 @@ public class PolishTests
         var graph = dev.CompileGraph(custom, budget, new DevelopmentContext(42, 0));
 
         Assert.Equal(SignalIndex.Count, graph.InputCount);
-        Assert.Equal(5, graph.OutputCount);
+        Assert.Equal(6, graph.OutputCount);
 
         var brain = new BrainRuntime(graph, custom.Learn, custom.Stable, 1);
         var ctx = new BrainStepContext(0);
-        var outputs = brain.Step(new float[88], ctx);
-        Assert.Equal(5, outputs.Length);
+        var outputs = brain.Step(new float[SignalIndex.Count], ctx);
+        Assert.Equal(6, outputs.Length);
     }
 
     private sealed class ConstantFitness : IFitnessFunction

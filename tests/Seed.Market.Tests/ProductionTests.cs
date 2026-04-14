@@ -168,6 +168,89 @@ public class ProductionTests
         Assert.Equal(1.0m, scale);
     }
 
+    // ── Tier 1.1 Leverage integration tests ─────────────────────────────────
+
+    [Fact]
+    public void ComputePositionSize_WithLeverage1_UnchangedFromBaseline()
+    {
+        // Baseline: MaxLeverage=1, signal.Leverage=1 → same as v1 behavior.
+        var config = MarketConfig.Default with { MaxLeverage = 1.0f };
+        var risk = new RiskManager(config);
+        var portfolio = new PortfolioState
+        {
+            Balance = 10000m, InitialBalance = 10000m, MaxEquity = 10000m
+        };
+        var signal = new TradingSignal(TradeDirection.Long, 0.5f, 0.8f, false, Leverage: 1.0f);
+        decimal size = risk.ComputePositionSize(signal, portfolio, 50000m);
+
+        // Expected: 10000 × 0.25 (MaxPositionPct) × 0.5 (SizePct) × 1.0 (VaR) × 1.0 (Leverage) = 1250
+        Assert.Equal(1250m, size);
+    }
+
+    [Fact]
+    public void ComputePositionSize_WithLeverage3_Scales3x()
+    {
+        // Brain chooses leverage=3 → position notional tripled.
+        var config = MarketConfig.Default with { MaxLeverage = 3.0f };
+        var risk = new RiskManager(config);
+        var portfolio = new PortfolioState
+        {
+            Balance = 10000m, InitialBalance = 10000m, MaxEquity = 10000m
+        };
+        var signal = new TradingSignal(TradeDirection.Long, 0.5f, 0.8f, false, Leverage: 3.0f);
+        decimal size = risk.ComputePositionSize(signal, portfolio, 50000m);
+
+        // Expected: 10000 × 0.25 × 0.5 × 1.0 × 3.0 = 3750
+        Assert.Equal(3750m, size);
+    }
+
+    [Fact]
+    public void ComputePositionSize_CapsAtMaxLeveragedNotional()
+    {
+        // Even if Leverage × SizePct would exceed the ceiling, the notional is capped.
+        var config = MarketConfig.Default with { MaxLeverage = 3.0f };
+        var risk = new RiskManager(config);
+        var portfolio = new PortfolioState
+        {
+            Balance = 10000m, InitialBalance = 10000m, MaxEquity = 10000m
+        };
+        // SizePct=1.0 × Leverage=3.0 × MaxPositionPct=0.25 = 0.75 of equity = 7500
+        var signal = new TradingSignal(TradeDirection.Long, 1.0f, 0.8f, false, Leverage: 3.0f);
+        decimal size = risk.ComputePositionSize(signal, portfolio, 50000m);
+        Assert.Equal(7500m, size);
+    }
+
+    [Fact]
+    public void CheckTrade_RespectsLeveragedCeiling()
+    {
+        var config = MarketConfig.Default with { MaxLeverage = 2.0f };
+        var risk = new RiskManager(config);
+        var portfolio = new PortfolioState
+        {
+            Balance = 10000m, InitialBalance = 10000m, MaxEquity = 10000m
+        };
+        // Normal size signal with leverage within ceiling → allowed
+        var signal = new TradingSignal(TradeDirection.Long, 0.8f, 0.8f, false, Leverage: 2.0f);
+        var (allowed, _) = risk.CheckTrade(signal, portfolio, 50000m);
+        Assert.True(allowed);
+    }
+
+    [Fact]
+    public void MarketConfig_Validate_RejectsInvalidLeverage()
+    {
+        // Leverage < 1 should be rejected
+        var cfg1 = MarketConfig.Default with { MaxLeverage = 0.5f };
+        Assert.Throws<InvalidOperationException>(() => cfg1.Validate());
+
+        // Leverage > 10 should be rejected
+        var cfg2 = MarketConfig.Default with { MaxLeverage = 15f };
+        Assert.Throws<InvalidOperationException>(() => cfg2.Validate());
+
+        // Leverage 1 and 10 should be accepted
+        MarketConfig.Default.Validate();  // default is 1.0, should pass
+        (MarketConfig.Default with { MaxLeverage = 10f }).Validate();
+    }
+
     [Fact]
     public void RollingMetrics_SharpePositiveForRising()
     {

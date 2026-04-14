@@ -12,16 +12,17 @@ namespace Seed.Market.Tests;
 public class LearningSignalTests
 {
     [Fact]
-    public void OutputCount_Is5()
+    public void OutputCount_Is6()
     {
-        Assert.Equal(5, ActionInterpreter.OutputCount);
-        Assert.Equal(5, MarketAgent.OutputCount);
+        // v2: 6 outputs — direction, size, urgency, exit, price prediction, leverage
+        Assert.Equal(6, ActionInterpreter.OutputCount);
+        Assert.Equal(6, MarketAgent.OutputCount);
     }
 
     [Fact]
-    public void Interpret_5Outputs_DoesNotThrow()
+    public void Interpret_6Outputs_DoesNotThrow()
     {
-        float[] outputs = [1f, 0.5f, 0.8f, 0.1f, 0.3f];
+        float[] outputs = [1f, 0.5f, 0.8f, 0.1f, 0.3f, 0.2f];
         var signal = ActionInterpreter.Interpret(outputs);
         Assert.Equal(TradeDirection.Long, signal.Direction);
     }
@@ -130,7 +131,7 @@ public class LearningSignalTests
     }
 
     [Fact]
-    public void BrainCompiles_With5Outputs()
+    public void BrainCompiles_With6Outputs()
     {
         var rng = new Rng64(42);
         var genome = SeedGenome.CreateRandom(rng);
@@ -138,15 +139,15 @@ public class LearningSignalTests
         var graph = dev.CompileGraph(genome, MarketEvaluator.MarketBrainBudget, new DevelopmentContext(42, 0));
 
         Assert.Equal(SignalIndex.Count, graph.InputCount);
-        Assert.Equal(5, graph.OutputCount);
+        Assert.Equal(6, graph.OutputCount);
 
         var brain = new BrainRuntime(graph, genome.Learn, genome.Stable, 1);
-        var outputs = brain.Step(new float[88], new BrainStepContext(0));
-        Assert.Equal(5, outputs.Length);
+        var outputs = brain.Step(new float[SignalIndex.Count], new BrainStepContext(0));
+        Assert.Equal(6, outputs.Length);
     }
 
     [Fact]
-    public void FullAgent_ProcessesTicks_With5Outputs()
+    public void FullAgent_ProcessesTicks_With6Outputs()
     {
         var (agent, _) = CreateAgent();
         var normalizer = new SignalNormalizer();

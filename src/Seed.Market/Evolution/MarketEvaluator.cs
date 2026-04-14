@@ -127,7 +127,7 @@ public sealed class MarketEvaluator
         var sg = (SeedGenome)entry.Genome;
         var brain = new BrainRuntime(entry.Graph, sg.Learn, sg.Stable, 1);
         var trader = new PaperTrader(_config);
-        var agent = new MarketAgent(sg.GenomeId, brain, trader);
+        var agent = new MarketAgent(sg.GenomeId, brain, trader, maxLeverage: _config.MaxLeverage);
 
         for (int t = 0; t < history.Length; t++)
         {
@@ -162,6 +162,14 @@ public sealed class MarketEvaluator
         return new MarketEvalResult(sg.GenomeId, breakdown);
     }
 
+    /// <summary>
+    /// How many top-fitness champions to include in the ensemble vote.
+    /// v1 used ALL champions with arithmetic-mean voting, which diluted aggressive signals
+    /// (30 champions × 0.8 + 1 × 0.1 averaged 0.76 instead of reflecting the top performer).
+    /// v2 uses top-3 with fitness-weighted voting for sharper consensus.
+    /// </summary>
+    public const int EnsembleTopK = 3;
+
     public FitnessBreakdown EvaluateEnsemble(
         IReadOnlyList<IGenome> champions, SignalSnapshot[] history, float[] rawPrices,
         float[] rawVolumes, float[] rawFundingRates, int generationIndex)
@@ -170,8 +178,11 @@ public sealed class MarketEvaluator
             return default;
 
         var devCtx = new DevelopmentContext(_config.RunSeed, generationIndex);
-        var agents = new List<(MarketAgent Agent, PaperTrader Trader)>();
 
+        // Step 1: Evaluate each champion individually to score their fitness.
+        // This is the ONLY way to know which are top-K, since the caller passes raw genomes
+        // without fitness scores. Cost: O(n) runs but this runs once at end of training.
+        var championScores = new List<(IGenome Genome, float Fitness)>();
         foreach (var genome in champions)
         {
             var sg = (SeedGenome)genome;
@@ -182,14 +193,49 @@ public sealed class MarketEvaluator
                 HiddenLayers = sg.Dev.SubstrateLayers
             };
             var graph = _developer.CompileGraph(sg, genomeBudget, devCtx, SignalCategoryMap, RegimeStart, RegimeEnd);
+            var result = RunAgent((sg, graph), history, rawPrices, rawVolumes, rawFundingRates);
+            championScores.Add((genome, result.Fitness.Fitness));
+        }
+
+        // Step 2: Select the top-K champions by fitness. If fewer than K, use all.
+        // Stable order: sort by fitness desc, then by GenomeId for determinism on ties.
+        var topK = championScores
+            .OrderByDescending(c => c.Fitness)
+            .ThenBy(c => ((SeedGenome)c.Genome).GenomeId)
+            .Take(Math.Min(EnsembleTopK, championScores.Count))
+            .ToList();
+
+        // Step 3: Compute fitness-based weights for the top-K.
+        // Shift fitness values so the minimum is 0 (handles negative fitnesses gracefully),
+        // then normalize. If all weights collapse to 0 (all equal), fall back to equal weights.
+        float minFit = topK.Min(t => t.Fitness);
+        float[] shifted = topK.Select(t => MathF.Max(0f, t.Fitness - minFit + 0.001f)).ToArray();
+        float sumShifted = shifted.Sum();
+        float[] weights = sumShifted > 0f
+            ? shifted.Select(s => s / sumShifted).ToArray()
+            : Enumerable.Repeat(1f / topK.Count, topK.Count).ToArray();
+
+        // Step 4: Build agents for the top-K champions for live ensemble voting.
+        var agents = new List<(MarketAgent Agent, PaperTrader Trader, float Weight)>();
+        for (int i = 0; i < topK.Count; i++)
+        {
+            var sg = (SeedGenome)topK[i].Genome;
+            var genomeBudget = MarketBrainBudget with
+            {
+                HiddenWidth = sg.Dev.SubstrateWidth,
+                HiddenHeight = sg.Dev.SubstrateHeight,
+                HiddenLayers = sg.Dev.SubstrateLayers
+            };
+            var graph = _developer.CompileGraph(sg, genomeBudget, devCtx, SignalCategoryMap, RegimeStart, RegimeEnd);
             var brain = new BrainRuntime(graph, sg.Learn, sg.Stable, 1);
             var trader = new PaperTrader(_config);
-            agents.Add((new MarketAgent(sg.GenomeId, brain, trader), trader));
+            agents.Add((new MarketAgent(sg.GenomeId, brain, trader, maxLeverage: _config.MaxLeverage), trader, weights[i]));
         }
 
         var ensembleTrader = new PaperTrader(_config);
         var ensemblePortfolio = ensembleTrader.CreatePortfolio();
 
+        // Step 5: Tick through history with fitness-weighted voting.
         for (int t = 0; t < history.Length; t++)
         {
             float rawP = rawPrices[t];
@@ -201,28 +247,34 @@ public sealed class MarketEvaluator
             float elapsedHours = (float)t / _config.BarsPerHour;
             var ctx = new TickContext(price, vol, rawFundingRates[t], t, elapsedHours);
 
-            float directionSum = 0f;
-            float sizeSum = 0f;
-            float urgencySum = 0f;
-            int exitVotes = 0;
+            float weightedDirection = 0f;
+            float weightedSize = 0f;
+            float weightedUrgency = 0f;
+            float weightedExitRaw = 0f;
+            float weightedLeverage = 0f;
 
-            foreach (var (agent, _) in agents)
+            foreach (var (agent, _, weight) in agents)
             {
                 agent.ProcessTick(history[t], ctx);
                 var sig = agent.LastGeneratedSignal;
-                directionSum += (int)sig.Direction;
-                sizeSum += sig.SizePct;
-                urgencySum += sig.Urgency;
-                if (sig.ExitCurrent) exitVotes++;
+                weightedDirection += (int)sig.Direction * weight;
+                weightedSize += sig.SizePct * weight;
+                weightedUrgency += sig.Urgency * weight;
+                weightedExitRaw += sig.RawExitValue * weight;
+                weightedLeverage += sig.Leverage * weight;
             }
 
-            int n = agents.Count;
-            float avgDir = directionSum / n;
-            var direction = avgDir > ActionInterpreter.DirectionDeadzone ? TradeDirection.Long
-                : avgDir < -ActionInterpreter.DirectionDeadzone ? TradeDirection.Short : TradeDirection.Flat;
-            bool exit = exitVotes > n / 2;
+            var direction = weightedDirection > ActionInterpreter.DirectionDeadzone ? TradeDirection.Long
+                : weightedDirection < -ActionInterpreter.DirectionDeadzone ? TradeDirection.Short : TradeDirection.Flat;
+            bool exit = weightedExitRaw > ActionInterpreter.ExitThreshold;
 
-            var ensembleSignal = new TradingSignal(direction, sizeSum / n, urgencySum / n, exit);
+            var ensembleSignal = new TradingSignal(
+                direction,
+                weightedSize,
+                weightedUrgency,
+                exit,
+                RawExitValue: weightedExitRaw,
+                Leverage: weightedLeverage);
             ensembleTrader.ProcessSignal(ensembleSignal, ensemblePortfolio, ctx);
             ensemblePortfolio.RecordEquity(price);
         }

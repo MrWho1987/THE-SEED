@@ -72,7 +72,7 @@ public sealed class PaperTrader : ITrader
         }
 
         if (signal.ExitCurrent && portfolio.OpenPositions.Count > 0)
-            return ClosePosition(portfolio, portfolio.OpenPositions[0], ctx);
+            return ClosePosition(portfolio, portfolio.OpenPositions[0], ctx, closedByExitSignal: true);
 
         if (signal.Direction == TradeDirection.Flat)
             return new TradeResult(false, 0, 0, 0, 0);
@@ -81,7 +81,10 @@ public sealed class PaperTrader : ITrader
             p.Direction != signal.Direction && p.Direction != TradeDirection.Flat);
         if (existing != null)
         {
-            var closeResult = ClosePosition(portfolio, existing, ctx);
+            // Direction-flip close: brain chose opposite direction, so the existing position
+            // is closed by reversal (not by explicit exit output). Reward logic treats this
+            // as a "standard" close without the explicit-exit bonus.
+            var closeResult = ClosePosition(portfolio, existing, ctx, closedByExitSignal: false);
             if (!closeResult.Executed) return closeResult;
         }
 
@@ -124,14 +127,15 @@ public sealed class PaperTrader : ITrader
             EntryPrice = fillPrice,
             Size = size,
             OpenTime = DateTimeOffset.UtcNow,
-            OpenTick = ctx.TickIndex
+            OpenTick = ctx.TickIndex,
+            Leverage = signal.Leverage
         });
 
         return new TradeResult(true, fillPrice, size, fee, slippage);
     }
 
     private TradeResult ClosePosition(
-        PortfolioState portfolio, Position position, TickContext ctx)
+        PortfolioState portfolio, Position position, TickContext ctx, bool closedByExitSignal = false)
     {
         decimal volumeUsd = ctx.BarVolume * ctx.Price;
         decimal dynamicSlippageBps = ComputeDynamicSlippage(position.Size * ctx.Price, volumeUsd);
@@ -169,7 +173,9 @@ public sealed class PaperTrader : ITrader
             fee,
             ctx.TickIndex - position.OpenTick,
             position.OpenTime,
-            DateTimeOffset.UtcNow
+            DateTimeOffset.UtcNow,
+            ClosedByExitSignal: closedByExitSignal,
+            Leverage: position.Leverage
         ));
 
         return new TradeResult(true, fillPrice, position.Size, fee, slippage);

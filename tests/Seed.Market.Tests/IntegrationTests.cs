@@ -66,7 +66,7 @@ public class IntegrationTests
     }
 
     [Fact]
-    public void BrainIO_Matches88InputAnd5Output()
+    public void BrainIO_MatchesSignalCountInputAnd6Output()
     {
         var rng = new Rng64(42);
         var genome = SeedGenome.CreateRandom(rng);
@@ -74,13 +74,13 @@ public class IntegrationTests
         var graph = dev.CompileGraph(genome, DevelopmentBudget.Default, new DevelopmentContext(42, 0));
 
         Assert.Equal(SignalIndex.Count, graph.InputCount);
-        Assert.Equal(5, graph.OutputCount);
+        Assert.Equal(6, graph.OutputCount);
 
         var brain = new BrainRuntime(graph, genome.Learn, genome.Stable, 1);
-        var inputs = new float[88];
+        var inputs = new float[SignalIndex.Count];
         var outputs = brain.Step(inputs, new BrainStepContext(0));
 
-        Assert.Equal(5, outputs.Length);
+        Assert.Equal(6, outputs.Length);
     }
 
     [Fact]
@@ -147,7 +147,7 @@ public class IntegrationTests
         var devCtx = new DevelopmentContext(42, 0);
         var graph = developer.CompileGraph(restored, MarketEvaluator.MarketBrainBudget, devCtx);
         Assert.Equal(SignalIndex.Count, graph.InputCount);
-        Assert.Equal(5, graph.OutputCount);
+        Assert.Equal(6, graph.OutputCount);
 
         // 4. Create agent (same wiring as paper mode)
         var brain = new BrainRuntime(graph, restored.Learn, restored.Stable, 1);

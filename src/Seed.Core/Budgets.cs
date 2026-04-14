@@ -13,11 +13,12 @@ public readonly record struct DevelopmentBudget(
     int GlobalCandidateSamplesPerNeuron = 16,
     int MaxSynapticDelay = 5,
     int ModuleCount = 8,
-    int GateNeuronCount = 0
+    int GateNeuronCount = 0,
+    int MinOutputConnectivity = 1  // v2: guarantee output neurons get at least N incoming edges
 )
 {
     public int TotalHiddenNeurons => HiddenWidth * HiddenHeight * HiddenLayers;
-    public static DevelopmentBudget Default => new(12, 12, 2, 12, 16, 2, 16, 5, 8, 0);
+    public static DevelopmentBudget Default => new(12, 12, 2, 12, 16, 2, 16, 5, 8, 0, 1);
 }
 
 /// <summary>

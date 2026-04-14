@@ -22,6 +22,11 @@ public sealed record MarketConfig
     public decimal MaxDailyVaRPct { get; init; } = 0.05m;
     public decimal MaxEquityMultiplier { get; init; } = 100m;
 
+    // MaxLeverage: ceiling for the brain's leverage output. Brain output[5] is scaled to [1, MaxLeverage].
+    // Default 1.0f disables leverage (backward-compat with v1 genomes that have no leverage output).
+    // v2 phase configs will set this per-phase (1x → 1x → 2x → 3x → 3x) to curriculum-ramp leverage.
+    public float MaxLeverage { get; init; } = 1.0f;
+
     // ── Evolution ──
     public int PopulationSize { get; init; } = 50;
     public int Generations { get; init; } = 100;
@@ -145,6 +150,11 @@ public sealed record MarketConfig
         if (BarsPerHour <= 0)
             throw new InvalidOperationException(
                 $"BarsPerHour must be > 0 (derived from CandleInterval '{CandleInterval}'), got {BarsPerHour}");
+
+        if (MaxLeverage < 1.0f || MaxLeverage > 10.0f)
+            throw new InvalidOperationException(
+                $"MaxLeverage must be in [1, 10], got {MaxLeverage}. " +
+                $"Use 1.0 for no leverage; 3.0 recommended for leveraged training.");
     }
 
     public void Save(string path)

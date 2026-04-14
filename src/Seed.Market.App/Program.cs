@@ -443,7 +443,7 @@ static async Task RunPaper(MarketConfig config)
     Console.WriteLine($"[PAPER] Brain compiled: {graph.NodeCount} neurons, {graph.EdgeCount} synapses");
 
     var trader = new PaperTrader(config);
-    var agent = new MarketAgent(genome.GenomeId, brain, trader);
+    var agent = new MarketAgent(genome.GenomeId, brain, trader, maxLeverage: config.MaxLeverage);
 
     Console.WriteLine("[PAPER] Connecting to live data feeds...");
     using var aggregator = new DataAggregator(config);
@@ -454,8 +454,8 @@ static async Task RunPaper(MarketConfig config)
     Console.WriteLine($"[PAPER] Stop-loss: {(config.StopLossPct > 0 ? $"{config.StopLossPct:P1} per position" : "disabled")}");
     Console.WriteLine("[PAPER] Paper trading active. Press Ctrl+C to stop.\n");
 
-    Console.WriteLine($"{"Feed",-7} {"Price",11} {"Pos",6} {"Entry",11} {"Unrl%",7} {"Net P&L",10} {"Equity",12} {"Trades",7} {"WR",5} {"Exit",5} {"ExitRaw",8} {"rSharpe",8} {"rDD",6} {"Elapsed",8}");
-    Console.WriteLine(new string('─', 110));
+    Console.WriteLine($"{"Feed",-7} {"Price",11} {"Pos",6} {"Entry",11} {"Unrl%",7} {"Net P&L",10} {"Equity",12} {"Trades",7} {"WR",5} {"Exit",5} {"ExitRaw",8} {"SizeRaw",8} {"Lev",6} {"GateMin",8} {"GateMax",8} {"rSharpe",8} {"rDD",6} {"Elapsed",8}");
+    Console.WriteLine(new string('─', 150));
     var rolling = new RollingMetrics(100);
 
     var cts = new CancellationTokenSource();
@@ -539,11 +539,13 @@ static async Task RunPaper(MarketConfig config)
                 var elapsed = now - sessionStart;
                 string elapsedStr = $"{(int)elapsed.TotalHours}:{elapsed.Minutes:D2}";
 
+                var lastSig = agent.LastGeneratedSignal;
+                var bDiag = brain.GetDiagnostics();
                 Console.WriteLine(
                     $"{feedTick,-7} ${price,10:N2} {posStr,6} {entry} {unrlPct} " +
                     $"{portfolio.TotalPnl,9:+#,##0.00;-#,##0.00;0.00} " +
                     $"${equity,10:N2} {portfolio.TotalTrades,7} " +
-                    $"{portfolio.WinRate,4:P0} {exitFlag} {agent.LastGeneratedSignal.RawExitValue,8:F4} {rolling.RollingSharpe,8:F2} {rolling.RollingDrawdown,5:P1} {elapsedStr,8}");
+                    $"{portfolio.WinRate,4:P0} {exitFlag} {lastSig.RawExitValue,8:F4} {lastSig.RawSizePct,8:F4} {lastSig.Leverage,6:F2} {bDiag.GateMin,8:F4} {bDiag.GateMax,8:F4} {rolling.RollingSharpe,8:F2} {rolling.RollingDrawdown,5:P1} {elapsedStr,8}");
 
                 if (portfolio.KillSwitchTriggered)
                 {
@@ -554,13 +556,18 @@ static async Task RunPaper(MarketConfig config)
             if ((DateTimeOffset.UtcNow - lastHeartbeat).TotalSeconds >= 60)
             {
                 var sig = agent.LastGeneratedSignal;
+                var hbDiag = brain.GetDiagnostics();
                 string dir = sig.Direction == TradeDirection.Long ? "Long" : sig.Direction == TradeDirection.Short ? "Short" : "Flat";
                 var hb = $"{{\"ts\":\"{DateTimeOffset.UtcNow:O}\",\"equity\":{agent.Portfolio.Equity(price):F2}," +
                          $"\"balance\":{agent.Portfolio.Balance:F2}," +
                          $"\"trades\":{agent.Portfolio.TotalTrades},\"positions\":{agent.Portfolio.OpenPositions.Count}," +
                          $"\"pnl\":{agent.Portfolio.TotalPnl:F2},\"maxDD\":{(float)agent.Portfolio.MaxDrawdown:F4}," +
                          $"\"health\":\"{snapshot.Health}\",\"dir\":\"{dir}\",\"exit\":{(sig.ExitCurrent ? "true" : "false")}," +
-                         $"\"rawExit\":{sig.RawExitValue:F4}," +
+                         $"\"rawExit\":{sig.RawExitValue:F4},\"rawSize\":{sig.RawSizePct:F4}," +
+                         $"\"leverage\":{sig.Leverage:F4},\"rawLeverage\":{sig.RawLeverage:F4}," +
+                         $"\"gateCount\":{hbDiag.GateCount},\"gateMean\":{hbDiag.GateMean:F4}," +
+                         $"\"gateMin\":{hbDiag.GateMin:F4},\"gateMax\":{hbDiag.GateMax:F4}," +
+                         $"\"satRate\":{hbDiag.SaturationRate:F4}," +
                          $"\"rSharpe\":{rolling.RollingSharpe:F2},\"rDD\":{rolling.RollingDrawdown:F4}}}";
                 Directory.CreateDirectory(config.OutputDirectory);
                 File.AppendAllText(Path.Combine(config.OutputDirectory, "heartbeat.jsonl"), hb + "\n");
@@ -736,7 +743,7 @@ static async Task RunAblation(MarketConfig config)
             MarketEvaluator.SignalCategoryMap, MarketEvaluator.RegimeStart, MarketEvaluator.RegimeEnd);
         var brain = new BrainRuntime(graph, sg.Learn, sg.Stable, 1, abl);
         var trader = new PaperTrader(config);
-        var agent = new MarketAgent(sg.GenomeId, brain, trader, abl);
+        var agent = new MarketAgent(sg.GenomeId, brain, trader, abl, maxLeverage: config.MaxLeverage);
         for (int t = 0; t < snapshots.Length; t++)
         {
             decimal price = (decimal)prices[t];
@@ -855,7 +862,7 @@ static async Task RunMonteCarlo(MarketConfig config)
         MarketEvaluator.SignalCategoryMap, MarketEvaluator.RegimeStart, MarketEvaluator.RegimeEnd);
     var brain = new BrainRuntime(graph, sg.Learn, sg.Stable, 1);
     var trader = new PaperTrader(config);
-    var agent = new MarketAgent(sg.GenomeId, brain, trader);
+    var agent = new MarketAgent(sg.GenomeId, brain, trader, maxLeverage: config.MaxLeverage);
 
     for (int t = 0; t < snapshots.Length; t++)
     {
@@ -919,7 +926,7 @@ static async Task RunNeuroAblation(MarketConfig config)
             MarketEvaluator.SignalCategoryMap, MarketEvaluator.RegimeStart, MarketEvaluator.RegimeEnd);
         var brain = new BrainRuntime(graph, lp, genome.Stable, 1);
         var trader = new PaperTrader(config);
-        var agent = new MarketAgent(genome.GenomeId, brain, trader);
+        var agent = new MarketAgent(genome.GenomeId, brain, trader, maxLeverage: config.MaxLeverage);
         for (int t = 0; t < snapshots.Length; t++)
         {
             decimal price = (decimal)prices[t];

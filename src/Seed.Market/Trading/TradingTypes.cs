@@ -22,6 +22,7 @@ public sealed class Position
     public decimal StopPrice { get; init; }
     public DateTimeOffset OpenTime { get; init; }
     public int OpenTick { get; init; }
+    public float Leverage { get; init; } = 1.0f;  // leverage applied when the position opened (v2+)
 
     public decimal UnrealizedPnl(decimal currentPrice) =>
         Direction == TradeDirection.Long
@@ -36,10 +37,13 @@ public sealed class Position
 
 public readonly record struct TradingSignal(
     TradeDirection Direction,
-    float SizePct,        // 0-1, fraction of max allowed position
-    float Urgency,        // 0-1, higher = market order, lower = limit
-    bool ExitCurrent,     // close existing position
-    float RawExitValue = 0f  // sigmoid(outputs[3]); ExitCurrent == (RawExitValue > ExitThreshold)
+    float SizePct,           // 0-1, fraction of max allowed position
+    float Urgency,           // 0-1, higher = market order, lower = limit
+    bool ExitCurrent,        // close existing position
+    float RawExitValue = 0f, // sigmoid(outputs[3]); ExitCurrent == (RawExitValue > ExitThreshold)
+    float Leverage = 1.0f,   // per-trade leverage multiplier from outputs[5], in [1, MaxLeverage]
+    float RawSizePct = 0f,   // sigmoid(outputs[1]) before clamping; diagnostic for dormancy detection
+    float RawLeverage = 0f   // sigmoid(outputs[5]) before scaling; diagnostic
 );
 
 public readonly record struct TradeResult(
@@ -101,5 +105,7 @@ public readonly record struct ClosedTrade(
     decimal Fee,
     int HoldingTicks,
     DateTimeOffset OpenTime,
-    DateTimeOffset CloseTime
+    DateTimeOffset CloseTime,
+    bool ClosedByExitSignal = false,  // true = closed via brain's explicit exit output; false = flip/stop/kill
+    float Leverage = 1.0f             // leverage used at time of open (for analytics)
 );

@@ -130,4 +130,75 @@ public class PaperTraderTests
 
         Assert.False(result.Executed);
     }
+
+    // ── Tier 1.3 Explicit-exit tracking tests ────────────────────────────────
+
+    [Fact]
+    public void ExitSignal_SetsClosedByExitSignalFlag()
+    {
+        // When brain signals ExitCurrent=true, the closed trade must flag ClosedByExitSignal=true.
+        var trader = new PaperTrader(Cfg);
+        var portfolio = trader.CreatePortfolio();
+
+        var open = new TradingSignal(TradeDirection.Long, 0.5f, 0.8f, false);
+        trader.ProcessSignal(open, portfolio, 50_000m, 0);
+
+        var exit = new TradingSignal(TradeDirection.Flat, 0f, 0f, true);  // ExitCurrent=true
+        trader.ProcessSignal(exit, portfolio, 52_000m, 10);
+
+        Assert.Single(portfolio.TradeHistory);
+        Assert.True(portfolio.TradeHistory[0].ClosedByExitSignal,
+            "Trade closed via explicit exit signal must have ClosedByExitSignal=true");
+    }
+
+    [Fact]
+    public void DirectionFlip_ClosedByExitSignalIsFalse()
+    {
+        // Direction flip (LONG → SHORT) closes the existing position, but NOT via explicit exit.
+        var trader = new PaperTrader(Cfg);
+        var portfolio = trader.CreatePortfolio();
+
+        var longSig = new TradingSignal(TradeDirection.Long, 0.5f, 0.8f, false);
+        trader.ProcessSignal(longSig, portfolio, 50_000m, 0);
+
+        var flipToShort = new TradingSignal(TradeDirection.Short, 0.5f, 0.8f, false);  // opposite direction, no exit flag
+        trader.ProcessSignal(flipToShort, portfolio, 50_100m, 10);
+
+        Assert.Single(portfolio.TradeHistory);
+        Assert.False(portfolio.TradeHistory[0].ClosedByExitSignal,
+            "Direction-flip close must NOT have ClosedByExitSignal=true");
+    }
+
+    [Fact]
+    public void StopLoss_ClosedByExitSignalIsFalse()
+    {
+        // Stop-loss force-close is NOT an explicit exit signal close.
+        var cfg = Cfg with { StopLossPct = 0.02m };
+        var trader = new PaperTrader(cfg);
+        var portfolio = trader.CreatePortfolio();
+
+        var longSig = new TradingSignal(TradeDirection.Long, 0.5f, 0.8f, false);
+        trader.ProcessSignal(longSig, portfolio, 50_000m, 0);
+
+        // Drop price >2% to trigger stop loss on next tick
+        var holdSig = new TradingSignal(TradeDirection.Flat, 0f, 0f, false);
+        trader.ProcessSignal(holdSig, portfolio, 48_500m, 10);  // -3% = stop triggers
+
+        Assert.Single(portfolio.TradeHistory);
+        Assert.False(portfolio.TradeHistory[0].ClosedByExitSignal,
+            "Stop-loss close must NOT have ClosedByExitSignal=true");
+    }
+
+    [Fact]
+    public void Position_StoresLeverageFromSignal()
+    {
+        var trader = new PaperTrader(Cfg with { MaxLeverage = 3.0f });
+        var portfolio = trader.CreatePortfolio();
+
+        var signal = new TradingSignal(TradeDirection.Long, 0.5f, 0.8f, false, Leverage: 2.5f);
+        trader.ProcessSignal(signal, portfolio, 50_000m, 0);
+
+        Assert.Single(portfolio.OpenPositions);
+        Assert.Equal(2.5f, portfolio.OpenPositions[0].Leverage);
+    }
 }

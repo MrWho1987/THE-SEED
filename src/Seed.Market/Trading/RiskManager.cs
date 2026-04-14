@@ -42,10 +42,11 @@ public sealed class RiskManager
         if (portfolio.OpenPositions.Count >= _config.MaxConcurrentPositions)
             return (false, $"Max concurrent positions ({_config.MaxConcurrentPositions}) reached");
 
-        decimal maxSize = equity * _config.MaxPositionPct;
-        decimal requestedSize = maxSize * (decimal)signal.SizePct;
-        if (requestedSize > maxSize)
-            return (false, $"Position size {requestedSize:F2} exceeds max {maxSize:F2}");
+        decimal baseSize = equity * _config.MaxPositionPct;
+        decimal maxLeveragedSize = baseSize * (decimal)_config.MaxLeverage;
+        decimal requestedSize = baseSize * (decimal)signal.SizePct * (decimal)signal.Leverage;
+        if (requestedSize > maxLeveragedSize)
+            return (false, $"Position size {requestedSize:F2} exceeds leveraged max {maxLeveragedSize:F2}");
 
         return (true, null);
     }
@@ -57,13 +58,21 @@ public sealed class RiskManager
         if (equity > maxEquityForSizing)
             equity = maxEquityForSizing;
 
-        decimal maxNotional = equity * _config.MaxPositionPct;
-        decimal requested = maxNotional * (decimal)signal.SizePct;
+        decimal baseNotional = equity * _config.MaxPositionPct;
+        decimal requested = baseNotional * (decimal)signal.SizePct;
 
         decimal varScale = ComputeVaRScale(portfolio);
         requested *= varScale;
 
-        return Math.Min(requested, maxNotional);
+        // Apply the brain's leverage output (signal.Leverage) as a multiplier. The leverage is
+        // already clamped to [1, MaxLeverage] by ActionInterpreter. At MaxLeverage=1 this is a
+        // no-op (signal.Leverage defaults to 1.0f). At MaxLeverage=3, a confident brain can
+        // scale the notional by up to 3×, enabling dynamic leverage.
+        requested *= (decimal)signal.Leverage;
+
+        // Cap at maxNotional × MaxLeverage to prevent runaway positions under pathological signals.
+        decimal maxAllowedNotional = baseNotional * (decimal)_config.MaxLeverage;
+        return Math.Min(requested, maxAllowedNotional);
     }
 
     /// <summary>

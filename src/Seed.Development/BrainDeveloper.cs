@@ -230,6 +230,145 @@ public sealed class BrainDeveloper
                 .ToList();
         }
 
+        // ── Force minimum output connectivity ───────────────────────────────────────
+        // v2 fix: the CPPN substrate development can leave output neurons with zero incoming
+        // edges if the CPPN outputs near-zero connection scores at their coordinates, or if
+        // earlier source neurons saturated their MaxOut budget. The dormant output manifests
+        // at runtime as `sigmoid(0) = 0.5` exactly — we observed this for the exit output in v1
+        // which made the brain unable to signal explicit exits. This pass guarantees every
+        // output node receives at least `budget.MinOutputConnectivity` incoming edges by
+        // force-wiring the highest-CPPN-score candidate(s), ignoring the MaxOut saturation
+        // constraint. This is deterministic (uses the same CPPN queries as the main loop).
+        if (budget.MinOutputConnectivity > 0 && _actuatorCount > 0)
+        {
+            for (int outIdx = 0; outIdx < _actuatorCount; outIdx++)
+            {
+                int outputNodeId = outputStart + outIdx;
+                var outputNode = nodes[outputNodeId];
+                var existingEdges = incoming[outputNodeId];
+                int needed = budget.MinOutputConnectivity - existingEdges.Count;
+                if (needed <= 0) continue;
+
+                // Re-query the CPPN for all non-input, non-gate candidate sources to find the
+                // highest-scoring ones. We don't use GetCandidateSources here because we want
+                // ALL eligible sources (ignoring spatial sampling limits) so we always find
+                // at least one valid wire.
+                var candidates = new List<(int srcId, float score, float weight, float tau, float gate, float delay, float moduleTag)>();
+                foreach (var srcNode in nodes)
+                {
+                    if (srcNode.NodeId == outputNode.NodeId) continue;
+                    if (srcNode.Type == BrainNodeType.Output) continue;  // outputs don't feed other outputs
+                    if (srcNode.Type == BrainNodeType.Input) continue;   // inputs feed hidden, not directly to outputs
+                    // Gate nodes CAN feed outputs since they're a special hidden-layer type.
+
+                    // Skip if this source already has an edge to this output (avoid duplicates)
+                    if (existingEdges.Any(e => e.SrcNodeId == srcNode.NodeId)) continue;
+
+                    float dx = outputNode.X - srcNode.X;
+                    float dy = outputNode.Y - srcNode.Y;
+                    float dist = MathF.Sqrt(dx * dx + dy * dy);
+
+                    cppnInput[CppnInputIndex.Xi] = srcNode.X;
+                    cppnInput[CppnInputIndex.Yi] = srcNode.Y;
+                    cppnInput[CppnInputIndex.Li] = (float)srcNode.Layer / totalLayers;
+                    cppnInput[CppnInputIndex.Xj] = outputNode.X;
+                    cppnInput[CppnInputIndex.Yj] = outputNode.Y;
+                    cppnInput[CppnInputIndex.Lj] = (float)outputNode.Layer / totalLayers;
+                    cppnInput[CppnInputIndex.Dx] = dx;
+                    cppnInput[CppnInputIndex.Dy] = dy;
+                    cppnInput[CppnInputIndex.Dist] = dist;
+
+                    var cppnOut = genome.Cppn.Evaluate(cppnInput);
+                    float connScore = cppnOut[CppnOutputIndex.C];
+                    float weight = cppnOut[CppnOutputIndex.W];
+                    float tauRaw = cppnOut.Length > CppnOutputIndex.Tau ? cppnOut[CppnOutputIndex.Tau] : 0f;
+                    float gateRaw = cppnOut.Length > CppnOutputIndex.Gate ? cppnOut[CppnOutputIndex.Gate] : 0f;
+                    float delayRaw = cppnOut.Length > CppnOutputIndex.Delay ? cppnOut[CppnOutputIndex.Delay] : 0f;
+                    float moduleTagRaw = cppnOut.Length > CppnOutputIndex.ModuleTag ? cppnOut[CppnOutputIndex.ModuleTag] : 0f;
+
+                    candidates.Add((srcNode.NodeId, connScore, weight, tauRaw, gateRaw, delayRaw, moduleTagRaw));
+                }
+
+                // Sort by CPPN connection score (highest first), deterministic tie-break on srcId
+                candidates = candidates
+                    .OrderByDescending(c => c.score)
+                    .ThenBy(c => c.srcId)
+                    .ToList();
+
+                // Take the top `needed` candidates. Force-wired edges get the CPPN weight
+                // (not the threshold — we trust the CPPN to suggest good connections even
+                // below the normal threshold). Wire them as Normal edges (not memory/modulatory)
+                // since dormancy usually means the CPPN never learned a strong preference here.
+                int forcedTaken = 0;
+                float tauAccum = 0f;
+                int tauCount = 0;
+                float moduleTagAccum = 0f;
+                int moduleTagCount = 0;
+                // Preserve any existing accumulators from the main loop
+                if (tauSums.TryGetValue(outputNodeId, out var existingTau))
+                {
+                    tauAccum = existingTau.sum;
+                    tauCount = existingTau.count;
+                }
+                if (moduleTagSums.TryGetValue(outputNodeId, out var existingTag))
+                {
+                    moduleTagAccum = existingTag.sum;
+                    moduleTagCount = existingTag.count;
+                }
+
+                foreach (var (srcId, score, weight, tau, gate, delay, moduleTag) in candidates)
+                {
+                    if (forcedTaken >= needed) break;
+
+                    float w0 = DeterministicHelpers.Clamp(
+                        weight * genome.Dev.InitialWeightScale,
+                        -genome.Stable.WeightMaxAbs,
+                        genome.Stable.WeightMaxAbs
+                    );
+
+                    // Force-wire as Normal edge type. Dormant outputs didn't develop edge-type
+                    // preferences, so we default to plain excitatory/inhibitory connections.
+                    var edgeType = EdgeType.Normal;
+                    float plasticityGain = 2f / (1f + MathF.Exp(-gate));
+
+                    int delayTicks = 0;
+                    if (delay > DelayActivationThreshold && budget.MaxSynapticDelay > 0)
+                    {
+                        float fraction = (delay - DelayActivationThreshold) / (1f - DelayActivationThreshold);
+                        delayTicks = Math.Clamp((int)MathF.Round(fraction * budget.MaxSynapticDelay), 1, budget.MaxSynapticDelay);
+                    }
+
+                    incoming[outputNodeId].Add(new BrainEdge(
+                        SrcNodeId: srcId,
+                        DstNodeId: outputNodeId,
+                        WSlow: w0,
+                        WFast: w0,
+                        PlasticityGain: plasticityGain,
+                        Meta: new EdgeMetadata(edgeType, delayTicks, PlasticityProfileId: (int)edgeType)
+                    ));
+                    // NOTE: we intentionally bypass the MaxOut check for force-wired edges.
+                    // The source neuron may exceed its MaxOut budget by a small amount. This
+                    // is a one-time fixup during compilation, not during runtime evolution.
+                    outgoingCount[srcId] = outgoingCount.GetValueOrDefault(srcId, 0) + 1;
+                    forcedTaken++;
+                    tauAccum += tau;
+                    tauCount++;
+                    moduleTagAccum += moduleTag;
+                    moduleTagCount++;
+                }
+
+                if (tauCount > 0)
+                    tauSums[outputNodeId] = (tauAccum, tauCount);
+                if (moduleTagCount > 0)
+                    moduleTagSums[outputNodeId] = (moduleTagAccum, moduleTagCount);
+
+                // Re-sort the incoming list for determinism
+                incoming[outputNodeId] = incoming[outputNodeId]
+                    .OrderBy(e => e.SrcNodeId)
+                    .ToList();
+            }
+        }
+
         // Assign full metadata to each non-input node
         for (int i = 0; i < nodes.Count; i++)
         {
