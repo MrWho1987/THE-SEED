@@ -12,7 +12,9 @@ public static class MarketFitness
 {
     public const float DefaultInactivityPenalty = -0.1f;
     public const int DefaultMinTradesForActive = 3;
-    private const float AnnualizationFactor = 93.54f; // sqrt(8760)
+
+    private static float GetAnnualizationFactor(int barsPerHour) =>
+        MathF.Sqrt(8760f * Math.Max(1, barsPerHour));
 
     public static float Compute(PortfolioState portfolio, decimal finalPrice, float shrinkageK = 10f)
     {
@@ -25,7 +27,8 @@ public static class MarketFitness
         float wDrawdownDuration = 0.10f, float wCVaR = 0.10f,
         float inactivityPenalty = -0.1f, int minTradesForActive = 3,
         float activityBonusScale = 0f,
-        float ratioClampMax = 10f, float returnFloor = -0.50f)
+        float ratioClampMax = 10f, float returnFloor = -0.50f,
+        int barsPerHour = 1)
     {
         decimal equity = portfolio.Equity(finalPrice);
         decimal pnl = equity - portfolio.InitialBalance;
@@ -55,8 +58,9 @@ public static class MarketFitness
         }
 
         var curve = portfolio.EquityCurve;
-        float rawSharpe = ComputeSharpe(curve);
-        float sortino = ComputeSortino(curve);
+        float annFactor = GetAnnualizationFactor(barsPerHour);
+        float rawSharpe = ComputeSharpe(curve, annFactor);
+        float sortino = ComputeSortino(curve, annFactor, ratioClampMax);
         float cvar5 = ComputeCVaR(curve, 0.05f);
         float maxDdDuration = ComputeMaxDrawdownDuration(curve);
 
@@ -100,7 +104,7 @@ public static class MarketFitness
             fitness += Math.Min(rawBonus, maxBonus);
         }
 
-        if (returnPct < returnFloor)
+        if (returnPct <= returnFloor)
             fitness = Math.Min(fitness, inactivityPenalty);
 
         return new FitnessBreakdown(
@@ -120,7 +124,7 @@ public static class MarketFitness
             ShrinkageConfidence: confidence);
     }
 
-    public static float ComputeSharpe(List<float> equityCurve)
+    public static float ComputeSharpe(List<float> equityCurve, float annualizationFactor = 93.54f)
     {
         if (equityCurve.Count < 2) return 0f;
 
@@ -141,10 +145,10 @@ public static class MarketFitness
         if (variance <= 0f) return 0f;
 
         float std = MathF.Sqrt(variance);
-        return mean / std * AnnualizationFactor;
+        return mean / std * annualizationFactor;
     }
 
-    public static float ComputeSortino(List<float> equityCurve)
+    public static float ComputeSortino(List<float> equityCurve, float annualizationFactor = 93.54f, float maxCap = 20f)
     {
         if (equityCurve.Count < 2) return 0f;
 
@@ -167,12 +171,12 @@ public static class MarketFitness
         }
 
         float mean = sumR / n;
-        if (negCount == 0) return mean > 0 ? 20f : 0f;
+        if (negCount == 0) return mean > 0 ? maxCap : 0f;
 
         float downsideDeviation = MathF.Sqrt(sumNegSq / n);
         if (downsideDeviation <= 0f) return 0f;
 
-        return mean / downsideDeviation * AnnualizationFactor;
+        return mean / downsideDeviation * annualizationFactor;
     }
 
     public static float ComputeCVaR(List<float> equityCurve, float percentile)

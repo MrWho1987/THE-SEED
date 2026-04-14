@@ -29,7 +29,7 @@ public static class ActionInterpreter
         float urgency = MathF.Max(0f, MathF.Min(1f, rawUrgency));
         bool exit = rawExit > ExitThreshold;
 
-        return new TradingSignal(direction, sizePct, urgency, exit);
+        return new TradingSignal(direction, sizePct, urgency, exit, rawExit);
     }
 
     private static float Safe(float x) =>

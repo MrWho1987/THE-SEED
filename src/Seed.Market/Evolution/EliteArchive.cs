@@ -18,6 +18,8 @@ public sealed class EliteArchive
 
     public int Count => _champions.Count;
 
+    public void Clear() => _champions.Clear();
+
     public IReadOnlyDictionary<int, (IGenome Genome, float Fitness)> Champions => _champions;
 
     public void RestoreFrom(IEnumerable<(int SpeciesId, IGenome Genome, float Fitness)> entries)

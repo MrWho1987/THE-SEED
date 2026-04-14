@@ -19,8 +19,8 @@ bld/
 *.sln.docstates
 *.rsuser
 
-# Build logs
-*.log
+# Build logs (root-anchored so archived training/paper logs under archive/baseline/logs/ remain trackable)
+/*.log
 msbuild.wrn
 msbuild.err
 
@@ -51,20 +51,38 @@ $RECYCLE.BIN/
 .AppleDouble
 .LSOverride
 
-# User-specific config overrides (local configs with real API keys)
+# User-specific config overrides (local configs with real API keys).
+# Broad rule: ignore ALL market-config.*.json except the placeholder default.
 config.json
-market-config.json
+market-config.*.json
 !market-config.default.json
+
+# Pipeline shared cache (downloaded market data)
+pipeline_shared_cache/
 
 # Cached market data
 data_cache/
 
 # Run outputs (checkpoints, heartbeats, trade logs)
-output/
-output_*/
+# Root-anchored so archived copies under archive/baseline/ are still trackable.
+/output/
+/output_*/
 
-# Archive (old training data, configs, genomes)
-archive/
+# Archive: v2 reference. Override build-pattern ignores for archive/baseline/logs/
+# (the [Ll]ogs/ pattern above is meant for bin/Debug/Logs, not our archived training logs).
+# Sensitive phase/paper configs under archive/baseline/configs/ remain ignored via the
+# market-config.*.json rules above (they contain API keys).
+!archive/baseline/logs/
+!archive/baseline/logs/*.log
+!archive/Baseline/logs/
+!archive/Baseline/logs/*.log
+
+# Pre-existing experimental archive dirs (from earlier sessions) — kept local only,
+# not committed to remote. Baseline/ is the canonical v1 snapshot.
+archive/configs-v1/
+archive/v1-configs/
+archive/v1-genomes/
+archive/v1-training-data/
 
 # Test results
 [Tt]est[Rr]esult*/

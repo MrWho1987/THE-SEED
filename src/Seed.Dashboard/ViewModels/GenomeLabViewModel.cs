@@ -6,6 +6,8 @@ using Seed.Core;
 using Seed.Dashboard.Services;
 using Seed.Development;
 using Seed.Genetics;
+using Seed.Market.Agents;
+using Seed.Market.Evolution;
 
 namespace Seed.Dashboard.ViewModels;
 
@@ -76,7 +78,6 @@ public partial class GenomeLabViewModel : ObservableObject
     [ObservableProperty] private float _learnAlphaCuriosity;
     [ObservableProperty] private float _learnBetaConsolidate;
     [ObservableProperty] private float _learnGammaRecall;
-    [ObservableProperty] private int _learnCriticalPeriodTicks;
 
     [ObservableProperty] private float _stableWeightMaxAbs;
     [ObservableProperty] private float _stableHomeostasisStrength;
@@ -162,8 +163,9 @@ public partial class GenomeLabViewModel : ObservableObject
                     HiddenHeight = genome.Dev.SubstrateHeight,
                     HiddenLayers = genome.Dev.SubstrateLayers
                 };
-                var developer = new BrainDeveloper(88, 5);
-                var graph = developer.CompileGraph(genome, budget, new DevelopmentContext(42, 0));
+                var developer = new BrainDeveloper(MarketAgent.InputCount, MarketAgent.OutputCount);
+                var graph = developer.CompileGraph(genome, budget, new DevelopmentContext(42, 0),
+                    MarketEvaluator.SignalCategoryMap, MarketEvaluator.RegimeStart, MarketEvaluator.RegimeEnd);
                 BrainNodes = graph.NodeCount;
                 BrainEdges = graph.EdgeCount;
             }
@@ -193,7 +195,6 @@ public partial class GenomeLabViewModel : ObservableObject
         DevConnectionThreshold = DevInitialWeightScale = DevGlobalSampleRate = 0;
         LearnEta = LearnEligibilityDecay = LearnAlphaReward = LearnAlphaPain =
             LearnAlphaCuriosity = LearnBetaConsolidate = LearnGammaRecall = 0;
-        LearnCriticalPeriodTicks = 0;
         StableWeightMaxAbs = StableHomeostasisStrength = StableActivationTarget = StableIncomingNormEps = 0;
         StableEnableIncomingNormalization = false;
         if (!preservePath)
@@ -224,7 +225,6 @@ public partial class GenomeLabViewModel : ObservableObject
         LearnAlphaCuriosity = l.AlphaCuriosity;
         LearnBetaConsolidate = l.BetaConsolidate;
         LearnGammaRecall = l.GammaRecall;
-        LearnCriticalPeriodTicks = l.CriticalPeriodTicks;
 
         StableWeightMaxAbs = s.WeightMaxAbs;
         StableHomeostasisStrength = s.HomeostasisStrength;

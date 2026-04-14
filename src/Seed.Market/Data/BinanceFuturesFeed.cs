@@ -11,7 +11,13 @@ public sealed class BinanceFuturesFeed : IDataFeed
     public bool IsHealthy { get; private set; } = true;
     public DateTimeOffset LastFetch { get; private set; }
 
+    private readonly string _interval;
     private float _prevOi;
+
+    public BinanceFuturesFeed(string interval = "1h")
+    {
+        _interval = interval;
+    }
 
     public async Task<FeedResult> FetchAsync(HttpClient client, CancellationToken ct = default)
     {
@@ -23,11 +29,11 @@ public sealed class BinanceFuturesFeed : IDataFeed
             var fundingTask = client.GetStringAsync($"{baseUrl}/fapi/v1/fundingRate?symbol=BTCUSDT&limit=1", ct);
             var oiTask = client.GetStringAsync($"{baseUrl}/fapi/v1/openInterest?symbol=BTCUSDT", ct);
             var lsTask = client.GetStringAsync(
-                $"{baseUrl}/futures/data/globalLongShortAccountRatio?symbol=BTCUSDT&period=1h&limit=1", ct);
+                $"{baseUrl}/futures/data/globalLongShortAccountRatio?symbol=BTCUSDT&period={_interval}&limit=1", ct);
             var takerTask = client.GetStringAsync(
-                $"{baseUrl}/futures/data/takerlongshortRatio?symbol=BTCUSDT&period=1h&limit=1", ct);
+                $"{baseUrl}/futures/data/takerlongshortRatio?symbol=BTCUSDT&period={_interval}&limit=1", ct);
             var topTask = client.GetStringAsync(
-                $"{baseUrl}/futures/data/topLongShortPositionRatio?symbol=BTCUSDT&period=1h&limit=1", ct);
+                $"{baseUrl}/futures/data/topLongShortPositionRatio?symbol=BTCUSDT&period={_interval}&limit=1", ct);
             var ethFundingTask = client.GetStringAsync($"{baseUrl}/fapi/v1/fundingRate?symbol=ETHUSDT&limit=1", ct);
             var ethOiTask = client.GetStringAsync($"{baseUrl}/fapi/v1/openInterest?symbol=ETHUSDT", ct);
             var premiumTask = client.GetStringAsync($"{baseUrl}/fapi/v1/premiumIndex?symbol=BTCUSDT", ct);
@@ -63,10 +69,7 @@ public sealed class BinanceFuturesFeed : IDataFeed
             float topRatio = Pf(topArr[0].GetProperty("longShortRatio"));
             signals.Add((SignalIndex.TopTraderLongShort, topRatio));
 
-            // Liquidations -- Binance doesn't expose aggregated liquidation data via REST;
-            // placeholder 0 until WebSocket implementation in Phase 6
-            signals.Add((SignalIndex.LiquidationLong1h, 0f));
-            signals.Add((SignalIndex.LiquidationShort1h, 0f));
+            // Liquidation data provided by CoinglassFeed
 
             // Futures Premium (mark - index spread)
             var premDoc = JsonSerializer.Deserialize<JsonElement>(premiumTask.Result);

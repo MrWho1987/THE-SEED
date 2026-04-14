@@ -52,7 +52,8 @@ public class TrainingService
         var start = end.AddHours(-_config.TrainingWindowHours - _config.ValidationWindowHours);
         var (snapshots, prices, rawVolumes, rawFundingRates, _) = runner.LoadData(_config.Symbols[0], start, end, enrich: true).GetAwaiter().GetResult();
 
-        int trainLen = Math.Min(_config.TrainingWindowHours, snapshots.Length - _config.ValidationWindowHours);
+        int bph = _config.BarsPerHour;
+        int trainLen = Math.Min(_config.TrainingWindowHours * bph, snapshots.Length - _config.ValidationWindowHours * bph);
         var trainSnapshots = snapshots[..trainLen];
         var trainPrices = prices[..trainLen];
         var trainRawVolumes = rawVolumes[..trainLen];
@@ -95,7 +96,7 @@ public class TrainingService
             evolution.Initialize();
         }
 
-        int evalWindow = Math.Min(_config.EvalWindowHours, trainLen);
+        int evalWindow = Math.Min(_config.EvalWindowHours * bph, trainLen);
         float bestEverFitness = float.MinValue;
         float bestValFitness = float.MinValue;
         var evaluator = new MarketEvaluator(_config);
@@ -115,7 +116,7 @@ public class TrainingService
             int wfEvalWindow = Math.Min(evalWindow, remainingLen);
 
             int maxOff = Math.Max(1, remainingLen - wfEvalWindow);
-            int offset = _config.WalkForwardEnabled ? 0 : (gen * _config.RollingStepHours) % maxOff;
+            int offset = _config.WalkForwardEnabled ? 0 : (gen * _config.RollingStepHours * bph) % maxOff;
             var evalSnaps = wfSnaps[offset..(offset + wfEvalWindow)];
             var evalPrices = wfPrices[offset..(offset + wfEvalWindow)];
             var evalRawVols = wfRawVols[offset..(offset + wfEvalWindow)];
@@ -131,7 +132,7 @@ public class TrainingService
                 var bestGenome = evolution.GetBestGenome();
                 if (bestGenome != null)
                 {
-                    int valWindow = Math.Min(_config.EvalWindowHours, valPrices.Length);
+                    int valWindow = Math.Min(_config.EvalWindowHours * bph, valPrices.Length);
                     var valResult = evaluator.EvaluateSingle(bestGenome,
                         valSnapshots[..valWindow], valPrices[..valWindow],
                         valRawVolumes[..valWindow], valRawFunding[..valWindow], gen);
@@ -140,9 +141,10 @@ public class TrainingService
                     if (_config.WalkForwardEnabled)
                     {
                         int maxWfOffset = Math.Max(0, trainLen - evalWindow);
+                        int stepBars = _config.RollingStepHours * bph;
                         if (valFit >= _config.WalkForwardMinValFitness)
                         {
-                            walkForwardOffset = Math.Min(walkForwardOffset + _config.RollingStepHours, maxWfOffset);
+                            walkForwardOffset = Math.Min(walkForwardOffset + stepBars, maxWfOffset);
                             stallCount = 0;
                             wfStatus = "PASSED";
                         }
@@ -151,7 +153,7 @@ public class TrainingService
                             stallCount++;
                             if (stallCount >= _config.WalkForwardMaxStallGens)
                             {
-                                walkForwardOffset = Math.Min(walkForwardOffset + _config.RollingStepHours, maxWfOffset);
+                                walkForwardOffset = Math.Min(walkForwardOffset + stepBars, maxWfOffset);
                                 stallCount = 0;
                                 wfStatus = "FORCE";
                             }

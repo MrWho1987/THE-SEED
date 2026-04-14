@@ -88,11 +88,15 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private int _maxBrainEdges;
 
     // Feeds
+    [ObservableProperty] private string _candleInterval = "1h";
     [ObservableProperty] private int _spotPollMs;
     [ObservableProperty] private int _futuresPollMs;
     [ObservableProperty] private int _sentimentPollMs;
     [ObservableProperty] private int _onChainPollMs;
     [ObservableProperty] private int _macroPollMs;
+
+    // Stop-Loss
+    [ObservableProperty] private decimal _stopLossPct;
 
     [ObservableProperty] private string? _coinGeckoApiKey;
 
@@ -177,12 +181,14 @@ public partial class SettingsViewModel : ObservableObject
         MaxBrainNodes = c.MaxBrainNodes;
         MaxBrainEdges = c.MaxBrainEdges;
 
+        CandleInterval = c.CandleInterval;
         SpotPollMs = c.SpotPollMs;
         FuturesPollMs = c.FuturesPollMs;
         SentimentPollMs = c.SentimentPollMs;
         OnChainPollMs = c.OnChainPollMs;
         MacroPollMs = c.MacroPollMs;
 
+        StopLossPct = c.StopLossPct;
         CoinGeckoApiKey = c.CoinGeckoApiKey;
 
         Mode = c.Mode;
@@ -250,11 +256,13 @@ public partial class SettingsViewModel : ObservableObject
             DiversityKNeighbors = DiversityKNeighbors,
             MaxBrainNodes = MaxBrainNodes,
             MaxBrainEdges = MaxBrainEdges,
+            CandleInterval = CandleInterval,
             SpotPollMs = SpotPollMs,
             FuturesPollMs = FuturesPollMs,
             SentimentPollMs = SentimentPollMs,
             OnChainPollMs = OnChainPollMs,
             MacroPollMs = MacroPollMs,
+            StopLossPct = StopLossPct,
             CoinGeckoApiKey = string.IsNullOrWhiteSpace(CoinGeckoApiKey) ? null : CoinGeckoApiKey.Trim(),
             Mode = Mode,
             ConfirmLive = ConfirmLive,

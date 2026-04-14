@@ -55,4 +55,31 @@ public class ActionInterpreterTests
         Assert.Equal(TradeDirection.Flat, signal.Direction);
         Assert.False(signal.ExitCurrent);
     }
+
+    [Fact]
+    public void RawExitValue_EqualsSigmoidOfOutput3_HighValue()
+    {
+        // sigmoid(2) ≈ 0.8808 — above the 0.6 ExitThreshold
+        var signal = ActionInterpreter.Interpret([0f, 0f, 0f, 2.0f, 0f]);
+        Assert.InRange(signal.RawExitValue, 0.880f, 0.882f);
+        Assert.True(signal.ExitCurrent);
+    }
+
+    [Fact]
+    public void RawExitValue_AtZero_ReturnsHalf()
+    {
+        // sigmoid(0) = 0.5 — below the 0.6 ExitThreshold
+        var signal = ActionInterpreter.Interpret([0f, 0f, 0f, 0f, 0f]);
+        Assert.InRange(signal.RawExitValue, 0.499f, 0.501f);
+        Assert.False(signal.ExitCurrent);
+    }
+
+    [Fact]
+    public void RawExitValue_MissingOutput_DefaultsToZero()
+    {
+        // Only 3 outputs — no exit output at index [3]
+        var signal = ActionInterpreter.Interpret([0f, 0f, 0f]);
+        Assert.Equal(0f, signal.RawExitValue);
+        Assert.False(signal.ExitCurrent);
+    }
 }

@@ -6,7 +6,7 @@ namespace Seed.Market.Signals;
 /// </summary>
 public static class SignalIndex
 {
-    public const int Count = 92;
+    public const int Count = 100;
 
     // ── Price & Volume (0-11) ──────────────────────────────────────
     public const int BtcPrice = 0;
@@ -122,6 +122,16 @@ public static class SignalIndex
     public const int RegimeChange = 90;        // rate of regime transition
     public const int MarketStress = 91;        // composite stress indicator
 
+    // ── Risk Awareness (92-99) ──────────────────────────────────
+    public const int RollingSharpe = 92;        // annualized, tanh(x/5) [-1,1]
+    public const int RollingDrawdown = 93;      // 100-tick rolling max DD [0,1]
+    public const int WinRate = 94;              // closed trades win ratio [0,1]
+    public const int TradeFrequency = 95;       // recent trades / 10 [0,1]
+    public const int AvgHoldingDuration = 96;   // mean ticks / 100 [0,1]
+    public const int CumulativeFees = 97;       // total fees / balance [0,1]
+    public const int ConsecutiveWins = 98;      // current win streak / 5 [0,1]
+    public const int ConsecutiveLosses = 99;    // current loss streak / 5 [0,1]
+
     public static class Categories
     {
         public const int PriceStart = 0;
@@ -146,5 +156,26 @@ public static class SignalIndex
         public const int MultiAssetEnd = 87;
         public const int RegimeStart = 88;
         public const int RegimeEnd = 91;
+        public const int RiskAwarenessStart = 92;
+        public const int RiskAwarenessEnd = 99;
     }
+
+    public static int GetCategoryIndex(int signalIndex) => signalIndex switch
+    {
+        >= Categories.PriceStart and <= Categories.PriceEnd => 0,
+        >= Categories.DerivativesStart and <= Categories.DerivativesEnd => 1,
+        >= Categories.SentimentStart and <= Categories.SentimentEnd => 2,
+        >= Categories.OnChainStart and <= Categories.OnChainEnd => 3,
+        >= Categories.MacroStart and <= Categories.MacroEnd => 4,
+        >= Categories.StablecoinStart and <= Categories.StablecoinEnd => 5,
+        >= Categories.TechnicalStart and <= Categories.TechnicalEnd => 6,
+        >= Categories.TemporalStart and <= Categories.TemporalEnd => 7,
+        >= Categories.AgentStateStart and <= Categories.AgentStateEnd => 8,
+        >= Categories.MultiAssetStart and <= Categories.MultiAssetEnd => 9,
+        >= Categories.RegimeStart and <= Categories.RegimeEnd => 10,
+        >= Categories.RiskAwarenessStart and <= Categories.RiskAwarenessEnd => 11,
+        _ => 0
+    };
+
+    public const int CategoryCount = 12;
 }

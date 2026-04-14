@@ -23,7 +23,21 @@ public sealed class MarketEvaluator
         MaxOut: 20,
         LocalNeighborhoodRadius: 3,
         GlobalCandidateSamplesPerNeuron: 24,
-        MaxSynapticDelay: 3);
+        MaxSynapticDelay: 12,
+        ModuleCount: 8,
+        GateNeuronCount: 12);
+
+    public static readonly int[] SignalCategoryMap = BuildCategoryMap();
+    public static int RegimeStart => SignalIndex.Categories.RegimeStart;
+    public static int RegimeEnd => SignalIndex.Categories.RegimeEnd;
+
+    private static int[] BuildCategoryMap()
+    {
+        var map = new int[SignalIndex.Count];
+        for (int s = 0; s < SignalIndex.Count; s++)
+            map[s] = SignalIndex.GetCategoryIndex(s);
+        return map;
+    }
 
     private readonly MarketConfig _config;
     private readonly BrainDeveloper _developer;
@@ -67,7 +81,7 @@ public sealed class MarketEvaluator
                     HiddenHeight = sg.Dev.SubstrateHeight,
                     HiddenLayers = sg.Dev.SubstrateLayers
                 };
-                entries[i] = (sg, _developer.CompileGraph(sg, genomeBudget, devCtx));
+                entries[i] = (sg, _developer.CompileGraph(sg, genomeBudget, devCtx, SignalCategoryMap, RegimeStart, RegimeEnd));
             });
 
         var results = new MarketEvalResult[population.Count];
@@ -99,7 +113,7 @@ public sealed class MarketEvaluator
             HiddenHeight = sg.Dev.SubstrateHeight,
             HiddenLayers = sg.Dev.SubstrateLayers
         };
-        var graph = _developer.CompileGraph(sg, genomeBudget, devCtx);
+        var graph = _developer.CompileGraph(sg, genomeBudget, devCtx, SignalCategoryMap, RegimeStart, RegimeEnd);
         return RunAgent((sg, graph), history, rawPrices, rawVolumes, rawFundingRates);
     }
 
@@ -123,7 +137,8 @@ public sealed class MarketEvaluator
 
             float rawV = rawVolumes[t];
             decimal vol = (float.IsNaN(rawV) || float.IsInfinity(rawV)) ? 0m : (decimal)rawV;
-            var ctx = new TickContext(price, vol, rawFundingRates[t], t, (float)t);
+            float elapsedHours = (float)t / _config.BarsPerHour;
+            var ctx = new TickContext(price, vol, rawFundingRates[t], t, elapsedHours);
 
             agent.ProcessTick(history[t], ctx);
             agent.Portfolio.RecordEquity(price);
@@ -140,7 +155,7 @@ public sealed class MarketEvaluator
 
         if (openAtEnd > 0)
         {
-            float penalty = openAtEnd * 0.05f;
+            float penalty = openAtEnd * _config.OpenPositionPenalty;
             breakdown = breakdown with { Fitness = breakdown.Fitness - penalty };
         }
 
@@ -166,7 +181,7 @@ public sealed class MarketEvaluator
                 HiddenHeight = sg.Dev.SubstrateHeight,
                 HiddenLayers = sg.Dev.SubstrateLayers
             };
-            var graph = _developer.CompileGraph(sg, genomeBudget, devCtx);
+            var graph = _developer.CompileGraph(sg, genomeBudget, devCtx, SignalCategoryMap, RegimeStart, RegimeEnd);
             var brain = new BrainRuntime(graph, sg.Learn, sg.Stable, 1);
             var trader = new PaperTrader(_config);
             agents.Add((new MarketAgent(sg.GenomeId, brain, trader), trader));
@@ -183,7 +198,8 @@ public sealed class MarketEvaluator
 
             float rawV = rawVolumes[t];
             decimal vol = (float.IsNaN(rawV) || float.IsInfinity(rawV)) ? 0m : (decimal)rawV;
-            var ctx = new TickContext(price, vol, rawFundingRates[t], t, (float)t);
+            float elapsedHours = (float)t / _config.BarsPerHour;
+            var ctx = new TickContext(price, vol, rawFundingRates[t], t, elapsedHours);
 
             float directionSum = 0f;
             float sizeSum = 0f;

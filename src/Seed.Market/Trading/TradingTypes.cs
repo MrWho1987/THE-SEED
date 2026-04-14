@@ -19,6 +19,7 @@ public sealed class Position
     public TradeDirection Direction { get; init; }
     public decimal EntryPrice { get; init; }
     public decimal Size { get; init; }
+    public decimal StopPrice { get; init; }
     public DateTimeOffset OpenTime { get; init; }
     public int OpenTick { get; init; }
 
@@ -37,7 +38,8 @@ public readonly record struct TradingSignal(
     TradeDirection Direction,
     float SizePct,        // 0-1, fraction of max allowed position
     float Urgency,        // 0-1, higher = market order, lower = limit
-    bool ExitCurrent      // close existing position
+    bool ExitCurrent,     // close existing position
+    float RawExitValue = 0f  // sigmoid(outputs[3]); ExitCurrent == (RawExitValue > ExitThreshold)
 );
 
 public readonly record struct TradeResult(
@@ -83,7 +85,7 @@ public sealed class PortfolioState
 
 public readonly record struct TickContext(
     decimal Price,
-    decimal HourlyVolume,
+    decimal BarVolume,
     float FundingRate,
     int TickIndex,
     float ElapsedHours = 0f

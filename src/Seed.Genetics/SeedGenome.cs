@@ -232,7 +232,9 @@ public sealed record SeedGenome(
             EligibilityDecay = DeterministicHelpers.Clamp(
                 p.EligibilityDecay + rng.NextGaussian(0f, cfg.SigmaParam * 0.1f), 0.8f, 0.999f),
             AlphaCuriosity = DeterministicHelpers.Clamp(
-                p.AlphaCuriosity + rng.NextGaussian(0f, cfg.SigmaParam), 0f, 1f)
+                p.AlphaCuriosity + rng.NextGaussian(0f, cfg.SigmaParam), 0f, 1f),
+            AlphaRisk = DeterministicHelpers.Clamp(
+                p.AlphaRisk + rng.NextGaussian(0f, cfg.SigmaParam), -2f, 0f)
         };
     }
 

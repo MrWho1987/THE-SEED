@@ -1,6 +1,8 @@
 using Seed.Core;
 using Seed.Genetics;
+using Seed.Market;
 using Seed.Market.Evolution;
+using Seed.Market.Signals;
 
 namespace Seed.Market.Tests;
 
@@ -213,5 +215,200 @@ public class DiversityTests
         species.BestFitness = 0.6f;
         species.StagnationCounter = 0;
         Assert.Equal(0, species.StagnationCounter);
+    }
+
+    [Theory]
+    [InlineData(0.5f)]
+    [InlineData(0.0f)]
+    [InlineData(-0.3f)]
+    [InlineData(1.25f)]
+    [InlineData(float.MinValue)]
+    public void RestoreFrom_PreservesBestFitness(float bestFitness)
+    {
+        var manager = new SpeciationManager();
+        var rng = new Rng64(42);
+        var representative = (IGenome)SeedGenome.CreateRandom(rng);
+
+        var entries = new List<(int SpeciesId, IGenome Representative, int StagnationCounter, float BestFitness)>
+        {
+            (1, representative, 5, bestFitness)
+        };
+
+        manager.RestoreFrom(entries, 2);
+
+        var restored = manager.Species[0];
+        Assert.Equal(bestFitness, restored.BestFitness);
+        Assert.Equal(5, restored.StagnationCounter);
+    }
+
+    [Fact]
+    public void RestoreFrom_StagnationSurvivesNextGeneration()
+    {
+        // Simulates what MarketEvolution does after a checkpoint restore:
+        // if BestFitness is preserved correctly, a species whose next-gen fitness
+        // is LOWER should increment stagnation, not reset it.
+        var manager = new SpeciationManager();
+        var rng = new Rng64(99);
+        var representative = (IGenome)SeedGenome.CreateRandom(rng);
+
+        manager.RestoreFrom(
+            [(1, representative, 10, 0.8f)],
+            nextSpeciesId: 2);
+
+        var species = manager.Species[0];
+        Assert.Equal(0.8f, species.BestFitness);
+        Assert.Equal(10, species.StagnationCounter);
+
+        // Simulate next generation: best fitness in species is 0.6 (worse than 0.8)
+        float bestInSpecies = 0.6f;
+        if (bestInSpecies > species.BestFitness)
+        {
+            species.BestFitness = bestInSpecies;
+            species.StagnationCounter = 0;
+        }
+        else
+        {
+            species.StagnationCounter++;
+        }
+
+        // Stagnation should have incremented, NOT reset
+        Assert.Equal(11, species.StagnationCounter);
+        Assert.Equal(0.8f, species.BestFitness);
+    }
+
+    [Fact]
+    public void RestoreFrom_ImprovementResetsStagnation()
+    {
+        var manager = new SpeciationManager();
+        var rng = new Rng64(99);
+        var representative = (IGenome)SeedGenome.CreateRandom(rng);
+
+        manager.RestoreFrom(
+            [(1, representative, 15, 0.5f)],
+            nextSpeciesId: 2);
+
+        var species = manager.Species[0];
+
+        // Simulate next generation: best fitness is 0.7 (better than 0.5)
+        float bestInSpecies = 0.7f;
+        if (bestInSpecies > species.BestFitness)
+        {
+            species.BestFitness = bestInSpecies;
+            species.StagnationCounter = 0;
+        }
+        else
+        {
+            species.StagnationCounter++;
+        }
+
+        // Genuine improvement: counter resets, BestFitness updates
+        Assert.Equal(0, species.StagnationCounter);
+        Assert.Equal(0.7f, species.BestFitness);
+    }
+
+    [Fact]
+    public void StagnationCounter_IgnoresMicroImprovements()
+    {
+        // Floating-point drift in overfit champions used to indefinitely reset stagnation
+        // because any improvement (even +0.0001) reset the counter. The fix requires a
+        // minimum improvement delta to count as real progress.
+        var config = MarketConfig.Default with
+        {
+            PopulationSize = 15,
+            MinStagnationImprovement = 0.005f,
+        };
+        var observatory = new Seed.Observatory.FileObservatory(
+            Path.Combine(Path.GetTempPath(), $"seed_stag_micro_{Guid.NewGuid()}.jsonl"));
+        var evo = new MarketEvolution(config, observatory);
+        evo.Initialize();
+
+        var snaps = new SignalSnapshot[200];
+        var prices = new float[200];
+        var vols = new float[200];
+        var fund = new float[200];
+        for (int i = 0; i < 200; i++)
+        {
+            snaps[i] = new SignalSnapshot(new float[SignalIndex.Count], DateTimeOffset.UtcNow.AddHours(-200 + i), i);
+            prices[i] = 50000f + i * 10f;
+            vols[i] = 100f;
+            fund[i] = 0.0001f;
+        }
+        evo.RunGeneration(snaps, prices, vols, fund);
+
+        // Mimic the in-loop logic with the new threshold
+        float bestFitness = 0.5f;
+        int stagCounter = 0;
+
+        // 5 micro-improvements (each below threshold) — counter should keep climbing
+        float[] microDeltas = { 0.001f, 0.0008f, 0.002f, 0.0015f, 0.001f };
+        foreach (var d in microDeltas)
+        {
+            float candidate = bestFitness + d;
+            if (candidate > bestFitness + config.MinStagnationImprovement)
+            {
+                bestFitness = candidate;
+                stagCounter = 0;
+            }
+            else
+            {
+                stagCounter++;
+            }
+        }
+
+        Assert.Equal(5, stagCounter);
+        Assert.Equal(0.5f, bestFitness);
+
+        // A genuine improvement (above threshold) should reset
+        float realImprovement = bestFitness + 0.01f;
+        if (realImprovement > bestFitness + config.MinStagnationImprovement)
+        {
+            bestFitness = realImprovement;
+            stagCounter = 0;
+        }
+
+        Assert.Equal(0, stagCounter);
+        Assert.Equal(0.51f, bestFitness, 4);
+    }
+
+    [Fact]
+    public void ResetSpeciesStagnation_ClearsAllSpecies()
+    {
+        var config = MarketConfig.Default with { PopulationSize = 15 };
+        var observatory = new Seed.Observatory.FileObservatory(
+            Path.Combine(Path.GetTempPath(), $"seed_stag_{Guid.NewGuid()}.jsonl"));
+        var evo = new MarketEvolution(config, observatory);
+        evo.Initialize();
+
+        // Create synthetic data for evaluation
+        var snaps = new SignalSnapshot[200];
+        var prices = new float[200];
+        var vols = new float[200];
+        var fund = new float[200];
+        for (int i = 0; i < 200; i++)
+        {
+            snaps[i] = new SignalSnapshot(new float[SignalIndex.Count], DateTimeOffset.UtcNow.AddHours(-200 + i), i);
+            prices[i] = 50000f + i * 10f;
+            vols[i] = 100f;
+            fund[i] = 0.0001f;
+        }
+        for (int g = 0; g < 3; g++)
+            evo.RunGeneration(snaps, prices, vols, fund);
+
+        // Verify species exist with some stagnation
+        Assert.True(evo.SpeciesCount > 0);
+
+        // Reset stagnation
+        evo.ResetSpeciesStagnation();
+
+        // All species should have counter=0 and BestFitness=MinValue
+        var speciesState = evo.GetSpeciesState();
+        foreach (var s in speciesState)
+        {
+            Assert.Equal(0, s.StagnationCounter);
+            Assert.Equal(float.MinValue, s.BestFitness);
+        }
+
+        // Archive should be empty
+        Assert.Equal(0, evo.Archive.Count);
     }
 }

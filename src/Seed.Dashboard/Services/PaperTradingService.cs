@@ -57,7 +57,8 @@ public class PaperTradingService
             HiddenHeight = genome.Dev.SubstrateHeight,
             HiddenLayers = genome.Dev.SubstrateLayers
         };
-        var graph = developer.CompileGraph(genome, budget, devCtx);
+        var graph = developer.CompileGraph(genome, budget, devCtx,
+            MarketEvaluator.SignalCategoryMap, MarketEvaluator.RegimeStart, MarketEvaluator.RegimeEnd);
         var brain = new BrainRuntime(graph, genome.Learn, genome.Stable, 1);
         var trader = new PaperTrader(_config);
         var agent = new MarketAgent(genome.GenomeId, brain, trader);
@@ -68,7 +69,7 @@ public class PaperTradingService
         var rolling = new RollingMetrics(100);
         int feedTick = 0;
         int decisionTick = 0;
-        int lastDecisionHour = -1;
+        long lastBarPeriod = -1;
         int prevTradeCount = 0;
         var startTime = DateTimeOffset.UtcNow;
 
@@ -85,12 +86,12 @@ public class PaperTradingService
                     continue;
                 }
 
-                int currentHour = DateTimeOffset.UtcNow.DayOfYear * 24 + DateTimeOffset.UtcNow.Hour;
-                bool isDecisionTick = lastDecisionHour == -1 || currentHour != lastDecisionHour;
+                long currentBarPeriod = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / _config.BarDurationMs;
+                bool isDecisionTick = lastBarPeriod == -1 || currentBarPeriod != lastBarPeriod;
 
                 if (isDecisionTick)
                 {
-                    lastDecisionHour = currentHour;
+                    lastBarPeriod = currentBarPeriod;
                     agent.ProcessTick(snapshot, price);
                     decisionTick++;
 
@@ -110,6 +111,8 @@ public class PaperTradingService
                     }
                 }
 
+                // Stop-loss now handled inside PaperTrader.ProcessSignal()
+
                 agent.Portfolio.RecordEquity(price);
                 rolling.Add((float)agent.Portfolio.Equity(price));
 
@@ -121,7 +124,7 @@ public class PaperTradingService
                     : "FLAT";
 
                 var elapsed = DateTimeOffset.UtcNow - startTime;
-                bool isWarmup = decisionTick < 24;
+                bool isWarmup = decisionTick < 24 * _config.BarsPerHour;
 
                 var feedHealth = new FeedHealthInfo[]
                 {

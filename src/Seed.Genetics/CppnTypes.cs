@@ -70,8 +70,10 @@ public sealed record CppnNetwork(
     private float[]? _activationBuf;
     private (int srcIdx, float weight)[][]? _incomingByIdx;
     private int[]? _topoOrder;       // null if cyclic
+    private int[][]? _outgoingByIdx;
     private int[]? _nonInputIndices;
     private int[]? _outputIndices;
+    private float[]? _outputBuf;
     private Dictionary<int, int>? _idToIdx;
 
     public static CppnNetwork CreateMinimal(int inputCount, int outputCount, Seed.Core.Rng64 rng)
@@ -119,6 +121,14 @@ public sealed record CppnNetwork(
         }
         _incomingByIdx = incoming.Select(l => l.ToArray()).ToArray();
 
+        // Build outgoing adjacency (srcIdx → dstIdx[])
+        var outgoing = new List<int>[n];
+        for (int i = 0; i < n; i++) outgoing[i] = new();
+        for (int di = 0; di < n; di++)
+            foreach (var (si, _) in incoming[di])
+                outgoing[si].Add(di);
+        _outgoingByIdx = outgoing.Select(l => l.ToArray()).ToArray();
+
         // Identify non-input and output indices
         var nonInput = new List<int>();
         var outputs = new List<int>();
@@ -132,11 +142,13 @@ public sealed record CppnNetwork(
         _nonInputIndices = nonInput.ToArray();
         _outputIndices = outputs.ToArray();
 
+        _outputBuf = new float[_outputIndices.Length];
+
         // Topological sort via Kahn's algorithm (only over non-input nodes)
-        _topoOrder = TryTopologicalSort(n, _incomingByIdx, _nonInputIndices);
+        _topoOrder = TryTopologicalSort(n, _incomingByIdx, _outgoingByIdx, _nonInputIndices);
     }
 
-    private static int[]? TryTopologicalSort(int nodeCount, (int srcIdx, float weight)[][] incoming, int[] nonInputIndices)
+    private static int[]? TryTopologicalSort(int nodeCount, (int srcIdx, float weight)[][] incoming, int[][] outgoing, int[] nonInputIndices)
     {
         var nonInputSet = new HashSet<int>(nonInputIndices);
         var inDegree = new int[nodeCount];
@@ -162,16 +174,13 @@ public sealed record CppnNetwork(
             int cur = queue.Dequeue();
             order.Add(cur);
 
-            foreach (int ni in nonInputIndices)
+            foreach (int dstIdx in outgoing[cur])
             {
-                foreach (var (srcIdx, _) in incoming[ni])
+                if (nonInputSet.Contains(dstIdx))
                 {
-                    if (srcIdx == cur)
-                    {
-                        inDegree[ni]--;
-                        if (inDegree[ni] == 0)
-                            queue.Enqueue(ni);
-                    }
+                    inDegree[dstIdx]--;
+                    if (inDegree[dstIdx] == 0)
+                        queue.Enqueue(dstIdx);
                 }
             }
         }
@@ -226,11 +235,10 @@ public sealed record CppnNetwork(
             }
         }
 
-        // Collect outputs
-        var outputs = new float[_outputIndices!.Length];
-        for (int i = 0; i < _outputIndices.Length; i++)
-            outputs[i] = act[_outputIndices[i]];
-        return outputs;
+        // Collect outputs (reuses internal buffer — caller must consume before next Evaluate call)
+        for (int i = 0; i < _outputIndices!.Length; i++)
+            _outputBuf![i] = act[_outputIndices[i]];
+        return _outputBuf;
     }
 
     public CppnNetwork DeepCopy()

@@ -46,7 +46,7 @@ public sealed class SpeciationManager
         {
             var species = new Species(speciesId, representative);
             species.StagnationCounter = stagnation;
-            species.BestFitness = bestFit >= 0f ? float.MinValue : bestFit;
+            species.BestFitness = bestFit;
             _species.Add(species);
         }
         _nextSpeciesId = nextSpeciesId;

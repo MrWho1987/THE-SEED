@@ -62,6 +62,15 @@ public sealed class PaperTrader : ITrader
 
         ApplyFundingRates(portfolio, ctx);
 
+        // Stop-loss check (applies in both training and live)
+        if (_config.StopLossPct > 0 && portfolio.OpenPositions.Count > 0)
+        {
+            var slPos = portfolio.OpenPositions[0];
+            decimal unrealizedPct = slPos.UnrealizedPnlPct(ctx.Price) / 100m;
+            if (unrealizedPct <= -(_config.StopLossPct))
+                return ForceClose(portfolio, slPos, ctx);
+        }
+
         if (signal.ExitCurrent && portfolio.OpenPositions.Count > 0)
             return ClosePosition(portfolio, portfolio.OpenPositions[0], ctx);
 
@@ -95,7 +104,7 @@ public sealed class PaperTrader : ITrader
 
         decimal size = notional / ctx.Price;
 
-        decimal volumeUsd = ctx.HourlyVolume * ctx.Price;
+        decimal volumeUsd = ctx.BarVolume * ctx.Price;
         decimal dynamicSlippageBps = ComputeDynamicSlippage(notional, volumeUsd);
         decimal slippage = ctx.Price * dynamicSlippageBps / 10000m;
         decimal fillPrice = signal.Direction == TradeDirection.Long
@@ -124,7 +133,7 @@ public sealed class PaperTrader : ITrader
     private TradeResult ClosePosition(
         PortfolioState portfolio, Position position, TickContext ctx)
     {
-        decimal volumeUsd = ctx.HourlyVolume * ctx.Price;
+        decimal volumeUsd = ctx.BarVolume * ctx.Price;
         decimal dynamicSlippageBps = ComputeDynamicSlippage(position.Size * ctx.Price, volumeUsd);
         decimal slippage = ctx.Price * dynamicSlippageBps / 10000m;
         decimal fillPrice = position.Direction == TradeDirection.Long
@@ -166,8 +175,9 @@ public sealed class PaperTrader : ITrader
         return new TradeResult(true, fillPrice, position.Size, fee, slippage);
     }
 
-    private decimal ComputeDynamicSlippage(decimal orderNotional, decimal hourlyVolume)
+    private decimal ComputeDynamicSlippage(decimal orderNotional, decimal barVolumeUsd)
     {
+        decimal hourlyVolume = barVolumeUsd * _config.BarsPerHour;
         if (hourlyVolume <= 0m)
             return _config.SlippageBps;
 
@@ -210,6 +220,9 @@ public sealed class PaperTrader : ITrader
             catch (OverflowException) { }
         }
     }
+
+    public TradeResult ForceClose(PortfolioState portfolio, Position position, TickContext ctx)
+        => ClosePosition(portfolio, position, ctx);
 
     public void CloseAllPositions(PortfolioState portfolio, decimal currentPrice, int currentTick)
     {

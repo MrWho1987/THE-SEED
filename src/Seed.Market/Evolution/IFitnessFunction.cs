@@ -22,6 +22,7 @@ public sealed class DefaultFitnessFunction : IFitnessFunction
     private readonly float _activityBonusScale;
     private readonly float _ratioClampMax;
     private readonly float _returnFloor;
+    private readonly int _barsPerHour;
 
     public DefaultFitnessFunction(MarketConfig config)
     {
@@ -36,6 +37,7 @@ public sealed class DefaultFitnessFunction : IFitnessFunction
         _activityBonusScale = config.ActivityBonusScale;
         _ratioClampMax = config.RatioClampMax;
         _returnFloor = config.ReturnFloor;
+        _barsPerHour = config.BarsPerHour;
     }
 
     public DefaultFitnessFunction(float shrinkageK = 10f)
@@ -51,6 +53,7 @@ public sealed class DefaultFitnessFunction : IFitnessFunction
         _activityBonusScale = 0f;
         _ratioClampMax = 10f;
         _returnFloor = -0.50f;
+        _barsPerHour = 1;
     }
 
     public FitnessBreakdown ComputeDetailed(PortfolioState portfolio, decimal finalPrice)
@@ -58,6 +61,6 @@ public sealed class DefaultFitnessFunction : IFitnessFunction
         return MarketFitness.ComputeDetailed(portfolio, finalPrice, _shrinkageK,
             _wSharpe, _wSortino, _wReturn, _wDdDuration, _wCVaR,
             _inactivityPenalty, _minTradesForActive, _activityBonusScale,
-            _ratioClampMax, _returnFloor);
+            _ratioClampMax, _returnFloor, _barsPerHour);
     }
 }

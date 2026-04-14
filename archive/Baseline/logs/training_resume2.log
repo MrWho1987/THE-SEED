@@ -1,0 +1,466 @@
+╔══════════════════════════════════════════════════════════════╗
+║          THE SEED — PIPELINE TRAINING                       ║
+║  Phases: 2                                                 ║
+╚══════════════════════════════════════════════════════════════╝
+  Phase 1: market-config.phase4.json -> output_phase4 (gen 1000)
+  Phase 2: market-config.phase5.json -> output_phase5 (gen 1200)
+  Fixed date range end: 2026-04-13 08:55 UTC
+  Shared cache: C:\Users\ederg\source\repos\THE-SEED\pipeline_shared_cache
+
+═══════════════════════════════════════════════════════════     
+  PIPELINE PHASE 1/2: market-config.phase4.json
+  Generations: 1000
+  Output: output_phase4
+  Data cache: C:\Users\ederg\source\repos\THE-SEED\pipeline_shared_cache
+═══════════════════════════════════════════════════════════     
+
+[BACKTEST] Downloading historical data...
+[ENRICH] Downloading ETH candles...
+[ENRICH] ETH + multi-asset: 12 slots
+[ENRICH] Downloading macro data...
+[ENRICH] +Macro: 23 slots
+[ENRICH] Downloading on-chain data...
+[ENRICH] +On-chain: 31 slots
+[ENRICH] Downloading Fear & Greed...
+[ENRICH] +Fear/Greed: 34 slots
+[ENRICH] Downloading stablecoin/market data...
+[ENRICH] +Stablecoin: 40 slots
+[ENRICH] Downloading funding rates...
+[ENRICH] +Funding: 42 slots
+[ENRICH] Downloading derivatives data...
+[ENRICH] +Derivatives: 48 slots
+[ENRICH] Downloading Coinglass liquidation + exchange balance...
+[ENRICH] Coinglass exchange balance failed: The requested operation requires an element of type 'Object', but the target element has type 'Array'.
+[ENRICH] +Coinglass: 2 slots
+[ENRICH] Complete: 50 enrichment slots populated
+╔══════════════════════════════════════════════════════════╗
+║  DATA ENRICHMENT REPORT                                  ║
+╠════════════════════════════╦══════════╦══════════════════╣
+║ Source                     ║ Status   ║ Rows             ║
+╠════════════════════════════╬══════════╬══════════════════╣
+║ ETH + Multi-Asset          ║ SUCCESS  ║  121,515         ║
+║ Macro (Yahoo)              ║ SUCCESS  ║       10         ║
+║ On-Chain (blockchain.info) ║ SUCCESS  ║        8         ║
+║ Fear & Greed (alternati... ║ SUCCESS  ║        3         ║
+║ Stablecoin (CoinGecko)     ║ SUCCESS  ║        6         ║
+║ Funding Rates (Binance)    ║ SUCCESS  ║        2         ║
+║ Derivatives (Binance)      ║ SUCCESS  ║        6         ║
+║ Coinglass (Liquidation ... ║ SUCCESS  ║        2         ║
+╠════════════════════════════╩══════════╩══════════════════╣
+║ Sources OK: 8/8  |  Range: 2022-10-25 to 2026-04-13     ║
+╚══════════════════════════════════════════════════════════╝
+[BACKTEST] Loaded 121015 candles (2022-10-25 to 2026-04-13)
+[BACKTEST] Training: 103495 bars (25873h), Validation: 17520 bars (4380h)
+[BACKTEST] Resuming from checkpoint: checkpoint_1000.json
+[BACKTEST] Restored generation 1000, best fitness 1.5396
+[BACKTEST] Walk-forward offset: 6720h, stall count: 2
+[BACKTEST] Restored 30 species, archive: 40 elites
+[BACKTEST] Phase transition: reset species stagnation and cleared archive
+
+Gen       Best     Mean      Med   Sharpe  Sortino   Return    WR  Trades    DD%    CVaR  Sp Inact%   ValFit     Delta   Time
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+═══ VALIDATION ═══                                                        
+  Best validation fitness: 0.8306
+  Sharpe (adjusted): 1.82
+  Return: 5.65%
+  Trades: 66, Win rate: 45%
+  Max drawdown: 2.89%
+
+[BACKTEST] Complete.
+
+  Phase 1 complete in 0.2h.
+
+═══════════════════════════════════════════════════════════     
+  PIPELINE PHASE 2/2: market-config.phase5.json
+  Generations: 1200
+  Output: output_phase5
+  Data cache: C:\Users\ederg\source\repos\THE-SEED\pipeline_shared_cache
+═══════════════════════════════════════════════════════════     
+  Checkpoint copied: checkpoint_1000.json
+
+[BACKTEST] Downloading historical data...
+[ENRICH] Downloading ETH candles...
+[ENRICH] ETH + multi-asset: 12 slots
+[ENRICH] Downloading macro data...
+[ENRICH] +Macro: 23 slots
+[ENRICH] Downloading on-chain data...
+[ENRICH] +On-chain: 31 slots
+[ENRICH] Downloading Fear & Greed...
+[ENRICH] +Fear/Greed: 34 slots
+[ENRICH] Downloading stablecoin/market data...
+[ENRICH] +Stablecoin: 40 slots
+[ENRICH] Downloading funding rates...
+[ENRICH] +Funding: 42 slots
+[ENRICH] Downloading derivatives data...
+[ENRICH] +Derivatives: 48 slots
+[ENRICH] Downloading Coinglass liquidation + exchange balance...
+[ENRICH] Coinglass exchange balance failed: The requested operation requires an element of type 'Object', but the target element has type 'Array'.
+[ENRICH] +Coinglass: 2 slots
+[ENRICH] Complete: 50 enrichment slots populated
+╔══════════════════════════════════════════════════════════╗
+║  DATA ENRICHMENT REPORT                                  ║
+╠════════════════════════════╦══════════╦══════════════════╣
+║ Source                     ║ Status   ║ Rows             ║
+╠════════════════════════════╬══════════╬══════════════════╣
+║ ETH + Multi-Asset          ║ SUCCESS  ║  121,515         ║
+║ Macro (Yahoo)              ║ SUCCESS  ║       10         ║
+║ On-Chain (blockchain.info) ║ SUCCESS  ║        8         ║
+║ Fear & Greed (alternati... ║ SUCCESS  ║        3         ║
+║ Stablecoin (CoinGecko)     ║ SUCCESS  ║        6         ║
+║ Funding Rates (Binance)    ║ SUCCESS  ║        2         ║
+║ Derivatives (Binance)      ║ SUCCESS  ║        6         ║
+║ Coinglass (Liquidation ... ║ SUCCESS  ║        2         ║
+╠════════════════════════════╩══════════╩══════════════════╣
+║ Sources OK: 8/8  |  Range: 2022-10-25 to 2026-04-13     ║
+╚══════════════════════════════════════════════════════════╝
+[BACKTEST] Loaded 121015 candles (2022-10-25 to 2026-04-13)
+[BACKTEST] Training: 103495 bars (25873h), Validation: 17520 bars (4380h)
+[BACKTEST] Resuming from checkpoint: checkpoint_1100.json
+[BACKTEST] Restored generation 1100, best fitness 1.5396
+[BACKTEST] Walk-forward offset: 7392h, stall count: 6
+[BACKTEST] Restored 31 species, archive: 31 elites
+[BACKTEST] Phase transition: reset species stagnation and cleared archive
+
+Gen       Best     Mean      Med   Sharpe  Sortino   Return    WR  Trades    DD%    CVaR  Sp Inact%   ValFit     Delta   Time
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  [WALK-FWD] Passed (0.3881), advanced to 8064 bars
+1100    0.5647  -0.4687  -0.1000     1.41     2.79     3.1%   40%      17   4.0% -0.0008  31    60%   0.3881      — 555.4s
+  [WARNING] Worst fitness -4.1180 — severe underperformance in population
+  [active] best:0.5647 ret:3.1% trd:17 wr:40% dd:4.0% ddDur:69.2% | pos:20 neg:66 retRange:[-15.0%..3.1%]
+1101    0.4650  -0.4592  -0.1000     1.23     2.34     1.7%   42%      28   2.9% -0.0007  31    68%  -0.0997 673.1s
+  [WARNING] Worst fitness -4.1192 — severe underperformance in population
+  [active] best:0.4650 ret:1.7% trd:28 wr:42% dd:2.9% ddDur:68.7% | pos:16 neg:49 retRange:[-15.0%..3.2%]
+1102    0.4645  -0.4163  -0.1000     1.23     2.34     1.7%   42%      28   2.9% -0.0007  31    70%  -0.0005 671.2s
+  [WARNING] Worst fitness -4.1374 — severe underperformance in population
+  [active] best:0.4645 ret:1.7% trd:28 wr:42% dd:2.9% ddDur:68.7% | pos:16 neg:43 retRange:[-15.0%..2.8%]
+1103    0.4722  -0.2805  -0.1000     1.23     2.34     1.7%   42%      28   2.9% -0.0007  31    76%  +0.0077 556.2s
+  [WARNING] Worst fitness -4.1226 — severe underperformance in population
+  [active] best:0.4722 ret:1.7% trd:28 wr:42% dd:2.9% ddDur:68.7% | pos:22 neg:26 retRange:[-15.0%..2.8%]
+1104    0.4684  -0.3532  -0.1000     1.23     2.34     1.7%   42%      28   2.9% -0.0007  31    72%  -0.0038 515.1s
+  [WARNING] Worst fitness -4.1178 — severe underperformance in population
+  [active] best:0.4684 ret:1.7% trd:28 wr:42% dd:2.9% ddDur:68.7% | pos:21 neg:34 retRange:[-15.0%..3.5%]
+1105    0.4641  -0.4114  -0.1000     1.23     2.34     1.7%   42%      28   2.9% -0.0007  31    74%  -0.0043 562.6s
+  [WARNING] Worst fitness -4.1356 — severe underperformance in population
+  [active] best:0.4641 ret:1.7% trd:28 wr:42% dd:2.9% ddDur:68.7% | pos:23 neg:30 retRange:[-15.0%..3.1%]
+1106    0.4642  -0.3012  -0.1000     1.23     2.34     1.7%   42%      28   2.9% -0.0007  31    74%  +0.0002 589.2s
+  [WARNING] Worst fitness -4.1289 — severe underperformance in population
+  [active] best:0.4642 ret:1.7% trd:28 wr:42% dd:2.9% ddDur:68.7% | pos:24 neg:31 retRange:[-15.0%..3.8%]
+1107    0.4642  -0.3402  -0.1000     1.23     2.34     1.7%   42%      28   2.9% -0.0007  31    72%  -0.0001 575.9s
+  [WARNING] Worst fitness -4.1163 — severe underperformance in population
+  [active] best:0.4642 ret:1.7% trd:28 wr:42% dd:2.9% ddDur:68.7% | pos:21 neg:34 retRange:[-15.0%..2.8%]
+1108    0.4641  -0.3215  -0.1000     1.23     2.34     1.7%   42%      28   2.9% -0.0007  31    70%  -0.0001 559.2s
+  [WARNING] Worst fitness -4.1347 — severe underperformance in population
+  [active] best:0.4641 ret:1.7% trd:28 wr:42% dd:2.9% ddDur:68.7% | pos:31 neg:30 retRange:[-15.0%..2.8%]
+1109    0.4971  -0.4714  -0.1000     1.29     2.66     3.6%   21%      17   2.5% -0.0008  31    66%  +0.0330 529.4s
+  [WARNING] Worst fitness -4.1193 — severe underperformance in population
+  [active] best:0.4971 ret:3.6% trd:17 wr:21% dd:2.5% ddDur:81.1% | pos:29 neg:40 retRange:[-15.0%..4.0%]
+  [WALK-FWD] Failed (-0.6111), stalled 1/30
+1110    0.6429  -0.5141  -0.1000     1.53     2.76     2.1%   43%      27   5.6% -0.0007  31    66%  -0.6111 +0.1458 575.2s
+  [WARNING] Worst fitness -4.1506 — severe underperformance in population
+  [active] best:0.6429 ret:2.1% trd:27 wr:43% dd:5.6% ddDur:59.0% | pos:11 neg:58 retRange:[-15.0%..2.1%]
+1111    0.6427  -0.3464  -0.1000     1.53     2.76     2.1%   43%      27   5.6% -0.0007  31    76%  -0.0002 514.0s
+  [WARNING] Worst fitness -4.1392 — severe underperformance in population
+  [active] best:0.6427 ret:2.1% trd:27 wr:43% dd:5.6% ddDur:59.0% | pos:18 neg:33 retRange:[-15.0%..2.1%]
+1112    0.6573  -0.3576  -0.1000     1.53     2.76     2.1%   43%      27   5.6% -0.0007  31    72%  +0.0146 512.3s
+  [WARNING] Worst fitness -4.1190 — severe underperformance in population
+  [active] best:0.6573 ret:2.1% trd:27 wr:43% dd:5.6% ddDur:59.0% | pos:20 neg:37 retRange:[-15.0%..2.2%]
+1113    0.6333  -0.4219  -0.1000     1.53     2.76     2.1%   43%      27   5.6% -0.0007  31    66%  -0.0240 526.4s
+  [WARNING] Worst fitness -4.1165 — severe underperformance in population
+  [active] best:0.6333 ret:2.1% trd:27 wr:43% dd:5.6% ddDur:59.0% | pos:18 neg:52 retRange:[-15.0%..2.2%]
+1114    0.6333  -0.3829  -0.1000     1.53     2.76     2.1%   43%      27   5.6% -0.0007  31    69%  -0.0001 522.7s
+  [WARNING] Worst fitness -4.1175 — severe underperformance in population
+  [active] best:0.6333 ret:2.1% trd:27 wr:43% dd:5.6% ddDur:59.0% | pos:19 neg:45 retRange:[-15.0%..2.2%]
+1115    0.6331  -0.3031  -0.1000     1.53     2.76     2.1%   43%      27   5.6% -0.0007  31    70%  -0.0002 534.2s
+  [WARNING] Worst fitness -4.1165 — severe underperformance in population
+  [active] best:0.6331 ret:2.1% trd:27 wr:43% dd:5.6% ddDur:59.0% | pos:26 neg:35 retRange:[-14.9%..2.2%]
+1116    0.6333  -0.3680  -0.1000     1.53     2.76     2.1%   43%      27   5.6% -0.0007  31    66%  +0.0002 552.3s
+  [WARNING] Worst fitness -4.1463 — severe underperformance in population
+  [active] best:0.6333 ret:2.1% trd:27 wr:43% dd:5.6% ddDur:59.0% | pos:24 neg:45 retRange:[-14.5%..2.2%]
+1117    0.6335  -0.3105  -0.1000     1.53     2.76     2.1%   43%      27   5.6% -0.0007  31    70%  +0.0002 518.2s
+  [WARNING] Worst fitness -4.1461 — severe underperformance in population
+  [active] best:0.6335 ret:2.1% trd:27 wr:43% dd:5.6% ddDur:59.0% | pos:22 neg:41 retRange:[-15.0%..2.3%]
+1118    0.6331  -0.5875  -0.1000     1.53     2.76     2.1%   43%      27   5.6% -0.0007  31    64%  -0.0004 552.6s
+  [WARNING] Worst fitness -4.1468 — severe underperformance in population
+  [active] best:0.6331 ret:2.1% trd:27 wr:43% dd:5.6% ddDur:59.0% | pos:19 neg:53 retRange:[-15.0%..2.2%]
+1119    0.6332  -0.3844  -0.1000     1.53     2.76     2.1%   43%      27   5.6% -0.0007  31    66%  +0.0001 505.4s
+  [WARNING] Worst fitness -4.1467 — severe underperformance in population
+  [active] best:0.6332 ret:2.1% trd:27 wr:43% dd:5.6% ddDur:59.0% | pos:23 neg:45 retRange:[-15.0%..2.2%]
+  [WALK-FWD] Passed (0.2444), advanced to 8736 bars
+1120    1.0296  -0.5790  -0.1000     2.25     3.87     3.6%   48%      40   1.7% -0.0007  31    60%   0.2444 +0.3965 523.8s
+  [WARNING] Worst fitness -4.1182 — severe underperformance in population
+  [active] best:1.0296 ret:3.6% trd:40 wr:48% dd:1.7% ddDur:47.1% | pos:14 neg:64 retRange:[-15.0%..3.6%]
+1121    0.5053  -0.4327  -0.1000     1.31     2.33     1.9%   45%      24   2.8% -0.0006  31    70%  -0.5243 485.3s
+  [WARNING] Worst fitness -4.1184 — severe underperformance in population
+  [active] best:0.5053 ret:1.9% trd:24 wr:45% dd:2.8% ddDur:89.7% | pos:14 neg:47 retRange:[-15.0%..2.8%]
+1122    0.5620  -0.3484  -0.1000     1.42     2.35     2.3%   47%      32   2.2% -0.0006  31    75%  +0.0567 447.7s
+  [WARNING] Worst fitness -4.1170 — severe underperformance in population
+  [active] best:0.5620 ret:2.3% trd:32 wr:47% dd:2.2% ddDur:58.3% | pos:14 neg:39 retRange:[-15.1%..3.0%]
+1123    0.5615  -0.3216  -0.1000     1.42     2.35     2.3%   47%      32   2.2% -0.0006  31    74%  -0.0005 451.2s
+  [WARNING] Worst fitness -4.1491 — severe underperformance in population
+  [active] best:0.5615 ret:2.3% trd:32 wr:47% dd:2.2% ddDur:58.3% | pos:16 neg:37 retRange:[-15.0%..2.8%]
+1124    0.5611  -0.2886  -0.1000     1.42     2.35     2.3%   47%      32   2.2% -0.0006  31    80%  -0.0003 430.1s
+  [WARNING] Worst fitness -4.1287 — severe underperformance in population
+  [active] best:0.5611 ret:2.3% trd:32 wr:47% dd:2.2% ddDur:58.3% | pos:13 neg:28 retRange:[-14.2%..2.8%]
+  [detail] DDDur:58.3%  PopTrd:5656  MedTrd:0  ActAg:41  MaxTrd:785  MaxStag:24/25  CtAdj:10.00  Arch:31  Edges:8961/8961  Sat:0%  Innov:+318  Shrk:0.86
+  [checkpoint saved: gen 1125]
+1125    0.5769  -0.3769  -0.1000     1.42     2.35     2.3%   47%      32   2.2% -0.0006  31    78%  +0.0158 413.8s
+  [WARNING] Worst fitness -4.1310 — severe underperformance in population
+  [active] best:0.5769 ret:2.3% trd:32 wr:47% dd:2.2% ddDur:58.3% | pos:18 neg:27 retRange:[-15.0%..2.8%]
+1126    0.8004  -0.4994  -0.1000     1.91     3.20     2.4%   40%      36   3.4% -0.0006  31    56%  +0.2234 374.1s
+  [WARNING] Worst fitness -4.1188 — severe underperformance in population
+  [active] best:0.8004 ret:2.4% trd:36 wr:40% dd:3.4% ddDur:61.7% | pos:25 neg:65 retRange:[-15.0%..3.0%]
+1127    0.7954  -0.3830  -0.1000     1.91     3.20     2.4%   40%      36   3.4% -0.0006  31    70%  -0.0050 514.7s
+  [WARNING] Worst fitness -4.1367 — severe underperformance in population
+  [active] best:0.7954 ret:2.4% trd:36 wr:40% dd:3.4% ddDur:61.7% | pos:20 neg:43 retRange:[-15.0%..3.0%]
+1128    0.7956  -0.2463  -0.1000     1.91     3.20     2.4%   40%      36   3.4% -0.0006  31    74%  +0.0003 510.0s
+  [WARNING] Worst fitness -4.0881 — severe underperformance in population
+  [active] best:0.7956 ret:2.4% trd:36 wr:40% dd:3.4% ddDur:61.7% | pos:26 neg:30 retRange:[-13.9%..3.0%]
+1129    0.8038  -0.4324  -0.1000     1.91     3.20     2.4%   40%      36   3.4% -0.0006  31    67%  +0.0082 513.0s
+  [WARNING] Worst fitness -4.1185 — severe underperformance in population
+  [active] best:0.8038 ret:2.4% trd:36 wr:40% dd:3.4% ddDur:61.7% | pos:24 neg:44 retRange:[-15.1%..3.0%]
+  [WALK-FWD] Failed (-0.6111), stalled 1/30
+1130    0.7194  -0.4067  -0.1000     1.72     3.15     2.6%   43%      26   2.8% -0.0006  31    64%  -0.6111 -0.0844 517.8s
+  [WARNING] Worst fitness -4.1345 — severe underperformance in population
+  [active] best:0.7194 ret:2.6% trd:26 wr:43% dd:2.8% ddDur:62.4% | pos:21 neg:53 retRange:[-14.8%..3.7%]
+1131    0.7193  -0.3441  -0.1000     1.72     3.15     2.6%   43%      26   2.8% -0.0006  31    74%  -0.0001 505.4s
+  [WARNING] Worst fitness -4.1344 — severe underperformance in population
+  [active] best:0.7193 ret:2.6% trd:26 wr:43% dd:2.8% ddDur:62.4% | pos:12 neg:40 retRange:[-14.8%..3.7%]
+1132    0.7236  -0.3877  -0.1000     1.72     3.15     2.6%   43%      26   2.8% -0.0006  31    72%  +0.0044 490.7s
+  [WARNING] Worst fitness -4.1171 — severe underperformance in population
+  [active] best:0.7236 ret:2.6% trd:26 wr:43% dd:2.8% ddDur:62.4% | pos:16 neg:41 retRange:[-15.0%..3.7%]
+1133    0.7191  -0.3435  -0.1000     1.72     3.15     2.6%   43%      26   2.8% -0.0006  31    72%  -0.0045 470.7s
+  [WARNING] Worst fitness -4.1255 — severe underperformance in population
+  [active] best:0.7191 ret:2.6% trd:26 wr:43% dd:2.8% ddDur:62.4% | pos:29 neg:29 retRange:[-15.0%..3.7%]
+1134    0.7551  -0.3542  -0.1000     1.80     2.91     2.2%   47%      72   2.6% -0.0006  31    71%  +0.0360 474.2s
+  [WARNING] Worst fitness -4.1178 — severe underperformance in population
+  [active] best:0.7551 ret:2.2% trd:72 wr:47% dd:2.6% ddDur:33.4% | pos:25 neg:37 retRange:[-14.9%..3.7%]
+1135    0.7539  -0.3516  -0.1000     1.80     2.91     2.2%   47%      72   2.6% -0.0006  31    68%  -0.0012 548.7s
+  [WARNING] Worst fitness -4.1183 — severe underperformance in population
+  [active] best:0.7539 ret:2.2% trd:72 wr:47% dd:2.6% ddDur:33.4% | pos:35 neg:35 retRange:[-15.0%..3.7%]
+1136    0.7535  -0.3067  -0.1000     1.80     2.91     2.2%   47%      72   2.6% -0.0006  31    66%  -0.0004 593.8s
+  [WARNING] Worst fitness -4.1339 — severe underperformance in population
+  [active] best:0.7535 ret:2.2% trd:72 wr:47% dd:2.6% ddDur:33.4% | pos:38 neg:35 retRange:[-14.9%..3.6%]
+1137    0.7538  -0.3309  -0.1000     1.80     2.91     2.2%   47%      72   2.6% -0.0006  31    61%  +0.0003 532.4s
+  [WARNING] Worst fitness -4.1470 — severe underperformance in population
+  [active] best:0.7538 ret:2.2% trd:72 wr:47% dd:2.6% ddDur:33.4% | pos:43 neg:42 retRange:[-13.2%..3.7%]
+1138    0.7578  -0.3338  -0.1000     1.80     2.91     2.2%   47%      72   2.6% -0.0006  31    62%  +0.0040 513.3s
+  [WARNING] Worst fitness -4.1366 — severe underperformance in population
+  [active] best:0.7578 ret:2.2% trd:72 wr:47% dd:2.6% ddDur:33.4% | pos:43 neg:44 retRange:[-14.8%..3.7%]
+1139    0.7535  -0.3667  -0.1000     1.80     2.91     2.2%   47%      72   2.6% -0.0006  31    65%  -0.0043 528.2s
+  [WARNING] Worst fitness -4.1332 — severe underperformance in population
+  [active] best:0.7535 ret:2.2% trd:72 wr:47% dd:2.6% ddDur:33.4% | pos:39 neg:38 retRange:[-15.0%..3.2%]
+  [WALK-FWD] Failed (-0.6662), stalled 2/30
+1140    0.6140  -0.4250  -0.1000     1.47     2.58     2.0%   43%      30   3.9% -0.0007  31    64%  -0.6662 -0.1395 495.4s
+  [WARNING] Worst fitness -4.1299 — severe underperformance in population
+  [active] best:0.6140 ret:2.0% trd:30 wr:43% dd:3.9% ddDur:81.8% | pos:25 neg:50 retRange:[-14.8%..2.1%]
+1141    0.6012  -0.3609  -0.1000     1.47     2.58     2.0%   43%      30   3.9% -0.0007  31    67%  -0.0128 520.9s
+  [WARNING] Worst fitness -4.1179 — severe underperformance in population
+  [active] best:0.6012 ret:2.0% trd:30 wr:43% dd:3.9% ddDur:81.8% | pos:26 neg:43 retRange:[-15.2%..2.7%]
+1142    0.6011  -0.3889  -0.1000     1.47     2.58     2.0%   43%      30   3.9% -0.0007  31    68%  -0.0001 486.9s
+  [WARNING] Worst fitness -4.1187 — severe underperformance in population
+  [active] best:0.6011 ret:2.0% trd:30 wr:43% dd:3.9% ddDur:81.8% | pos:28 neg:39 retRange:[-15.0%..2.4%]
+1143    0.6015  -0.3276  -0.1000     1.47     2.58     2.0%   43%      30   3.9% -0.0007  31    66%  +0.0003 502.2s
+  [WARNING] Worst fitness -4.1186 — severe underperformance in population
+  [active] best:0.6015 ret:2.0% trd:30 wr:43% dd:3.9% ddDur:81.8% | pos:30 neg:44 retRange:[-15.0%..3.2%]
+1144    0.6017  -0.4016  -0.1000     1.47     2.58     2.0%   43%      30   3.9% -0.0007  31    68%  +0.0002 511.2s
+  [WARNING] Worst fitness -4.1501 — severe underperformance in population
+  [active] best:0.6017 ret:2.0% trd:30 wr:43% dd:3.9% ddDur:81.8% | pos:31 neg:39 retRange:[-15.0%..3.2%]
+1145    0.8536  -0.3223  -0.1000     1.94     3.85     3.2%   52%      16   1.7% -0.0007  31    66%  +0.2518 455.3s
+  [WARNING] Worst fitness -4.1307 — severe underperformance in population
+  [active] best:0.8536 ret:3.2% trd:16 wr:52% dd:1.7% ddDur:63.7% | pos:38 neg:37 retRange:[-15.1%..3.2%]
+1146    0.8747  -0.3450  -0.1000     1.72     2.85     2.2%   48%      41   3.7% -0.0007  31    65%  +0.0211 460.3s
+  [WARNING] Worst fitness -4.1166 — severe underperformance in population
+  [active] best:0.8747 ret:2.2% trd:41 wr:48% dd:3.7% ddDur:60.1% | pos:37 neg:36 retRange:[-15.0%..3.2%]
+1147    0.8401  -0.4391  -0.1000     1.94     3.85     3.2%   52%      16   1.7% -0.0007  31    64%  -0.0346 481.0s
+  [WARNING] Worst fitness -4.1195 — severe underperformance in population
+  [active] best:0.8401 ret:3.2% trd:16 wr:52% dd:1.7% ddDur:63.7% | pos:28 neg:51 retRange:[-15.0%..3.2%]
+1148    0.8402  -0.2496  -0.1000     1.94     3.85     3.2%   52%      16   1.7% -0.0007  31    67%  +0.0002 515.2s
+  [WARNING] Worst fitness -4.1351 — severe underperformance in population
+  [active] best:0.8402 ret:3.2% trd:16 wr:52% dd:1.7% ddDur:63.7% | pos:36 neg:37 retRange:[-14.9%..3.2%]
+1149    0.8395  -0.3115  -0.1000     1.94     3.85     3.2%   52%      16   1.7% -0.0007  31    62%  -0.0007 554.5s
+  [WARNING] Worst fitness -4.1201 — severe underperformance in population
+  [active] best:0.8395 ret:3.2% trd:16 wr:52% dd:1.7% ddDur:63.7% | pos:36 neg:46 retRange:[-14.9%..3.2%]
+  [detail] DDDur:63.7%  PopTrd:6747  MedTrd:0  ActAg:82  MaxTrd:674  MaxStag:23/25  CtAdj:10.00  Arch:31  Edges:2364/2364  Sat:0%  Innov:+236  Shrk:0.73
+  [checkpoint saved: gen 1150]
+  [WALK-FWD] Passed (0.4451), advanced to 9408 bars
+1150    0.7015  -0.5341  -0.1000     1.78     3.06     2.9%   43%      35   2.1% -0.0006  31    58%   0.4451 -0.1381 556.5s
+  [WARNING] Worst fitness -4.1520 — severe underperformance in population
+  [active] best:0.7015 ret:2.9% trd:35 wr:43% dd:2.1% ddDur:75.8% | pos:23 neg:62 retRange:[-15.0%..2.9%]
+1151    0.4578  -0.3179  -0.1000     1.29     3.15     3.3%   35%       9   2.1% -0.0008  31    74%  -0.2437 520.3s
+  [WARNING] Worst fitness -4.1606 — severe underperformance in population
+  [active] best:0.4578 ret:3.3% trd:9 wr:35% dd:2.1% ddDur:39.9% | pos:17 neg:40 retRange:[-14.7%..3.3%]
+1152    0.7258  -0.4302  -0.1000     1.68     3.07     3.1%   34%      36   2.0% -0.0007  31    64%  +0.2681 523.2s
+  [WARNING] Worst fitness -4.1190 — severe underperformance in population
+  [active] best:0.7258 ret:3.1% trd:36 wr:34% dd:2.0% ddDur:37.2% | pos:22 neg:49 retRange:[-15.0%..3.3%]
+1153    0.7248  -0.3733  -0.1000     1.68     3.07     3.1%   34%      36   2.0% -0.0007  31    72%  -0.0010 527.8s
+  [WARNING] Worst fitness -4.1184 — severe underperformance in population
+  [active] best:0.7248 ret:3.1% trd:36 wr:34% dd:2.0% ddDur:37.2% | pos:22 neg:36 retRange:[-15.0%..3.3%]
+1154    0.7288  -0.3433  -0.1000     1.68     3.07     3.1%   34%      36   2.0% -0.0007  31    66%  +0.0040 540.8s
+  [WARNING] Worst fitness -4.1352 — severe underperformance in population
+  [active] best:0.7288 ret:3.1% trd:36 wr:34% dd:2.0% ddDur:37.2% | pos:28 neg:43 retRange:[-15.0%..3.3%]
+1155    0.7244  -0.3425  -0.1000     1.68     3.07     3.1%   34%      36   2.0% -0.0007  31    69%  -0.0044 523.4s
+  [WARNING] Worst fitness -4.1503 — severe underperformance in population
+  [active] best:0.7244 ret:3.1% trd:36 wr:34% dd:2.0% ddDur:37.2% | pos:28 neg:37 retRange:[-15.0%..3.1%]
+1156    0.7243  -0.3103  -0.1000     1.68     3.07     3.1%   34%      36   2.0% -0.0007  31    67%  -0.0001 529.1s
+  [WARNING] Worst fitness -4.1175 — severe underperformance in population
+  [active] best:0.7243 ret:3.1% trd:36 wr:34% dd:2.0% ddDur:37.2% | pos:29 neg:41 retRange:[-15.0%..3.1%]
+1157    0.7242  -0.4713  -0.1000     1.68     3.07     3.1%   34%      36   2.0% -0.0007  31    64%  -0.0001 615.4s
+  [WARNING] Worst fitness -4.1398 — severe underperformance in population
+  [active] best:0.7242 ret:3.1% trd:36 wr:34% dd:2.0% ddDur:37.2% | pos:25 neg:51 retRange:[-15.0%..3.1%]
+1158    0.7394  -0.3861  -0.1000     1.67     3.01     2.1%   38%      24   3.0% -0.0005  31    69%  +0.0152 545.7s
+  [WARNING] Worst fitness -4.1459 — severe underperformance in population
+  [active] best:0.7394 ret:2.1% trd:24 wr:38% dd:3.0% ddDur:66.3% | pos:32 neg:32 retRange:[-15.0%..3.1%]
+1159    0.7268  -0.4053  -0.1000     1.67     3.01     2.1%   38%      24   3.0% -0.0005  31    62%  -0.0126 535.4s
+  [WARNING] Worst fitness -4.1350 — severe underperformance in population
+  [active] best:0.7268 ret:2.1% trd:24 wr:38% dd:3.0% ddDur:66.3% | pos:28 neg:49 retRange:[-15.2%..3.1%]
+  [WALK-FWD] Failed (-0.6062), stalled 1/30
+1160    0.6421  -0.4704  -0.1000     1.58     2.45     1.9%   53%      75   2.5% -0.0007  31    62%  -0.6062 -0.0847 545.2s
+  [WARNING] Worst fitness -4.1175 — severe underperformance in population
+  [active] best:0.6421 ret:1.9% trd:75 wr:53% dd:2.5% ddDur:51.0% | pos:17 neg:59 retRange:[-15.0%..1.9%]
+1161    0.6423  -0.3188  -0.1000     1.58     2.45     1.9%   53%      75   2.5% -0.0007  31    70%  +0.0002 524.7s
+  [WARNING] Worst fitness -4.1256 — severe underperformance in population
+  [active] best:0.6423 ret:1.9% trd:75 wr:53% dd:2.5% ddDur:51.0% | pos:16 neg:46 retRange:[-15.0%..1.9%]
+1162    0.6427  -0.3671  -0.1000     1.58     2.45     1.9%   53%      75   2.5% -0.0007  31    72%  +0.0004 623.1s
+  [WARNING] Worst fitness -4.1181 — severe underperformance in population
+  [active] best:0.6427 ret:1.9% trd:75 wr:53% dd:2.5% ddDur:51.0% | pos:23 neg:35 retRange:[-15.0%..1.9%]
+1163    0.6466  -0.3797  -0.1000     1.58     2.45     1.9%   53%      75   2.5% -0.0007  31    66%  +0.0040 667.5s
+  [WARNING] Worst fitness -4.1211 — severe underperformance in population
+  [active] best:0.6466 ret:1.9% trd:75 wr:53% dd:2.5% ddDur:51.0% | pos:26 neg:44 retRange:[-15.0%..1.9%]
+1164    0.6417  -0.2891  -0.1000     1.58     2.45     1.9%   53%      75   2.5% -0.0007  31    72%  -0.0050 576.6s
+  [WARNING] Worst fitness -4.1370 — severe underperformance in population
+  [active] best:0.6417 ret:1.9% trd:75 wr:53% dd:2.5% ddDur:51.0% | pos:23 neg:38 retRange:[-15.0%..1.9%]
+1165    0.6463  -0.4754  -0.1000     1.58     2.45     1.9%   53%      75   2.5% -0.0007  31    65%  +0.0046 577.2s
+  [WARNING] Worst fitness -4.1186 — severe underperformance in population
+  [active] best:0.6463 ret:1.9% trd:75 wr:53% dd:2.5% ddDur:51.0% | pos:24 neg:49 retRange:[-15.0%..1.9%]
+1166    0.6423  -0.4016  -0.1000     1.58     2.45     1.9%   53%      75   2.5% -0.0007  31    66%  -0.0040 542.7s
+  [WARNING] Worst fitness -4.1301 — severe underperformance in population
+  [active] best:0.6423 ret:1.9% trd:75 wr:53% dd:2.5% ddDur:51.0% | pos:29 neg:49 retRange:[-15.0%..1.9%]
+1167    0.6424  -0.4734  -0.1000     1.58     2.45     1.9%   53%      75   2.5% -0.0007  31    61%  +0.0001 508.9s
+  [WARNING] Worst fitness -4.1185 — severe underperformance in population
+  [active] best:0.6424 ret:1.9% trd:75 wr:53% dd:2.5% ddDur:51.0% | pos:26 neg:54 retRange:[-14.9%..1.9%]
+1168    0.6423  -0.5629  -0.1000     1.58     2.45     1.9%   53%      75   2.5% -0.0007  31    63%  -0.0001 497.3s
+  [WARNING] Worst fitness -4.1273 — severe underperformance in population
+  [active] best:0.6423 ret:1.9% trd:75 wr:53% dd:2.5% ddDur:51.0% | pos:26 neg:55 retRange:[-15.0%..1.9%]
+1169    0.6427  -0.4365  -0.1000     1.58     2.45     1.9%   53%      75   2.5% -0.0007  31    62%  +0.0004 486.7s
+  [WARNING] Worst fitness -4.1176 — severe underperformance in population
+  [active] best:0.6427 ret:1.9% trd:75 wr:53% dd:2.5% ddDur:51.0% | pos:28 neg:51 retRange:[-15.0%..1.9%]
+  [WALK-FWD] Failed (-0.6092), stalled 2/30
+1170    0.6955  -0.5767  -0.1000     1.64     2.74     2.3%   36%      38   2.5% -0.0007  31    65%  -0.6092 +0.0528 502.9s
+  [WARNING] Worst fitness -4.1189 — severe underperformance in population
+  [active] best:0.6955 ret:2.3% trd:38 wr:36% dd:2.5% ddDur:44.5% | pos:13 neg:72 retRange:[-15.0%..2.3%]
+1171    0.6950  -0.4584  -0.1000     1.64     2.74     2.3%   36%      38   2.5% -0.0007  31    70%  -0.0005 488.8s
+  [WARNING] Worst fitness -4.1281 — severe underperformance in population
+  [active] best:0.6950 ret:2.3% trd:38 wr:36% dd:2.5% ddDur:44.5% | pos:17 neg:55 retRange:[-15.0%..2.3%]
+1172    0.6950  -0.4498  -0.1000     1.64     2.74     2.3%   36%      38   2.5% -0.0007  31    64%  +0.0000 518.5s
+  [WARNING] Worst fitness -4.1479 — severe underperformance in population
+  [active] best:0.6950 ret:2.3% trd:38 wr:36% dd:2.5% ddDur:44.5% | pos:25 neg:55 retRange:[-15.0%..2.3%]
+1173    0.6948  -0.3256  -0.1000     1.64     2.74     2.3%   36%      38   2.5% -0.0007  31    72%  -0.0002 502.4s
+  [WARNING] Worst fitness -4.1186 — severe underperformance in population
+  [active] best:0.6948 ret:2.3% trd:38 wr:36% dd:2.5% ddDur:44.5% | pos:26 neg:40 retRange:[-15.0%..2.3%]
+1174    0.6990  -0.3612  -0.1000     1.64     2.74     2.3%   36%      38   2.5% -0.0007  31    76%  +0.0042 471.8s
+  [WARNING] Worst fitness -4.1489 — severe underperformance in population
+  [active] best:0.6990 ret:2.3% trd:38 wr:36% dd:2.5% ddDur:44.5% | pos:21 neg:39 retRange:[-15.0%..2.3%]
+  [detail] DDDur:44.5%  PopTrd:7277  MedTrd:0  ActAg:60  MaxTrd:739  MaxStag:25/25  CtAdj:10.00  Arch:31  Edges:722/722  Sat:0%  Innov:+181  Shrk:0.88
+  [checkpoint saved: gen 1175]
+1175    0.6950  -0.3583  -0.1000     1.64     2.74     2.3%   36%      38   2.5% -0.0007  31    72%  -0.0040 500.0s
+  [WARNING] Worst fitness -4.1342 — severe underperformance in population
+  [active] best:0.6950 ret:2.3% trd:38 wr:36% dd:2.5% ddDur:44.5% | pos:26 neg:43 retRange:[-15.0%..2.3%]
+1176    0.6985  -0.4237  -0.1000     1.64     2.74     2.3%   36%      38   2.5% -0.0007  31    70%  +0.0036 522.2s
+  [WARNING] Worst fitness -4.1479 — severe underperformance in population
+  [active] best:0.6985 ret:2.3% trd:38 wr:36% dd:2.5% ddDur:44.5% | pos:25 neg:44 retRange:[-15.0%..2.3%]
+1177    0.6988  -0.3227  -0.1000     1.64     2.74     2.3%   36%      38   2.5% -0.0007  31    68%  +0.0002 526.2s
+  [WARNING] Worst fitness -4.1177 — severe underperformance in population
+  [active] best:0.6988 ret:2.3% trd:38 wr:36% dd:2.5% ddDur:44.5% | pos:23 neg:45 retRange:[-15.0%..2.3%]
+1178    0.8970  -0.4859  -0.1000     2.00     3.60     3.7%   49%      26   3.6% -0.0009  31    61%  +0.1982 483.3s
+  [WARNING] Worst fitness -4.1311 — severe underperformance in population
+  [active] best:0.8970 ret:3.7% trd:26 wr:49% dd:3.6% ddDur:60.2% | pos:28 neg:60 retRange:[-15.0%..3.7%]
+1179    0.8971  -0.3378  -0.1000     2.00     3.60     3.7%   49%      26   3.6% -0.0009  31    68%  +0.0001 556.6s
+  [WARNING] Worst fitness -4.1204 — severe underperformance in population
+  [active] best:0.8971 ret:3.7% trd:26 wr:49% dd:3.6% ddDur:60.2% | pos:31 neg:41 retRange:[-15.0%..3.7%]
+  [WALK-FWD] Failed (-0.9337), stalled 3/30
+1180    0.5183  -0.4612  -0.1000     1.29     2.19     2.0%   45%      35   2.7% -0.0007  31    62%  -0.9337 -0.3788 507.2s
+  [WARNING] Worst fitness -4.1356 — severe underperformance in population
+  [active] best:0.5183 ret:2.0% trd:35 wr:45% dd:2.7% ddDur:66.3% | pos:22 neg:56 retRange:[-15.1%..2.0%]
+1181    0.5144  -0.4143  -0.1000     1.29     2.19     2.0%   45%      35   2.7% -0.0007  31    68%  -0.0039 521.7s
+  [WARNING] Worst fitness -4.1469 — severe underperformance in population
+  [active] best:0.5144 ret:2.0% trd:35 wr:45% dd:2.7% ddDur:66.3% | pos:27 neg:40 retRange:[-15.0%..2.0%]
+1182    0.5098  -0.3267  -0.1000     1.29     2.19     2.0%   45%      35   2.7% -0.0007  31    66%  -0.0046 516.7s
+  [WARNING] Worst fitness -4.1175 — severe underperformance in population
+  [active] best:0.5098 ret:2.0% trd:35 wr:45% dd:2.7% ddDur:66.3% | pos:33 neg:40 retRange:[-15.0%..2.0%]
+1183    0.5105  -0.3736  -0.1000     1.29     2.19     2.0%   45%      35   2.7% -0.0007  31    66%  +0.0007 506.6s
+  [WARNING] Worst fitness -4.1161 — severe underperformance in population
+  [active] best:0.5105 ret:2.0% trd:35 wr:45% dd:2.7% ddDur:66.3% | pos:29 neg:43 retRange:[-14.9%..2.0%]
+1184    0.6924  -0.3807  -0.1000     0.77     1.22     1.4%   50%      87   3.7% -0.0008  31    62%  +0.1819 524.3s
+  [WARNING] Worst fitness -4.1175 — severe underperformance in population
+  [active] best:0.6924 ret:1.4% trd:87 wr:50% dd:3.7% ddDur:75.8% | pos:32 neg:45 retRange:[-14.8%..2.3%]
+1185    0.5672  -0.5460  -0.1000     1.44     2.48     2.3%   44%      32   2.8% -0.0007  31    55%  -0.1251 534.4s
+  [WARNING] Worst fitness -4.1340 — severe underperformance in population
+  [active] best:0.5672 ret:2.3% trd:32 wr:44% dd:2.8% ddDur:66.3% | pos:28 neg:63 retRange:[-15.0%..2.3%]
+1186    0.5666  -0.4335  -0.1000     1.44     2.48     2.3%   44%      32   2.8% -0.0007  31    59%  -0.0006 504.6s
+  [WARNING] Worst fitness -4.1342 — severe underperformance in population
+  [active] best:0.5666 ret:2.3% trd:32 wr:44% dd:2.8% ddDur:66.3% | pos:33 neg:52 retRange:[-15.0%..2.3%]
+1187    0.6273  -0.3249  -0.1000     1.56     2.49     2.2%   54%      80   4.0% -0.0007  31    56%  +0.0606 502.1s
+  [WARNING] Worst fitness -4.1267 — severe underperformance in population
+  [active] best:0.6273 ret:2.2% trd:80 wr:54% dd:4.0% ddDur:77.7% | pos:44 neg:47 retRange:[-15.0%..2.3%]
+1188    0.6263  -0.4032  -0.1000     1.56     2.49     2.2%   54%      80   4.0% -0.0007  31    59%  -0.0010 521.7s
+  [WARNING] Worst fitness -4.1175 — severe underperformance in population
+  [active] best:0.6263 ret:2.2% trd:80 wr:54% dd:4.0% ddDur:77.7% | pos:37 neg:47 retRange:[-15.0%..2.3%]
+1189    0.6270  -0.4646  -0.1000     1.56     2.49     2.2%   54%      80   4.0% -0.0007  31    60%  +0.0008 550.9s
+  [WARNING] Worst fitness -4.1545 — severe underperformance in population
+  [active] best:0.6270 ret:2.2% trd:80 wr:54% dd:4.0% ddDur:77.7% | pos:35 neg:50 retRange:[-15.0%..2.3%]
+  [WALK-FWD] Failed (0.0112), stalled 4/30
+1190    0.7714  -0.4371  -0.1000     0.86     1.34     1.4%   43%      43   3.0% -0.0006  31    62%   0.0112 +0.1443 512.2s
+  [WARNING] Worst fitness -4.1452 — severe underperformance in population
+  [active] best:0.7714 ret:1.4% trd:43 wr:43% dd:3.0% ddDur:68.0% | pos:22 neg:60 retRange:[-14.9%..3.1%]
+1191    0.7468  -0.3907  -0.1000     1.65     2.59     2.3%   44%      70   2.7% -0.0007  31    66%  -0.0246 509.0s
+  [WARNING] Worst fitness -4.1299 — severe underperformance in population
+  [active] best:0.7468 ret:2.3% trd:70 wr:44% dd:2.7% ddDur:35.6% | pos:20 neg:49 retRange:[-14.9%..3.1%]
+1192    0.7458  -0.3474  -0.1000     1.65     2.59     2.3%   44%      70   2.7% -0.0007  31    72%  -0.0010 482.7s
+  [WARNING] Worst fitness -4.1187 — severe underperformance in population
+  [active] best:0.7458 ret:2.3% trd:70 wr:44% dd:2.7% ddDur:35.6% | pos:23 neg:35 retRange:[-15.0%..3.1%]
+1193    0.8110  -0.2751  -0.1000     1.89     3.40     2.6%   48%      22   1.6% -0.0005  31    74%  +0.0652 437.4s
+  [WARNING] Worst fitness -4.1184 — severe underperformance in population
+  [active] best:0.8110 ret:2.6% trd:22 wr:48% dd:1.6% ddDur:69.5% | pos:31 neg:26 retRange:[-15.0%..3.1%]
+1194    0.8105  -0.3020  -0.1000     1.89     3.40     2.6%   48%      22   1.6% -0.0005  31    72%  -0.0005 457.8s
+  [WARNING] Worst fitness -4.1319 — severe underperformance in population
+  [active] best:0.8105 ret:2.6% trd:22 wr:48% dd:1.6% ddDur:69.5% | pos:24 neg:36 retRange:[-15.0%..3.1%]
+1195    0.9965  -0.3032  -0.1000     2.10     3.34     2.9%   47%      68   2.8% -0.0007  31    70%  +0.1860 489.3s
+  [WARNING] Worst fitness -4.1354 — severe underperformance in population
+  [active] best:0.9965 ret:2.9% trd:68 wr:47% dd:2.8% ddDur:32.9% | pos:31 neg:34 retRange:[-14.7%..3.1%]
+1196    0.9721  -0.2729  -0.1000     2.10     3.34     2.9%   47%      68   2.8% -0.0007  31    72%  -0.0244 527.7s
+  [WARNING] Worst fitness -4.1147 — severe underperformance in population
+  [active] best:0.9721 ret:2.9% trd:68 wr:47% dd:2.8% ddDur:32.9% | pos:27 neg:34 retRange:[-14.8%..3.1%]
+1197    0.9557  -0.1899  -0.1000     2.10     3.34     2.9%   47%      68   2.8% -0.0007  31    76%  -0.0165 486.9s
+  [WARNING] Worst fitness -4.1174 — severe underperformance in population
+  [active] best:0.9557 ret:2.9% trd:68 wr:47% dd:2.8% ddDur:32.9% | pos:31 neg:24 retRange:[-14.9%..3.1%]
+1198    0.9557  -0.3075  -0.1000     2.10     3.34     2.9%   47%      68   2.8% -0.0007  31    68%  -+0.0000 583.6s
+  [WARNING] Worst fitness -4.1188 — severe underperformance in population
+  [active] best:0.9557 ret:2.9% trd:68 wr:47% dd:2.8% ddDur:32.9% | pos:28 neg:43 retRange:[-15.0%..3.1%]
+1199    0.9557  -0.3646  -0.1000     2.10     3.34     2.9%   47%      68   2.8% -0.0007  31    68%  +0.0000 616.9s
+  [WARNING] Worst fitness -4.1326 — severe underperformance in population
+  [active] best:0.9557 ret:2.9% trd:68 wr:47% dd:2.8% ddDur:32.9% | pos:25 neg:43 retRange:[-14.9%..3.2%]
+  [detail] DDDur:32.9%  PopTrd:8174  MedTrd:0  ActAg:68  MaxTrd:787  MaxStag:22/25  CtAdj:10.00  Arch:31  Edges:79/79  Sat:0%  Innov:+186  Shrk:0.92
+  [checkpoint saved: gen 1200]
+
+═══ VALIDATION ═══                                                        
+  Best validation fitness: 0.6048
+  Sharpe (adjusted): 1.37
+  Return: 4.63%
+  Trades: 76, Win rate: 39%
+  Max drawdown: 3.31%
+
+═══ ENSEMBLE ═══                                                          
+  Species champions: 31
+  Ensemble fitness: -0.2118
+  Ensemble return: -0.87%
+  Ensemble Sharpe: -0.28
+  Ensemble trades: 28
+
+  Best genome (by validation) saved to: output_phase5\best_market_genome.json
+
+[BACKTEST] Complete.
+
+  Phase 2 complete in 14.7h.
+
+[PIPELINE] All 2 phases complete.

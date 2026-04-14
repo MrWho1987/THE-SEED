@@ -57,6 +57,21 @@ public sealed class MarketEvolution
     }
 
     /// <summary>
+    /// Reset all species stagnation state and clear the archive.
+    /// Used at pipeline phase transitions so species get a fresh baseline
+    /// under the new phase's evaluation criteria.
+    /// </summary>
+    public void ResetSpeciesStagnation()
+    {
+        foreach (var species in _speciation.Species)
+        {
+            species.StagnationCounter = 0;
+            species.BestFitness = float.MinValue;
+        }
+        _archive.Clear();
+    }
+
+    /// <summary>
     /// Resume from a checkpoint: restore a previously saved population at a given generation.
     /// </summary>
     public void InitializeFrom(List<IGenome> restoredPopulation, int generation,
@@ -155,7 +170,9 @@ public sealed class MarketEvolution
                 }
             }
 
-            if (bestInSpecies > species.BestFitness)
+            // Require minimum improvement to reset stagnation — prevents floating-point
+            // drift in overfit champions from indefinitely resetting the counter.
+            if (bestInSpecies > species.BestFitness + _config.MinStagnationImprovement)
             {
                 species.BestFitness = bestInSpecies;
                 species.StagnationCounter = 0;
@@ -305,6 +322,12 @@ public sealed class MarketEvolution
             kv => kv.Key,
             kv => kv.Value.Fitness.Fitness);
 
+        if (_evaluations.Count == 0)
+        {
+            // All genomes failed evaluation — return current population unchanged
+            return _population.Select(g => g.CloneGenome()).ToList();
+        }
+
         var globalBestEval = _evaluations.Values
             .OrderByDescending(e => e.Fitness.Fitness)
             .First();
@@ -337,6 +360,7 @@ public sealed class MarketEvolution
             {
                 int replaceCount = numOffspring / 2;
                 bool archiveDegenerate = archiveElites.Count == 0 ||
+                    _archive.Champions.Count == 0 ||
                     _archive.Champions.Values.Max(c => c.Fitness) <= _config.InactivityPenalty + 0.001f;
 
                 for (int r = 0; r < replaceCount && nextGen.Count < totalOffspring; r++)
@@ -357,6 +381,11 @@ public sealed class MarketEvolution
                     }
                 }
                 numOffspring -= replaceCount;
+
+                // Reset stagnation so reseeded species gets a fresh baseline
+                // under current evaluation criteria
+                species.StagnationCounter = 0;
+                species.BestFitness = float.MinValue;
             }
 
             var sortedMembers = species.Members
@@ -425,7 +454,8 @@ public sealed class MarketEvolution
         List<IGenome> candidates, Dictionary<Guid, float> fitnesses,
         int tournamentSize, ref Rng64 rng)
     {
-        if (candidates.Count <= 1) return candidates[0];
+        if (candidates.Count == 0) throw new ArgumentException("TournamentSelect requires at least 1 candidate");
+        if (candidates.Count == 1) return candidates[0];
         IGenome best = candidates[rng.NextInt(candidates.Count)];
         float bestF = fitnesses.GetValueOrDefault(best.GenomeId, 0f);
         for (int i = 1; i < tournamentSize; i++)
@@ -441,6 +471,14 @@ public sealed class MarketEvolution
     {
         var sorted = _evaluations.Values
             .OrderByDescending(e => e.Fitness.Fitness).ToArray();
+        if (sorted.Length == 0)
+        {
+            return new GenerationReport(
+                Generation: Generation, BestGenomeId: Guid.Empty,
+                BestFitness: 0f, BestReturn: 0f, BestTrades: 0, BestWinRate: 0f, BestSharpe: 0f,
+                MeanFitness: 0f, SpeciesCount: _speciation.Species.Count, TotalTrades: 0,
+                PopulationSize: _population.Count, InactiveCount: _population.Count);
+        }
         var best = sorted[0];
         float mean = sorted.Average(e => e.Fitness.Fitness);
         int totalTrades = sorted.Sum(e => e.Fitness.TotalTrades);
@@ -481,7 +519,8 @@ public sealed class MarketEvolution
                     HiddenLayers = bestGenome.Dev.SubstrateLayers
                 };
                 var diagDev = new BrainDeveloper(MarketAgent.InputCount, MarketAgent.OutputCount);
-                var diagGraph = diagDev.CompileGraph(bestGenome, diagBudget, new DevelopmentContext(_config.RunSeed, Generation));
+                var diagGraph = diagDev.CompileGraph(bestGenome, diagBudget, new DevelopmentContext(_config.RunSeed, Generation),
+                    MarketEvaluator.SignalCategoryMap, MarketEvaluator.RegimeStart, MarketEvaluator.RegimeEnd);
                 var diagBrain = new BrainRuntime(diagGraph, bestGenome.Learn, bestGenome.Stable, 1);
                 diagBrain.Step(new float[MarketAgent.InputCount], new BrainStepContext(0));
                 var diag = diagBrain.GetDiagnostics();
@@ -521,7 +560,9 @@ public sealed class MarketEvolution
             InnovationId: _innovations.NextInnovationId,
             MedianTradesPerAgent: medianTrades,
             TradingAgentCount: tradingAgentCount,
-            MaxTradesPerAgent: maxTradesPerAgent);
+            MaxTradesPerAgent: maxTradesPerAgent,
+            WorstFitness: fitnessesSorted[0],
+            NaNFitnessCount: sorted.Count(e => float.IsNaN(e.Fitness.RawSharpe) || float.IsNaN(e.Fitness.Fitness)));
     }
 
     public List<(int SpeciesId, string RepresentativeJson, int StagnationCounter, float BestFitness)> GetSpeciesState()
@@ -608,5 +649,7 @@ public readonly record struct GenerationReport(
     int InnovationId = 0,
     float MedianTradesPerAgent = 0f,
     int TradingAgentCount = 0,
-    int MaxTradesPerAgent = 0
+    int MaxTradesPerAgent = 0,
+    float WorstFitness = 0f,
+    int NaNFitnessCount = 0
 );

@@ -44,10 +44,22 @@ public interface IBrain
 {
     ReadOnlySpan<float> Step(ReadOnlySpan<float> inputs, in BrainStepContext ctx);
     void Learn(ReadOnlySpan<float> modulators, in BrainLearnContext ctx);
-    
-    IBrainGraph ExportGraph();
     void Reset();
-    
+
+    /// <summary>
+    /// Read-only access to the current activation state of all nodes.
+    /// </summary>
+    ReadOnlySpan<float> GetActivations();
+
+    /// <summary>
+    /// Snapshot the brain's current learned weights into an exportable graph.
+    /// </summary>
+    IBrainGraph ExportGraph();
+
+    /// <summary>
+    /// Fraction of node activations that are saturated (|a| > 0.95).
+    /// Returns 0 if no activations have been tracked yet.
+    /// </summary>
     float GetInstabilityPenalty();
 }
 
@@ -63,48 +75,6 @@ public interface IBrainGraph
     int EdgeCount { get; }
     
     string ToJson();
-}
-
-/// <summary>
-/// Agent body interface - sensors and actuators.
-/// </summary>
-public interface IAgentBody
-{
-    int SensorCount { get; }
-    int ActuatorCount { get; }
-    
-    void Reset(in BodyResetContext ctx);
-    void ReadSensors(Span<float> sensorBuffer);
-    void ApplyActions(ReadOnlySpan<float> actionBuffer);
-    void ApplyWorldSignals(in WorldSignals signals);
-    BodyState GetState();
-}
-
-/// <summary>
-/// World interface - simulation environment.
-/// </summary>
-public interface IWorld
-{
-    void Reset(ulong worldSeed, in WorldBudget budget);
-    WorldStepResult Step(ReadOnlySpan<float> actions);
-    
-    // Sensor queries for the agent
-    (float distance, int hitType) Raycast(float originX, float originY, float dirX, float dirY, float maxDistance);
-    float RaycastDistance(float originX, float originY, float dirX, float dirY, float maxDistance);
-    int RaycastType(float originX, float originY, float dirX, float dirY, float maxDistance);
-    (float dx, float dy) FoodGradient(float x, float y);
-    (float s0, float s1) NearbySignals(float x, float y);
-    (float dx, float dy) SignalGradient(float x, float y);
-    float NearestAgentEnergy(float x, float y);
-    float NearbyAgentDensity(float x, float y);
-    (float shareReceived, float attackReceived) InteractionFeedback();
-    
-    // State queries
-    float AgentX { get; }
-    float AgentY { get; }
-    float AgentHeading { get; }
-    float AgentSpeed { get; }
-    float LightLevel { get; }
 }
 
 /// <summary>

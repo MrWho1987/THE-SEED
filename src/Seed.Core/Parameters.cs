@@ -29,9 +29,9 @@ public sealed record LearningParams(
     float AlphaReward = 1.0f,               // αR
     float AlphaPain = -1.0f,                // αP (negative to convert pain to punishment)
     float AlphaCuriosity = 0.25f,           // αC
+    float AlphaRisk = -0.5f,               // αRisk (negative to penalize risky states)
     float BetaConsolidate = 0.01f,          // β (slow weight update rate)
     float GammaRecall = 0.01f,              // γ (fast weight recall from slow)
-    int CriticalPeriodTicks = 1000,         // ticks over which Eta decays to 10% (deprecated, use CriticalPeriodHours)
     float CriticalPeriodHours = 1000f       // hours over which Eta decays to 10%
 )
 {
@@ -60,8 +60,6 @@ public sealed record SpeciationConfig(
     float C2 = 1.0f,                        // disjoint gene coefficient
     float C3 = 0.4f,                        // weight difference coefficient
     float CompatibilityThreshold = 3.0f,    // species boundary
-    float ShareSigma = 3.0f,                // fitness sharing sigma
-    float ShareAlpha = 1.0f,                // fitness sharing exponent
     int TournamentSize = 3                  // tournament selection size for parent selection
 )
 {
@@ -108,12 +106,11 @@ public sealed record AblationConfig(
     bool LearningEnabled = true,
     bool CuriosityEnabled = true,
     bool HomeostasisEnabled = true,
-    bool EvolutionEnabled = true,
-    bool RandomActionsEnabled = false,
-    bool PredictionErrorCuriosity = false,
     bool ModulatoryEdgesEnabled = true,
+    bool MemoryEdgesEnabled = true,
     bool SynapticDelaysEnabled = true,
-    bool RecurrenceEnabled = true
+    bool RecurrenceEnabled = true,
+    bool RegimeGatingEnabled = true
 )
 {
     public static AblationConfig Default => new();

@@ -12,11 +12,13 @@ namespace Seed.Market.Backtest;
 public sealed class HistoricalDataStore
 {
     private readonly string _cacheDir;
+    private readonly string _interval;
     private readonly HttpClient _client;
 
-    public HistoricalDataStore(string cacheDir = "data_cache")
+    public HistoricalDataStore(string cacheDir = "data_cache", string interval = "1h")
     {
         _cacheDir = cacheDir;
+        _interval = interval;
         _client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
         _client.DefaultRequestHeaders.Add("User-Agent", "SeedMarket/1.0");
         Directory.CreateDirectory(_cacheDir);
@@ -30,7 +32,7 @@ public sealed class HistoricalDataStore
         string symbol, DateTimeOffset start, DateTimeOffset end)
     {
         var cacheFile = Path.Combine(_cacheDir,
-            $"{symbol}_{start:yyyyMMdd}_{end:yyyyMMdd}_1h.jsonl");
+            $"{symbol}_{start:yyyyMMdd}_{end:yyyyMMdd}_{_interval}.jsonl");
 
         if (File.Exists(cacheFile))
         {
@@ -53,7 +55,7 @@ public sealed class HistoricalDataStore
         while (startMs < endMs)
         {
             var url = $"https://api.binance.com/api/v3/klines?symbol={symbol}" +
-                      $"&interval=1h&startTime={startMs}&endTime={endMs}&limit=1000";
+                      $"&interval={_interval}&startTime={startMs}&endTime={endMs}&limit=1000";
 
             var json = await _client.GetStringAsync(url);
             var arr = JsonSerializer.Deserialize<JsonElement>(json);
@@ -88,7 +90,8 @@ public sealed class HistoricalDataStore
     /// </summary>
     public static (SignalSnapshot[] snapshots, float[] prices, float[] rawVolumes, float[] rawFundingRates) CandlesToSignals(
         TechnicalIndicators.Candle[] candles,
-        Dictionary<int, float[]>? enrichment = null)
+        Dictionary<int, float[]>? enrichment = null,
+        int barsPerHour = 1)
     {
         int n = candles.Length;
         var normalizer = new SignalNormalizer();
@@ -118,6 +121,12 @@ public sealed class HistoricalDataStore
                 rawFundingRates[i] = fundingArr[i];
         }
 
+        int ret4hBars = 4 * barsPerHour;
+        int ret24hBars = 24 * barsPerHour;
+        int vwapWindow = 24 * barsPerHour;
+        int volWindow = 24 * barsPerHour;
+        int taMinBars = Math.Max(26, ret24hBars);
+
         var ema12 = TechnicalIndicators.ComputeEmaArray(closes, 12);
         var ema26 = TechnicalIndicators.ComputeEmaArray(closes, 26);
         var macdLine = new float[n];
@@ -127,9 +136,9 @@ public sealed class HistoricalDataStore
         var atrArr = TechnicalIndicators.ComputeAtrArray(highs, lows, closes, 14);
         var bbArr = TechnicalIndicators.ComputeBollingerArray(closes, 20, 2f);
         var obvSlopeArr = TechnicalIndicators.ComputeObvSlopeArray(closes, volumes, 14);
-        var vwapArr = TechnicalIndicators.ComputeVwapArray(candles, 24);
+        var vwapArr = TechnicalIndicators.ComputeVwapArray(candles, vwapWindow);
 
-        var rollingVol = ComputeRollingVolatility(closes, 24);
+        var rollingVol = ComputeRollingVolatility(closes, volWindow);
 
         for (int i = 0; i < n; i++)
         {
@@ -141,14 +150,14 @@ public sealed class HistoricalDataStore
                 ? (c.Close - closes[i - 1]) / closes[i - 1] : 0f;
             raw[SignalIndex.BtcVolume1h] = c.Volume;
 
-            if (i >= 4)
-                raw[SignalIndex.BtcReturn4h] = closes[i - 4] > 0
-                    ? (c.Close - closes[i - 4]) / closes[i - 4] : 0f;
-            if (i >= 24)
-                raw[SignalIndex.BtcReturn24h] = closes[i - 24] > 0
-                    ? (c.Close - closes[i - 24]) / closes[i - 24] : 0f;
+            if (i >= ret4hBars)
+                raw[SignalIndex.BtcReturn4h] = closes[i - ret4hBars] > 0
+                    ? (c.Close - closes[i - ret4hBars]) / closes[i - ret4hBars] : 0f;
+            if (i >= ret24hBars)
+                raw[SignalIndex.BtcReturn24h] = closes[i - ret24hBars] > 0
+                    ? (c.Close - closes[i - ret24hBars]) / closes[i - ret24hBars] : 0f;
 
-            if (i >= 26)
+            if (i >= taMinBars)
             {
                 raw[SignalIndex.Rsi14] = rsiArr[i];
                 raw[SignalIndex.Ema12] = ema12[i];
@@ -198,6 +207,20 @@ public sealed class HistoricalDataStore
                 0f, 1f);
 
             snapshots[i] = normalizer.Normalize(raw, c.Time, i);
+        }
+
+        // Skip warmup bars so normalizer statistics are stable.
+        // Only skip when we have enough data (>1000 bars); short test datasets pass through unchanged.
+        const int WarmupBars = 500;
+        int skip = n > 1000 ? WarmupBars : 0;
+        if (skip > 0)
+        {
+            return (
+                snapshots[skip..],
+                prices[skip..],
+                rawVolumes[skip..],
+                rawFundingRates[skip..]
+            );
         }
 
         return (snapshots, prices, rawVolumes, rawFundingRates);

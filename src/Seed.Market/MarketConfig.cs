@@ -45,6 +45,7 @@ public sealed record MarketConfig
     public float ActivityBonusScale { get; init; } = 0f;
     public float RatioClampMax { get; init; } = 10f;
     public float ReturnFloor { get; init; } = -0.50f;
+    public float OpenPositionPenalty { get; init; } = 0.05f;
 
     // ── Species Diversity ──
     public int TargetSpeciesMin { get; init; } = 10;
@@ -53,6 +54,7 @@ public sealed record MarketConfig
     public int MinOffspringPerSpecies { get; init; } = 1;
     public int MinSpeciesSizeForElitism { get; init; } = 2;
     public int StagnationLimit { get; init; } = 25;
+    public float MinStagnationImprovement { get; init; } = 0.005f;
     public float DiversityBonusScale { get; init; } = 0.02f;
     public int DiversityKNeighbors { get; init; } = 5;
 
@@ -61,14 +63,30 @@ public sealed record MarketConfig
     public int MaxBrainEdges { get; init; } = 2000;
 
     // ── Data Feeds ──
+    public string CandleInterval { get; init; } = "1h";
     public int SpotPollMs { get; init; } = 5000;
     public int FuturesPollMs { get; init; } = 15000;
     public int SentimentPollMs { get; init; } = 300_000;
     public int OnChainPollMs { get; init; } = 3_600_000;
     public int MacroPollMs { get; init; } = 3_600_000;
 
-    // ── API Keys (optional) ──
+    // ── Protective Stop-Loss ──
+    public decimal StopLossPct { get; init; } = 0.02m;
+
+    // ── Computed Interval Helpers (not serialized) ──
+    [JsonIgnore] public int BarDurationMinutes => CandleInterval switch
+    {
+        "1m" => 1, "3m" => 3, "5m" => 5, "15m" => 15, "30m" => 30,
+        "1h" => 60, "2h" => 120, "4h" => 240, _ => 60
+    };
+    [JsonIgnore] public int BarsPerHour => 60 / BarDurationMinutes;
+    [JsonIgnore] public long BarDurationMs => BarDurationMinutes * 60_000L;
+
+    // ── API Keys (optional, never commit real keys) ──
     public string? CoinGeckoApiKey { get; init; }
+    public string? CoinglassApiKey { get; init; }
+    public string? BinanceApiKey { get; init; }
+    public string? BinanceApiSecret { get; init; }
 
     // ── Execution Mode ──
     [JsonConverter(typeof(JsonStringEnumConverter))]
@@ -109,7 +127,24 @@ public sealed record MarketConfig
     public static MarketConfig Load(string path)
     {
         var json = File.ReadAllText(path);
-        return JsonSerializer.Deserialize<MarketConfig>(json, JsonOpts) ?? new MarketConfig();
+        var config = JsonSerializer.Deserialize<MarketConfig>(json, JsonOpts) ?? new MarketConfig();
+        config.Validate();
+        return config;
+    }
+
+    public void Validate()
+    {
+        float sum = FitnessSharpeWeight + FitnessSortinoWeight + FitnessReturnWeight
+                  + FitnessDrawdownDurationWeight + FitnessCVaRWeight;
+        if (MathF.Abs(sum - 1.0f) > 0.01f)
+            throw new InvalidOperationException(
+                $"Fitness weights must sum to 1.0, got {sum:F3} " +
+                $"(Sharpe={FitnessSharpeWeight}, Sortino={FitnessSortinoWeight}, Return={FitnessReturnWeight}, " +
+                $"DD={FitnessDrawdownDurationWeight}, CVaR={FitnessCVaRWeight})");
+
+        if (BarsPerHour <= 0)
+            throw new InvalidOperationException(
+                $"BarsPerHour must be > 0 (derived from CandleInterval '{CandleInterval}'), got {BarsPerHour}");
     }
 
     public void Save(string path)

@@ -21,7 +21,7 @@ public sealed class BacktestRunner
         _config = config;
         CacheDir = config.DataCacheDirectory
             ?? Path.Combine(config.OutputDirectory, "data_cache");
-        _store = new HistoricalDataStore(CacheDir);
+        _store = new HistoricalDataStore(CacheDir, config.CandleInterval);
         _evaluator = new MarketEvaluator(config);
     }
 
@@ -38,11 +38,11 @@ public sealed class BacktestRunner
         EnrichmentReport? report = null;
         if (enrich)
         {
-            var enricher = new HistoricalSignalEnricher(CacheDir, _config.CoinGeckoApiKey);
+            var enricher = new HistoricalSignalEnricher(CacheDir, _config.CoinGeckoApiKey, _config.CandleInterval, _config.BarsPerHour, _config.CoinglassApiKey);
             (enrichment, report) = await enricher.EnrichAsync(candles, start, end);
         }
 
-        var signals = HistoricalDataStore.CandlesToSignals(candles, enrichment);
+        var signals = HistoricalDataStore.CandlesToSignals(candles, enrichment, _config.BarsPerHour);
         return (signals.snapshots, signals.prices, signals.rawVolumes, signals.rawFundingRates, report);
     }
 

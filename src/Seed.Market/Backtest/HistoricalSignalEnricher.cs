@@ -15,11 +15,18 @@ public sealed class HistoricalSignalEnricher
     private readonly string _cacheDir;
     private readonly HttpClient _client;
     private readonly string? _coinGeckoApiKey;
+    private readonly string? _coinglassApiKey;
+    private readonly string _interval;
+    private readonly int _barsPerHour;
 
-    public HistoricalSignalEnricher(string cacheDir, string? coinGeckoApiKey = null)
+    public HistoricalSignalEnricher(string cacheDir, string? coinGeckoApiKey = null,
+        string interval = "1h", int barsPerHour = 1, string? coinglassApiKey = null)
     {
         _cacheDir = cacheDir;
         _coinGeckoApiKey = coinGeckoApiKey;
+        _coinglassApiKey = coinglassApiKey;
+        _interval = interval;
+        _barsPerHour = barsPerHour;
         Directory.CreateDirectory(_cacheDir);
         _client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
         _client.DefaultRequestHeaders.Add("User-Agent", "SeedMarket/1.0");
@@ -168,6 +175,28 @@ public sealed class HistoricalSignalEnricher
             report.Sources.Add(new("Derivatives (Binance)", DataSourceStatus.Failed, 0, Error: ex.Message));
         }
 
+        // Coinglass: Liquidation history + Exchange balance
+        if (!string.IsNullOrEmpty(_coinglassApiKey))
+        {
+            try
+            {
+                Console.WriteLine("[ENRICH] Downloading Coinglass liquidation + exchange balance...");
+                int slotsAdded = await EnrichFromCoinglass(result, timestamps, n, start, end);
+                Console.WriteLine($"[ENRICH] +Coinglass: {slotsAdded} slots");
+                report.Sources.Add(new("Coinglass (Liquidation + Exchange)", DataSourceStatus.Success, slotsAdded));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ENRICH] Coinglass failed: {ex.Message}");
+                report.Sources.Add(new("Coinglass", DataSourceStatus.Failed, 0, Error: ex.Message));
+            }
+        }
+        else
+        {
+            Console.WriteLine("[ENRICH] No CoinglassApiKey — skipping liquidation + exchange balance enrichment");
+            report.Sources.Add(new("Coinglass", DataSourceStatus.Empty, 0, Error: "No API key configured"));
+        }
+
         Console.WriteLine($"[ENRICH] Complete: {CountSlots(result)} enrichment slots populated");
         return (result, report);
     }
@@ -201,7 +230,7 @@ public sealed class HistoricalSignalEnricher
         result[SignalIndex.EthVolume1h] = ethVolume;
     }
 
-    private static void AddMultiAssetSignals(
+    private void AddMultiAssetSignals(
         Dictionary<int, float[]> result,
         float[] btcCloses, TechnicalIndicators.Candle[] eth, int n)
     {
@@ -220,7 +249,8 @@ public sealed class HistoricalSignalEnricher
         var ethMom = new float[n];
         var momDiv = new float[n];
 
-        const int window = 24;
+        int window = 24 * _barsPerHour;
+        int momLookback = 12 * _barsPerHour;
         for (int i = 0; i < n; i++)
         {
             spread[i] = btcCloses[i] > 0 && ethCloses[i] > 0
@@ -234,10 +264,10 @@ public sealed class HistoricalSignalEnricher
                 volRatio[i] = ethVol[i] > 0 ? btcVol[i] / ethVol[i] : 1f;
             }
 
-            btcMom[i] = i >= 12 && btcCloses[i - 12] > 0
-                ? (btcCloses[i] - btcCloses[i - 12]) / btcCloses[i - 12] : 0f;
-            ethMom[i] = i >= 12 && ethCloses[i - 12] > 0
-                ? (ethCloses[i] - ethCloses[i - 12]) / ethCloses[i - 12] : 0f;
+            btcMom[i] = i >= momLookback && btcCloses[i - momLookback] > 0
+                ? (btcCloses[i] - btcCloses[i - momLookback]) / btcCloses[i - momLookback] : 0f;
+            ethMom[i] = i >= momLookback && ethCloses[i - momLookback] > 0
+                ? (ethCloses[i] - ethCloses[i - momLookback]) / ethCloses[i - momLookback] : 0f;
             momDiv[i] = btcMom[i] - ethMom[i];
         }
 
@@ -251,9 +281,10 @@ public sealed class HistoricalSignalEnricher
         result[SignalIndex.MomentumDivergence] = momDiv;
     }
 
-    private static void AddBtcVolumeRatio(
+    private void AddBtcVolumeRatio(
         Dictionary<int, float[]> result, TechnicalIndicators.Candle[] btc, int n)
     {
+        int windowSize = 24 * _barsPerHour;
         var ratio = new float[n];
         float sum = 0;
         var window = new Queue<float>();
@@ -262,7 +293,7 @@ public sealed class HistoricalSignalEnricher
             float vol = btc[i].Volume;
             window.Enqueue(vol);
             sum += vol;
-            while (window.Count > 24) sum -= window.Dequeue();
+            while (window.Count > windowSize) sum -= window.Dequeue();
             float avg = sum / window.Count;
             ratio[i] = avg > 0 ? vol / avg : 1f;
         }
@@ -284,7 +315,7 @@ public sealed class HistoricalSignalEnricher
         foreach (var (sym, name) in symbols)
         {
             var daily = await FetchYahooDaily(sym, name);
-            series[name] = ForwardFillToHourly(daily, ts, n, publicationDelayHours: 16);
+            series[name] = ForwardFillToBars(daily, ts, n, publicationDelayHours: 16);
             await Task.Delay(200);
         }
 
@@ -306,9 +337,10 @@ public sealed class HistoricalSignalEnricher
 
         var btcRet = ComputeReturns(btcCloses);
         var spRet = result[SignalIndex.Sp500Return];
+        int corrWindow = 720 * _barsPerHour;
         var corrArr = new float[n];
-        for (int i = 720; i < n; i++)
-            corrArr[i] = RollingCorrelation(btcRet, spRet, i, 720);
+        for (int i = corrWindow; i < n; i++)
+            corrArr[i] = RollingCorrelation(btcRet, spRet, i, corrWindow);
         result[SignalIndex.BtcSp500Correlation] = corrArr;
     }
 
@@ -361,7 +393,7 @@ public sealed class HistoricalSignalEnricher
         foreach (var (chart, slot) in charts)
         {
             var daily = await FetchBlockchainChart(chart);
-            var aligned = ForwardFillToHourly(daily, ts, n, publicationDelayHours: 24);
+            var aligned = ForwardFillToBars(daily, ts, n, publicationDelayHours: 24);
             result[slot] = aligned;
 
             if (slot == SignalIndex.HashRate) hashRate = aligned;
@@ -414,14 +446,15 @@ public sealed class HistoricalSignalEnricher
         Dictionary<int, float[]> result, DateTimeOffset[] ts, int n)
     {
         var daily = await FetchFearGreed();
-        var aligned = ForwardFillToHourly(daily, ts, n, publicationDelayHours: 24);
+        var aligned = ForwardFillToBars(daily, ts, n, publicationDelayHours: 24);
 
         result[SignalIndex.FearGreedIndex] = aligned;
 
+        int deltaWindow = 24 * _barsPerHour;
         var change = new float[n];
         var momentum = new float[n];
-        for (int i = 24; i < n; i++)
-            change[i] = aligned[i] - aligned[i - 24];
+        for (int i = deltaWindow; i < n; i++)
+            change[i] = aligned[i] - aligned[i - deltaWindow];
         for (int i = 1; i < n; i++)
             momentum[i] = aligned[i] - aligned[i - 1];
 
@@ -468,10 +501,10 @@ public sealed class HistoricalSignalEnricher
         await Task.Delay(3000);
         var usdcMcap = await FetchCoinGeckoMarketChart("usd-coin", "usdc_mcap");
 
-        var btcMcapAligned = ForwardFillToHourly(btcMcap, ts, n, publicationDelayHours: 1);
-        var ethMcapAligned = ForwardFillToHourly(ethMcap, ts, n, publicationDelayHours: 1);
-        var usdtAligned = ForwardFillToHourly(usdtMcap, ts, n, publicationDelayHours: 1);
-        var usdcAligned = ForwardFillToHourly(usdcMcap, ts, n, publicationDelayHours: 1);
+        var btcMcapAligned = ForwardFillToBars(btcMcap, ts, n, publicationDelayHours: 1);
+        var ethMcapAligned = ForwardFillToBars(ethMcap, ts, n, publicationDelayHours: 1);
+        var usdtAligned = ForwardFillToBars(usdtMcap, ts, n, publicationDelayHours: 1);
+        var usdcAligned = ForwardFillToBars(usdcMcap, ts, n, publicationDelayHours: 1);
 
         result[SignalIndex.UsdtMarketCap] = usdtAligned;
         result[SignalIndex.UsdcMarketCap] = usdcAligned;
@@ -496,9 +529,10 @@ public sealed class HistoricalSignalEnricher
             if (btcM > 0)
                 altseason[i] = ethM / btcM;
 
-            if (i >= 24)
+            int flowLookback = 24 * _barsPerHour;
+            if (i >= flowLookback)
             {
-                float prevStable = usdtAligned[i - 24] + usdcAligned[i - 24];
+                float prevStable = usdtAligned[i - flowLookback] + usdcAligned[i - flowLookback];
                 flowDelta[i] = prevStable > 0 ? (stableTotal - prevStable) / prevStable : 0f;
             }
         }
@@ -559,8 +593,8 @@ public sealed class HistoricalSignalEnricher
         var btcFunding = await FetchFundingRates("BTCUSDT", "btc_funding", start, end);
         var ethFunding = await FetchFundingRates("ETHUSDT", "eth_funding", start, end);
 
-        result[SignalIndex.FundingRate] = InterpolateFundingToHourly(btcFunding, ts, n);
-        result[SignalIndex.EthFundingRate] = InterpolateFundingToHourly(ethFunding, ts, n);
+        result[SignalIndex.FundingRate] = InterpolateFundingToBars(btcFunding, ts, n);
+        result[SignalIndex.EthFundingRate] = InterpolateFundingToBars(ethFunding, ts, n);
     }
 
     private async Task<List<(long UnixMs, float Value)>> FetchFundingRates(
@@ -610,7 +644,7 @@ public sealed class HistoricalSignalEnricher
         return data;
     }
 
-    private static float[] InterpolateFundingToHourly(
+    private static float[] InterpolateFundingToBars(
         List<(long UnixMs, float Value)> funding, DateTimeOffset[] ts, int n)
     {
         var result = new float[n];
@@ -651,7 +685,7 @@ public sealed class HistoricalSignalEnricher
             try
             {
                 var data = await FetchBinanceFuturesData(endpoint, symbol, cacheName, start, end, valueProp);
-                result[slot] = ForwardFillToHourly(data, ts, n);
+                result[slot] = ForwardFillToBars(data, ts, n);
                 await Task.Delay(200);
             }
             catch (Exception ex)
@@ -663,7 +697,7 @@ public sealed class HistoricalSignalEnricher
         try
         {
             var oiData = await FetchOpenInterestHistory("BTCUSDT", "btc_oi", start, end);
-            var oiAligned = ForwardFillToHourly(oiData, ts, n);
+            var oiAligned = ForwardFillToBars(oiData, ts, n);
             result[SignalIndex.OpenInterest] = oiAligned;
 
             var oiChange = new float[n];
@@ -676,7 +710,7 @@ public sealed class HistoricalSignalEnricher
         try
         {
             var ethOi = await FetchOpenInterestHistory("ETHUSDT", "eth_oi", start, end);
-            result[SignalIndex.EthOpenInterest] = ForwardFillToHourly(ethOi, ts, n);
+            result[SignalIndex.EthOpenInterest] = ForwardFillToBars(ethOi, ts, n);
         }
         catch (Exception ex) { Console.WriteLine($"[ENRICH] ETH OI failed: {ex.Message}"); }
     }
@@ -702,7 +736,7 @@ public sealed class HistoricalSignalEnricher
             try
             {
                 var url = $"https://fapi.binance.com{endpoint}?symbol={symbol}" +
-                          $"&period=1h&startTime={startMs}&endTime={endMs}&limit={limit}";
+                          $"&period={_interval}&startTime={startMs}&endTime={endMs}&limit={limit}";
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
                 var json = await _client.GetStringAsync(url, cts.Token);
                 var arr = JsonSerializer.Deserialize<JsonElement>(json);
@@ -750,7 +784,7 @@ public sealed class HistoricalSignalEnricher
             try
             {
                 var url = $"https://fapi.binance.com/futures/data/openInterestHist?symbol={symbol}" +
-                          $"&period=1h&startTime={startMs}&endTime={endMs}&limit={limit}";
+                          $"&period={_interval}&startTime={startMs}&endTime={endMs}&limit={limit}";
                 using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
                 var json = await _client.GetStringAsync(url, cts.Token);
                 var arr = JsonSerializer.Deserialize<JsonElement>(json);
@@ -784,7 +818,7 @@ public sealed class HistoricalSignalEnricher
         string symbol, DateTimeOffset start, DateTimeOffset end)
     {
         var cache = Path.Combine(_cacheDir,
-            $"{symbol}_{start:yyyyMMdd}_{end:yyyyMMdd}_1h.jsonl");
+            $"{symbol}_{start:yyyyMMdd}_{end:yyyyMMdd}_{_interval}.jsonl");
 
         if (File.Exists(cache))
         {
@@ -799,7 +833,7 @@ public sealed class HistoricalSignalEnricher
         while (startMs < endMs)
         {
             var url = $"https://api.binance.com/api/v3/klines?symbol={symbol}" +
-                      $"&interval=1h&startTime={startMs}&endTime={endMs}&limit=1000";
+                      $"&interval={_interval}&startTime={startMs}&endTime={endMs}&limit=1000";
             var json = await _client.GetStringAsync(url);
             var arr = JsonSerializer.Deserialize<JsonElement>(json);
             int count = arr.GetArrayLength();
@@ -849,9 +883,9 @@ public sealed class HistoricalSignalEnricher
     }
 
     /// <summary>
-    /// Forward-fill a daily (or irregular) time series to align with hourly candle timestamps.
+    /// Forward-fill a daily (or irregular) time series to align with bar timestamps.
     /// </summary>
-    private static float[] ForwardFillToHourly(
+    private static float[] ForwardFillToBars(
         List<(long UnixMs, float Value)> daily, DateTimeOffset[] ts, int n,
         int publicationDelayHours = 0)
     {
@@ -997,4 +1031,139 @@ public sealed class HistoricalSignalEnricher
 
     private static float Pf(JsonElement el) =>
         float.Parse(el.GetString()!, CultureInfo.InvariantCulture);
+
+    // ── Coinglass Enrichment ─────────────────────────────────────
+
+    private async Task<int> EnrichFromCoinglass(
+        Dictionary<int, float[]> result,
+        DateTimeOffset[] timestamps, int n,
+        DateTimeOffset start, DateTimeOffset end)
+    {
+        const string baseUrl = "https://open-api-v4.coinglass.com";
+        const float liquidationScale = 10_000_000f;
+        const float netFlowScale = 5_000f;
+        const float circulatingSupply = 20_000_000f;
+        int slotsAdded = 0;
+
+        // 1. Liquidation history (4h interval)
+        try
+        {
+            var liqLong = new float[n];
+            var liqShort = new float[n];
+            long startMs = start.ToUnixTimeMilliseconds();
+            long endMs = end.ToUnixTimeMilliseconds();
+
+            var liqJson = await CoinglassFetch(
+                $"{baseUrl}/api/futures/liquidation/aggregated-history?symbol=BTC&interval=4h&limit=1000&exchange_list=Binance&start_time={startMs}&end_time={endMs}");
+
+            var liqDoc = JsonSerializer.Deserialize<JsonElement>(liqJson);
+            if (liqDoc.TryGetProperty("data", out var liqData) && liqData.ValueKind == JsonValueKind.Array)
+            {
+                var liqPoints = new List<(long time, float longUsd, float shortUsd)>();
+                foreach (var entry in liqData.EnumerateArray())
+                {
+                    long t = entry.GetProperty("time").GetInt64();
+                    float longVal = (float)entry.GetProperty("aggregated_long_liquidation_usd").GetDouble();
+                    float shortVal = (float)entry.GetProperty("aggregated_short_liquidation_usd").GetDouble();
+                    liqPoints.Add((t, longVal, shortVal));
+                }
+
+                // Forward-fill to bar timestamps
+                int pi = 0;
+                for (int i = 0; i < n; i++)
+                {
+                    long barMs = timestamps[i].ToUnixTimeMilliseconds();
+                    while (pi < liqPoints.Count - 1 && liqPoints[pi + 1].time <= barMs)
+                        pi++;
+                    if (pi < liqPoints.Count && liqPoints[pi].time <= barMs)
+                    {
+                        liqLong[i] = Math.Clamp(liqPoints[pi].longUsd / liquidationScale, 0f, 1f);
+                        liqShort[i] = Math.Clamp(liqPoints[pi].shortUsd / liquidationScale, 0f, 1f);
+                    }
+                }
+
+                result[SignalIndex.LiquidationLong1h] = liqLong;
+                result[SignalIndex.LiquidationShort1h] = liqShort;
+                slotsAdded += 2;
+            }
+            await Task.Delay(200); // Rate limit courtesy
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ENRICH] Coinglass liquidation history failed: {ex.Message}");
+        }
+
+        // 2. Exchange balance (daily) → SupplyOnExchanges + ExchangeNetFlow
+        try
+        {
+            var supplyOnExch = new float[n];
+            var netFlow = new float[n];
+
+            var balJson = await CoinglassFetch(
+                $"{baseUrl}/api/exchange/balance/chart?symbol=BTC&range=1d");
+
+            var balDoc = JsonSerializer.Deserialize<JsonElement>(balJson);
+            if (balDoc.TryGetProperty("data", out var balData) &&
+                balData.TryGetProperty("time_list", out var timeList))
+            {
+                // Sum all exchange balances per timestamp
+                int timeCount = timeList.GetArrayLength();
+                var dailyBalances = new (long time, float balance)[timeCount];
+
+                for (int t = 0; t < timeCount; t++)
+                    dailyBalances[t].time = timeList[t].GetInt64();
+
+                // Sum across all exchanges for each timestamp
+                foreach (var prop in balData.EnumerateObject())
+                {
+                    if (prop.Name == "time_list") continue;
+                    if (!prop.Value.TryGetProperty("price_list", out var priceList)) continue;
+                    int len = priceList.GetArrayLength();
+                    for (int t = 0; t < Math.Min(len, timeCount); t++)
+                    {
+                        if (priceList[t].ValueKind == JsonValueKind.Number)
+                            dailyBalances[t].balance += (float)priceList[t].GetDouble();
+                    }
+                }
+
+                // Forward-fill daily balances to bar timestamps
+                int pi = 0;
+                float prevBal = 0f;
+                for (int i = 0; i < n; i++)
+                {
+                    long barMs = timestamps[i].ToUnixTimeMilliseconds();
+                    while (pi < dailyBalances.Length - 1 && dailyBalances[pi + 1].time <= barMs)
+                        pi++;
+                    if (pi < dailyBalances.Length && dailyBalances[pi].time <= barMs)
+                    {
+                        float bal = dailyBalances[pi].balance;
+                        supplyOnExch[i] = Math.Clamp(bal / circulatingSupply, 0f, 1f);
+
+                        if (prevBal > 0)
+                            netFlow[i] = Math.Clamp((bal - prevBal) / netFlowScale, -1f, 1f);
+                        prevBal = bal;
+                    }
+                }
+
+                result[SignalIndex.SupplyOnExchanges] = supplyOnExch;
+                result[SignalIndex.ExchangeNetFlow] = netFlow;
+                slotsAdded += 2;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ENRICH] Coinglass exchange balance failed: {ex.Message}");
+        }
+
+        return slotsAdded;
+    }
+
+    private async Task<string> CoinglassFetch(string url)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        request.Headers.Add("CG-API-KEY", _coinglassApiKey);
+        var response = await _client.SendAsync(request);
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadAsStringAsync();
+    }
 }

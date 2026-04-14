@@ -19,45 +19,62 @@ public sealed class DataAggregator : IDisposable
     private long _tick;
     private readonly object _lock = new();
     private float _prevCumulativeVolume;
-    private int _lastCandleHour = -1;
+    private long _lastBarPeriod = -1;
+    private readonly long _barDurationMs;
+    private readonly int _barsPerHour;
+    private readonly int _maxCandleHistory;
 
     public DateTimeOffset LastTickTime { get; private set; }
 
-    /// <summary>Raw (un-normalized) BTC price from the last tick — for portfolio tracking in paper/live mode.</summary>
+    /// <summary>Raw (un-normalized) BTC price from the last tick -- for portfolio tracking in paper/live mode.</summary>
     public float LastRawBtcPrice { get; private set; }
 
-    /// <summary>Raw hourly BTC volume from the last tick.</summary>
+    /// <summary>Raw bar BTC volume from the last tick.</summary>
     public float LastRawVolume { get; private set; }
 
     /// <summary>Raw funding rate from the last tick.</summary>
     public float LastRawFundingRate { get; private set; }
 
-    private readonly Queue<float> _hourlyBtcReturns = new();
-    private readonly Queue<float> _hourlyEthReturns = new();
-    private readonly Queue<float> _hourlySpxReturns = new();
-    private readonly Queue<float> _hourlyBtcPrices = new();
-    private readonly Queue<float> _hourlyEthPrices = new();
-    private float _lastHourlyBtcPrice;
-    private float _lastHourlyEthPrice;
-    private int _derivedLastHour = -1;
+    private readonly Queue<float> _barBtcReturns = new();
+    private readonly Queue<float> _barEthReturns = new();
+    private readonly Queue<float> _barSpxReturns = new();
+    private readonly Queue<float> _barBtcPrices = new();
+    private readonly Queue<float> _barEthPrices = new();
+    private float _lastBarBtcPrice;
+    private float _lastBarEthPrice;
+    private long _derivedLastPeriod = -1;
     private float _prevRegimeVolatility;
-    private const int VolWindow = 24;
-    private const int CorrWindow = 168;
+    private readonly int _corrWindow;
+    private readonly int _momentumLookback;
 
     public DataAggregator(MarketConfig? config = null)
     {
         _client = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
         _client.DefaultRequestHeaders.Add("User-Agent", "SeedMarket/1.0");
 
-        _feeds =
-        [
-            new BinanceSpotFeed(),
-            new BinanceFuturesFeed(),
+        _barsPerHour = config?.BarsPerHour ?? 1;
+        _barDurationMs = config?.BarDurationMs ?? 3_600_000L;
+        _corrWindow = 168 * _barsPerHour;
+        _momentumLookback = 12 * _barsPerHour;
+        _maxCandleHistory = 200 * _barsPerHour;
+
+        string interval = config?.CandleInterval ?? "1h";
+        var feeds = new List<IDataFeed>
+        {
+            new BinanceSpotFeed(interval, _barsPerHour),
+            new BinanceFuturesFeed(interval),
             new SentimentFeed(),
             new OnChainFeed(),
             new MacroFeed(),
             new StablecoinFeed()
-        ];
+        };
+
+        if (!string.IsNullOrEmpty(config?.CoinglassApiKey))
+            feeds.Add(new CoinglassFeed(config.CoinglassApiKey));
+        else
+            Console.Error.WriteLine("[DataAggregator] WARNING: No CoinglassApiKey configured — liquidation, exchange flow, and supply signals will be zero");
+
+        _feeds = feeds.ToArray();
 
         _lastFeedUpdate = new DateTimeOffset[_feeds.Length];
         _normalizer = new SignalNormalizer();
@@ -163,16 +180,16 @@ public sealed class DataAggregator : IDisposable
         if (volumeIncrement < 0) volumeIncrement = cumulativeVol;
         _prevCumulativeVolume = cumulativeVol;
 
-        int currentHour = now.Hour;
-        bool newHour = _candleHistory.Count == 0 || currentHour != _lastCandleHour;
+        long currentPeriod = now.ToUnixTimeMilliseconds() / _barDurationMs;
+        bool newBar = _candleHistory.Count == 0 || currentPeriod != _lastBarPeriod;
 
-        if (newHour)
+        if (newBar)
         {
-            _lastCandleHour = currentHour;
+            _lastBarPeriod = currentPeriod;
             _candleHistory.Add(new TechnicalIndicators.Candle(
                 price, price, price, price, volumeIncrement, now));
 
-            while (_candleHistory.Count > 200)
+            while (_candleHistory.Count > _maxCandleHistory)
                 _candleHistory.RemoveAt(0);
         }
         else
@@ -228,7 +245,7 @@ public sealed class DataAggregator : IDisposable
         _rawSignals[SignalIndex.RedditSentiment] = 0f;
         _rawSignals[SignalIndex.RedditPostVolume] = 0f;
         _rawSignals[SignalIndex.SocialBullBearRatio] = 0f;
-        _rawSignals[SignalIndex.FuturesPremium] = 0f;
+        // FuturesPremium: computed by BinanceFuturesFeed, available in both paths — do NOT zero
     }
 
     private void ComputeDerivedSignals()
@@ -239,38 +256,38 @@ public sealed class DataAggregator : IDisposable
         _rawSignals[SignalIndex.BtcEthSpread] = btcPrice > 0 && ethPrice > 0
             ? ethPrice / btcPrice : 0f;
 
-        int currentHour = LastTickTime.Hour;
-        bool newHour = _derivedLastHour != -1 && currentHour != _derivedLastHour;
+        long currentPeriod = LastTickTime.ToUnixTimeMilliseconds() / _barDurationMs;
+        bool newBar = _derivedLastPeriod != -1 && currentPeriod != _derivedLastPeriod;
 
-        if (newHour && btcPrice > 0)
+        if (newBar && btcPrice > 0)
         {
-            float btcRet = _lastHourlyBtcPrice > 0
-                ? (btcPrice - _lastHourlyBtcPrice) / _lastHourlyBtcPrice : 0f;
-            float ethRet = _lastHourlyEthPrice > 0
-                ? (ethPrice - _lastHourlyEthPrice) / _lastHourlyEthPrice : 0f;
+            float btcRet = _lastBarBtcPrice > 0
+                ? (btcPrice - _lastBarBtcPrice) / _lastBarBtcPrice : 0f;
+            float ethRet = _lastBarEthPrice > 0
+                ? (ethPrice - _lastBarEthPrice) / _lastBarEthPrice : 0f;
             float spxRet = _rawSignals[SignalIndex.Sp500Return];
 
-            _hourlyBtcReturns.Enqueue(btcRet); if (_hourlyBtcReturns.Count > CorrWindow) _hourlyBtcReturns.Dequeue();
-            _hourlyEthReturns.Enqueue(ethRet); if (_hourlyEthReturns.Count > CorrWindow) _hourlyEthReturns.Dequeue();
-            _hourlySpxReturns.Enqueue(spxRet); if (_hourlySpxReturns.Count > CorrWindow) _hourlySpxReturns.Dequeue();
-            _hourlyBtcPrices.Enqueue(btcPrice); if (_hourlyBtcPrices.Count > CorrWindow) _hourlyBtcPrices.Dequeue();
-            _hourlyEthPrices.Enqueue(ethPrice); if (_hourlyEthPrices.Count > CorrWindow) _hourlyEthPrices.Dequeue();
+            _barBtcReturns.Enqueue(btcRet); if (_barBtcReturns.Count > _corrWindow) _barBtcReturns.Dequeue();
+            _barEthReturns.Enqueue(ethRet); if (_barEthReturns.Count > _corrWindow) _barEthReturns.Dequeue();
+            _barSpxReturns.Enqueue(spxRet); if (_barSpxReturns.Count > _corrWindow) _barSpxReturns.Dequeue();
+            _barBtcPrices.Enqueue(btcPrice); if (_barBtcPrices.Count > _corrWindow) _barBtcPrices.Dequeue();
+            _barEthPrices.Enqueue(ethPrice); if (_barEthPrices.Count > _corrWindow) _barEthPrices.Dequeue();
 
-            _lastHourlyBtcPrice = btcPrice;
-            _lastHourlyEthPrice = ethPrice;
+            _lastBarBtcPrice = btcPrice;
+            _lastBarEthPrice = ethPrice;
         }
-        else if (_derivedLastHour == -1 && btcPrice > 0)
+        else if (_derivedLastPeriod == -1 && btcPrice > 0)
         {
-            _lastHourlyBtcPrice = btcPrice;
-            _lastHourlyEthPrice = ethPrice;
+            _lastBarBtcPrice = btcPrice;
+            _lastBarEthPrice = ethPrice;
         }
-        _derivedLastHour = currentHour;
+        _derivedLastPeriod = currentPeriod;
 
-        if (_hourlyBtcReturns.Count < 2) return;
+        if (_barBtcReturns.Count < 2) return;
 
-        var btcArr = _hourlyBtcReturns.ToArray();
-        var ethArr = _hourlyEthReturns.ToArray();
-        var spxArr = _hourlySpxReturns.ToArray();
+        var btcArr = _barBtcReturns.ToArray();
+        var ethArr = _barEthReturns.ToArray();
+        var spxArr = _barSpxReturns.ToArray();
 
         _rawSignals[SignalIndex.BtcSp500Correlation] = PearsonCorrelation(btcArr, spxArr);
         _rawSignals[SignalIndex.BtcEthCorrelation] = PearsonCorrelation(btcArr, ethArr);
@@ -279,11 +296,11 @@ public sealed class DataAggregator : IDisposable
         _rawSignals[SignalIndex.VolatilityRatio] = _rawSignals[SignalIndex.EthVolatility] > 0
             ? _rawSignals[SignalIndex.BtcVolatility] / _rawSignals[SignalIndex.EthVolatility] : 1f;
 
-        if (_hourlyBtcPrices.Count >= 12)
+        if (_barBtcPrices.Count >= _momentumLookback)
         {
-            var btcP = _hourlyBtcPrices.ToArray();
-            var ethP = _hourlyEthPrices.ToArray();
-            int lookback = Math.Min(12, btcP.Length);
+            var btcP = _barBtcPrices.ToArray();
+            var ethP = _barEthPrices.ToArray();
+            int lookback = Math.Min(_momentumLookback, btcP.Length);
             float btcOld = btcP[btcP.Length - lookback];
             float ethOld = ethP[ethP.Length - lookback];
             _rawSignals[SignalIndex.BtcMomentum] = btcOld > 0 ? (btcPrice - btcOld) / btcOld : 0f;

@@ -10,7 +10,8 @@ public enum BrainNodeType
 {
     Input = 0,
     Hidden = 1,
-    Output = 2
+    Output = 2,
+    Gate = 3
 }
 
 /// <summary>
@@ -75,8 +76,8 @@ public sealed record BrainGraphReserved(
 )
 {
     public static BrainGraphReserved Default => new(
-        ReservedKeys: ["v2_placeholder_0"],
-        ReservedValues: ["0"]
+        ReservedKeys: Array.Empty<string>(),
+        ReservedValues: Array.Empty<string>()
     );
 }
 
@@ -90,6 +91,8 @@ public sealed class BrainGraph : IBrainGraph
     public int InputCount { get; }
     public int OutputCount { get; }
     public int ModulatorCount { get; }
+    public int GateCount { get; }
+    public int[] SignalCategoryMap { get; }
     public BrainGraphReserved Reserved { get; }
 
     public int NodeCount => Nodes.Count;
@@ -101,13 +104,17 @@ public sealed class BrainGraph : IBrainGraph
         int inputCount,
         int outputCount,
         int modulatorCount,
-        BrainGraphReserved? reserved = null)
+        BrainGraphReserved? reserved = null,
+        int gateCount = 0,
+        int[]? signalCategoryMap = null)
     {
         Nodes = nodes;
         IncomingByDst = incomingByDst;
         InputCount = inputCount;
         OutputCount = outputCount;
         ModulatorCount = modulatorCount;
+        GateCount = gateCount;
+        SignalCategoryMap = signalCategoryMap ?? Array.Empty<int>();
         Reserved = reserved ?? BrainGraphReserved.Default;
     }
 
@@ -122,10 +129,12 @@ public sealed class BrainGraph : IBrainGraph
         var dto = new BrainGraphDto
         {
             Schema = "Seed.BrainGraph",
-            SchemaVersion = 1,
+            SchemaVersion = 3,
             InputCount = InputCount,
             OutputCount = OutputCount,
             ModulatorCount = ModulatorCount,
+            GateCount = GateCount,
+            SignalCategoryMap = SignalCategoryMap.Length > 0 ? SignalCategoryMap : null,
             Nodes = Nodes
                 .OrderBy(n => n.NodeId)
                 .Select(n => new BrainNodeDto
@@ -191,7 +200,9 @@ public sealed class BrainGraph : IBrainGraph
             dto.InputCount,
             dto.OutputCount,
             dto.ModulatorCount,
-            dto.Reserved
+            dto.Reserved,
+            dto.GateCount,
+            dto.SignalCategoryMap
         );
     }
 }
@@ -206,6 +217,8 @@ internal class BrainGraphDto
     public int ModulatorCount { get; set; }
     public List<BrainNodeDto> Nodes { get; set; } = new();
     public List<IncomingEdgesDto> IncomingEdges { get; set; } = new();
+    public int GateCount { get; set; }
+    public int[]? SignalCategoryMap { get; set; }
     public BrainGraphReserved Reserved { get; set; } = BrainGraphReserved.Default;
 }
 

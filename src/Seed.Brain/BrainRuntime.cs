@@ -17,6 +17,10 @@ public readonly record struct BrainDiagnostics(
 /// </summary>
 public sealed class BrainRuntime : IBrain
 {
+    private const float SaturationThreshold = 0.95f;
+    private const float EmaDecay = 0.99f;
+    private const float ActiveEdgeEpsilon = 1e-6f;
+
     private readonly BrainGraph _graph;
     private readonly LearningParams _learn;
     private readonly StabilityParams _stable;
@@ -39,8 +43,12 @@ public sealed class BrainRuntime : IBrain
 
     private readonly float[] _meanAbsActivation;
 
-    private int _saturatedCount;
-    private int _totalActivations;
+    private long _saturatedCount;
+    private long _totalActivations;
+
+    private readonly int _gateCount;
+    private readonly int _gateStartIndex;
+    private readonly int[] _signalCategoryMap;
 
     public BrainRuntime(BrainGraph graph, LearningParams learn, StabilityParams stable,
         int microStepsPerTick = 3, AblationConfig? ablation = null)
@@ -52,6 +60,18 @@ public sealed class BrainRuntime : IBrain
         _microStepsPerTick = microStepsPerTick;
 
         int nodeCount = graph.Nodes.Count;
+        for (int i = 0; i < nodeCount; i++)
+        {
+            if (graph.Nodes[i].NodeId < 0 || graph.Nodes[i].NodeId >= nodeCount)
+                throw new ArgumentException($"NodeIds must be contiguous [0, {nodeCount}). Found {graph.Nodes[i].NodeId}");
+        }
+
+        _gateCount = graph.GateCount;
+        _signalCategoryMap = graph.SignalCategoryMap;
+        _gateStartIndex = _gateCount > 0
+            ? graph.Nodes.First(n => n.Type == BrainNodeType.Gate).NodeId
+            : -1;
+
         _activations = new float[nodeCount];
         _prevActivations = new float[nodeCount];
         _meanAbsActivation = new float[nodeCount];
@@ -115,8 +135,6 @@ public sealed class BrainRuntime : IBrain
         _historyHead = 0;
     }
 
-    public ReadOnlySpan<float> GetActivations() => _activations;
-    
     public void Reset()
     {
         Array.Clear(_activations);
@@ -150,6 +168,34 @@ public sealed class BrainRuntime : IBrain
         for (int i = 0; i < _graph.InputCount && i < inputs.Length; i++)
             _activations[i] = inputs[i];
 
+        // Gate pre-pass: compute gate activations and scale inputs
+        if (_gateCount > 0)
+        {
+            for (int g = 0; g < _gateCount; g++)
+            {
+                int gateId = _gateStartIndex + g;
+                if (_graph.IncomingByDst.TryGetValue(gateId, out var gateEdges))
+                {
+                    float sum = 0f;
+                    int offset = _edgeOffsets[gateId];
+                    for (int e = 0; e < gateEdges.Count; e++)
+                        sum += _activations[gateEdges[e].SrcNodeId] * _wFast[offset + e];
+                    _activations[gateId] = 1f / (1f + MathF.Exp(-sum)); // sigmoid [0, 1]
+                }
+            }
+
+            // Apply gating to input signals
+            if (_ablation.RegimeGatingEnabled && _signalCategoryMap.Length > 0)
+            {
+                for (int i = 0; i < _graph.InputCount && i < _signalCategoryMap.Length; i++)
+                {
+                    int gateIdx = _signalCategoryMap[i];
+                    if (gateIdx >= 0 && gateIdx < _gateCount)
+                        _activations[i] *= _activations[_gateStartIndex + gateIdx];
+                }
+            }
+        }
+
         int steps = _ablation.RecurrenceEnabled ? _microStepsPerTick : 1;
         for (int micro = 0; micro < steps; micro++)
             UpdateActivations();
@@ -172,7 +218,7 @@ public sealed class BrainRuntime : IBrain
     {
         foreach (var node in _graph.Nodes)
         {
-            if (node.Type == BrainNodeType.Input)
+            if (node.Type == BrainNodeType.Input || node.Type == BrainNodeType.Gate)
                 continue;
 
             if (!_graph.IncomingByDst.TryGetValue(node.NodeId, out var edges))
@@ -239,20 +285,17 @@ public sealed class BrainRuntime : IBrain
 
     private void TrackStability()
     {
-        const float saturationThreshold = 0.95f;
-        const float emaDecay = 0.99f;
-
         foreach (var node in _graph.Nodes)
         {
             if (node.Type == BrainNodeType.Input)
                 continue;
 
             float absAct = MathF.Abs(_activations[node.NodeId]);
-            _meanAbsActivation[node.NodeId] = 
-                emaDecay * _meanAbsActivation[node.NodeId] + (1f - emaDecay) * absAct;
+            _meanAbsActivation[node.NodeId] =
+                EmaDecay * _meanAbsActivation[node.NodeId] + (1f - EmaDecay) * absAct;
 
             _totalActivations++;
-            if (absAct > saturationThreshold)
+            if (absAct > SaturationThreshold)
                 _saturatedCount++;
         }
     }
@@ -269,6 +312,8 @@ public sealed class BrainRuntime : IBrain
             M += _learn.AlphaPain * modulators[ModulatorIndex.Pain];
         if (modulators.Length > ModulatorIndex.Curiosity)
             M += _learn.AlphaCuriosity * modulators[ModulatorIndex.Curiosity];
+        if (modulators.Length > ModulatorIndex.Risk)
+            M += _learn.AlphaRisk * modulators[ModulatorIndex.Risk];
 
         float etaScale = _learn.CriticalPeriodHours > 0f
             ? MathF.Max(0.1f, 1f - ctx.ElapsedHours / _learn.CriticalPeriodHours)
@@ -298,9 +343,13 @@ public sealed class BrainRuntime : IBrain
                 float effectiveM;
                 if (_ablation.ModulatoryEdgesEnabled)
                 {
-                    effectiveM = edges[i].Meta.EdgeType == EdgeType.Modulatory
-                        ? M
-                        : M * (1f + localMod);
+                    var etype = edges[i].Meta.EdgeType;
+                    if (etype == EdgeType.Modulatory)
+                        effectiveM = M;
+                    else if (_ablation.MemoryEdgesEnabled && etype == EdgeType.Memory)
+                        effectiveM = 1f;
+                    else
+                        effectiveM = M * (1f + localMod);
                 }
                 else
                 {
@@ -342,37 +391,7 @@ public sealed class BrainRuntime : IBrain
         return pruned;
     }
 
-    public BrainDiagnostics GetDiagnostics()
-    {
-        int hiddenCount = Math.Max(1, _graph.NodeCount - _graph.InputCount);
-        float sumAct = 0f;
-        int satCount = 0;
-        foreach (var node in _graph.Nodes)
-        {
-            if (node.Type == BrainNodeType.Input) continue;
-            float abs = MathF.Abs(_activations[node.NodeId]);
-            sumAct += abs;
-            if (abs > 0.95f) satCount++;
-        }
-
-        float sumWf = 0f, sumWs = 0f;
-        int active = 0;
-        for (int i = 0; i < _wFast.Length; i++)
-        {
-            sumWf += MathF.Abs(_wFast[i]);
-            sumWs += MathF.Abs(_wSlow[i]);
-            if (MathF.Abs(_wFast[i]) > 1e-6f) active++;
-        }
-
-        return new BrainDiagnostics(
-            MeanAbsActivation: sumAct / hiddenCount,
-            SaturationRate: (float)satCount / hiddenCount,
-            MeanAbsWeightFast: _wFast.Length > 0 ? sumWf / _wFast.Length : 0f,
-            MeanAbsWeightSlow: _wSlow.Length > 0 ? sumWs / _wSlow.Length : 0f,
-            ActiveEdgeCount: active,
-            TotalEdges: _wFast.Length
-        );
-    }
+    public ReadOnlySpan<float> GetActivations() => _activations;
 
     public IBrainGraph ExportGraph()
     {
@@ -419,4 +438,37 @@ public sealed class BrainRuntime : IBrain
 
         return (float)_saturatedCount / _totalActivations;
     }
+
+    public BrainDiagnostics GetDiagnostics()
+    {
+        int hiddenCount = Math.Max(1, _graph.NodeCount - _graph.InputCount);
+        float sumAct = 0f;
+        int satCount = 0;
+        foreach (var node in _graph.Nodes)
+        {
+            if (node.Type == BrainNodeType.Input) continue;
+            float abs = MathF.Abs(_activations[node.NodeId]);
+            sumAct += abs;
+            if (abs > SaturationThreshold) satCount++;
+        }
+
+        float sumWf = 0f, sumWs = 0f;
+        int active = 0;
+        for (int i = 0; i < _wFast.Length; i++)
+        {
+            sumWf += MathF.Abs(_wFast[i]);
+            sumWs += MathF.Abs(_wSlow[i]);
+            if (MathF.Abs(_wFast[i]) > ActiveEdgeEpsilon) active++;
+        }
+
+        return new BrainDiagnostics(
+            MeanAbsActivation: sumAct / hiddenCount,
+            SaturationRate: (float)satCount / hiddenCount,
+            MeanAbsWeightFast: _wFast.Length > 0 ? sumWf / _wFast.Length : 0f,
+            MeanAbsWeightSlow: _wSlow.Length > 0 ? sumWs / _wSlow.Length : 0f,
+            ActiveEdgeCount: active,
+            TotalEdges: _wFast.Length
+        );
+    }
+
 }

@@ -64,5 +64,25 @@ public sealed class RollingMetrics
         }
     }
 
+    public float RollingVolatility
+    {
+        get
+        {
+            if (_equities.Count < 2) return 0f;
+            var arr = _equities.ToArray();
+            float sumR2 = 0f;
+            int n = 0;
+            for (int i = 1; i < arr.Length; i++)
+            {
+                if (arr[i - 1] <= 0f) continue;
+                float r = (arr[i] - arr[i - 1]) / arr[i - 1];
+                sumR2 += r * r;
+                n++;
+            }
+            if (n < 2) return 0f;
+            return MathF.Sqrt(sumR2 / n);
+        }
+    }
+
     public int Count => _equities.Count;
 }

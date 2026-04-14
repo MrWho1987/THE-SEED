@@ -45,8 +45,7 @@ public sealed class OnChainFeed : IDataFeed
             float txVol = GetLatestValue(txVolTask.Result);
             float nvt = txVol > 0 ? GetLatestValue(hashTask.Result) / txVol : 0f;
             signals.Add((SignalIndex.NvtRatio, nvt));
-            signals.Add((SignalIndex.ExchangeNetFlow, 0f));
-            signals.Add((SignalIndex.SupplyOnExchanges, 0f));
+            // ExchangeNetFlow and SupplyOnExchanges provided by CoinglassFeed
 
             IsHealthy = true;
             LastFetch = DateTimeOffset.UtcNow;
