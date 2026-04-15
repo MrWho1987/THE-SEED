@@ -297,11 +297,13 @@ public sealed class MarketAgent
             float realizedPct = (float)(last.Pnl / _portfolio.InitialBalance);
             reward += Math.Clamp(realizedPct * 50f, -1f, 1f);
 
-            // Explicit-exit bonus: reward the brain for USING the exit output (output[3])
-            // rather than relying solely on direction reversals. Tips evolution toward
-            // developing meaningful connectivity to the exit neuron. Magnitude kept small
-            // relative to the ±1.0 P&L reward range. Configurable via MarketConfig.
-            if (last.ClosedByExitSignal)
+            // Brain-driven exit bonus: reward the brain for USING any of its action outputs
+            // to drive the close — output[3] ExitSignal, output[6] PartialClose,
+            // output[7]/[8] TrailingStop, output[9] TakeProfit, output[10] BrainStopLoss.
+            // Bootstrap signal that helps the brain discover each new output beyond indirect
+            // P&L feedback. Does NOT fire for reactive closes (DirectionFlip, protective
+            // StopLoss fallback, KillSwitch, EndOfSession).
+            if (last.IsBrainDrivenExit)
                 reward += _explicitExitBonus;
 
             // Peak-exit bonus: reward for closing profitable positions near their peak.

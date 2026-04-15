@@ -118,20 +118,21 @@ public sealed class PaperTrader : ITrader
                 }
             }
 
-            // Brain SL override — explicit price
+            // Brain SL override — explicit price. BrainStopLoss is brain-driven so it
+            // qualifies for the smart-exit bonus (separate from config-default StopLoss).
             if (pos.StopLossPrice > 0m)
             {
                 bool isLong = pos.Direction == TradeDirection.Long;
                 bool slHit = isLong ? ctx.Price <= pos.StopLossPrice : ctx.Price >= pos.StopLossPrice;
                 if (slHit)
                 {
-                    ClosePosition(portfolio, pos, ctx, reason: CloseReason.StopLoss);
+                    ClosePosition(portfolio, pos, ctx, reason: CloseReason.BrainStopLoss);
                     continue;
                 }
             }
             else if (_config.StopLossPct > 0)
             {
-                // Config-driven % stop loss as fallback
+                // Config-driven % stop loss as fallback (reactive, not brain-driven)
                 decimal unrealizedPct = pos.UnrealizedPnlPct(ctx.Price) / 100m;
                 if (unrealizedPct <= -(_config.StopLossPct))
                 {
@@ -262,7 +263,7 @@ public sealed class PaperTrader : ITrader
 
     private TradeResult ClosePosition(
         PortfolioState portfolio, Position position, TickContext ctx,
-        bool closedByExitSignal = false, CloseReason reason = CloseReason.DirectionFlip)
+        CloseReason reason = CloseReason.DirectionFlip)
     {
         decimal volumeUsd = ctx.BarVolume * ctx.Price;
         decimal dynamicSlippageBps = ComputeDynamicSlippage(position.Size * ctx.Price, volumeUsd);
@@ -290,9 +291,6 @@ public sealed class PaperTrader : ITrader
         }
         portfolio.OpenPositions.Remove(position);
 
-        // Back-compat: ExitSignal reason maps closedByExitSignal=true
-        bool legacyExitFlag = closedByExitSignal || reason == CloseReason.ExitSignal;
-
         portfolio.TradeHistory.Add(new ClosedTrade(
             position.Symbol,
             position.Direction,
@@ -304,7 +302,6 @@ public sealed class PaperTrader : ITrader
             ctx.TickIndex - position.OpenTick,
             position.OpenTime,
             DateTimeOffset.UtcNow,
-            ClosedByExitSignal: legacyExitFlag,
             Leverage: position.Leverage,
             Reason: reason
         ));
@@ -362,7 +359,6 @@ public sealed class PaperTrader : ITrader
             ctx.TickIndex - position.OpenTick,
             position.OpenTime,
             DateTimeOffset.UtcNow,
-            ClosedByExitSignal: false,
             Leverage: position.Leverage,
             Reason: CloseReason.PartialClose
         ));

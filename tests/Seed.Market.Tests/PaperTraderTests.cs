@@ -131,12 +131,14 @@ public class PaperTraderTests
         Assert.False(result.Executed);
     }
 
-    // ── Tier 1.3 Explicit-exit tracking tests ────────────────────────────────
+    // ── Brain-driven exit tracking tests ─────────────────────────────────────
+    // V14 rename: ClosedByExitSignal is now derived from Reason via IsBrainDrivenExit.
+    // Any of the brain's action outputs (3, 6-10) that drive the close qualifies.
 
     [Fact]
-    public void ExitSignal_SetsClosedByExitSignalFlag()
+    public void ExitSignal_MarksBrainDrivenExit()
     {
-        // When brain signals ExitCurrent=true, the closed trade must flag ClosedByExitSignal=true.
+        // When brain signals ExitCurrent=true, the closed trade must be marked brain-driven.
         var trader = new PaperTrader(Cfg);
         var portfolio = trader.CreatePortfolio();
 
@@ -147,12 +149,13 @@ public class PaperTraderTests
         trader.ProcessSignal(exit, portfolio, 52_000m, 10);
 
         Assert.Single(portfolio.TradeHistory);
-        Assert.True(portfolio.TradeHistory[0].ClosedByExitSignal,
-            "Trade closed via explicit exit signal must have ClosedByExitSignal=true");
+        Assert.Equal(CloseReason.ExitSignal, portfolio.TradeHistory[0].Reason);
+        Assert.True(portfolio.TradeHistory[0].IsBrainDrivenExit,
+            "ExitSignal close must be marked as brain-driven");
     }
 
     [Fact]
-    public void DirectionFlip_ClosedByExitSignalIsFalse()
+    public void DirectionFlip_IsNotBrainDrivenExit()
     {
         // Direction flip (LONG → SHORT) closes the existing position, but NOT via explicit exit.
         var trader = new PaperTrader(Cfg);
@@ -165,14 +168,15 @@ public class PaperTraderTests
         trader.ProcessSignal(flipToShort, portfolio, 50_100m, 10);
 
         Assert.Single(portfolio.TradeHistory);
-        Assert.False(portfolio.TradeHistory[0].ClosedByExitSignal,
-            "Direction-flip close must NOT have ClosedByExitSignal=true");
+        Assert.Equal(CloseReason.DirectionFlip, portfolio.TradeHistory[0].Reason);
+        Assert.False(portfolio.TradeHistory[0].IsBrainDrivenExit,
+            "Direction-flip close must NOT be marked as brain-driven");
     }
 
     [Fact]
-    public void StopLoss_ClosedByExitSignalIsFalse()
+    public void ProtectiveStopLoss_IsNotBrainDrivenExit()
     {
-        // Stop-loss force-close is NOT an explicit exit signal close.
+        // Config-default stop-loss force-close is NOT a brain-driven exit.
         var cfg = Cfg with { StopLossPct = 0.02m };
         var trader = new PaperTrader(cfg);
         var portfolio = trader.CreatePortfolio();
@@ -185,8 +189,96 @@ public class PaperTraderTests
         trader.ProcessSignal(holdSig, portfolio, 48_500m, 10);  // -3% = stop triggers
 
         Assert.Single(portfolio.TradeHistory);
-        Assert.False(portfolio.TradeHistory[0].ClosedByExitSignal,
-            "Stop-loss close must NOT have ClosedByExitSignal=true");
+        Assert.Equal(CloseReason.StopLoss, portfolio.TradeHistory[0].Reason);
+        Assert.False(portfolio.TradeHistory[0].IsBrainDrivenExit,
+            "Config-default stop-loss close must NOT be marked as brain-driven");
+    }
+
+    [Fact]
+    public void BrainStopLoss_IsBrainDrivenExit()
+    {
+        // Brain-set SL override DOES qualify as brain-driven — brain explicitly set the stop.
+        var cfg = Cfg with { StopLossPct = 0.10m };  // config default 10% so it won't fire first
+        var trader = new PaperTrader(cfg);
+        var portfolio = trader.CreatePortfolio();
+
+        var open = new TradingSignal(
+            TradeDirection.Long, 0.5f, 0.8f, false,
+            StopLossOverride: 0.01f);  // brain says "1% stop"
+        trader.ProcessSignal(open, portfolio, 50_000m, 0);
+
+        var hold = new TradingSignal(TradeDirection.Flat, 0f, 0f, false);
+        trader.ProcessSignal(hold, portfolio, 49_200m, 10);  // -1.6% triggers brain SL
+
+        Assert.Single(portfolio.TradeHistory);
+        Assert.Equal(CloseReason.BrainStopLoss, portfolio.TradeHistory[0].Reason);
+        Assert.True(portfolio.TradeHistory[0].IsBrainDrivenExit,
+            "Brain-set SL override close must be marked as brain-driven");
+    }
+
+    [Fact]
+    public void TakeProfit_IsBrainDrivenExit()
+    {
+        var cfg = Cfg with { StopLossPct = 0m };
+        var trader = new PaperTrader(cfg);
+        var portfolio = trader.CreatePortfolio();
+
+        var open = new TradingSignal(
+            TradeDirection.Long, 0.5f, 0.8f, false,
+            TakeProfitOffset: 0.02f);  // 2% TP
+        trader.ProcessSignal(open, portfolio, 50_000m, 0);
+
+        var hold = new TradingSignal(TradeDirection.Flat, 0f, 0f, false);
+        trader.ProcessSignal(hold, portfolio, 51_100m, 10);  // above TP trigger
+
+        Assert.Single(portfolio.TradeHistory);
+        Assert.Equal(CloseReason.TakeProfit, portfolio.TradeHistory[0].Reason);
+        Assert.True(portfolio.TradeHistory[0].IsBrainDrivenExit,
+            "TakeProfit close must be marked as brain-driven");
+    }
+
+    [Fact]
+    public void TrailingStop_IsBrainDrivenExit()
+    {
+        var cfg = Cfg with { StopLossPct = 0m };
+        var trader = new PaperTrader(cfg);
+        var portfolio = trader.CreatePortfolio();
+
+        var open = new TradingSignal(
+            TradeDirection.Long, 0.5f, 0.8f, false,
+            EnableTrailingStop: true,
+            TrailingStopDistance: 0.01f);
+        trader.ProcessSignal(open, portfolio, 50_000m, 0);
+
+        var hold = new TradingSignal(TradeDirection.Flat, 0f, 0f, false);
+        trader.ProcessSignal(hold, portfolio, 52_500m, 10);  // peak track
+        trader.ProcessSignal(hold, portfolio, 51_800m, 11);  // trail breach
+
+        Assert.Single(portfolio.TradeHistory);
+        Assert.Equal(CloseReason.TrailingStop, portfolio.TradeHistory[0].Reason);
+        Assert.True(portfolio.TradeHistory[0].IsBrainDrivenExit,
+            "TrailingStop close must be marked as brain-driven");
+    }
+
+    [Fact]
+    public void PartialClose_IsBrainDrivenExit()
+    {
+        var cfg = Cfg with { StopLossPct = 0m };
+        var trader = new PaperTrader(cfg);
+        var portfolio = trader.CreatePortfolio();
+
+        var open = new TradingSignal(TradeDirection.Long, 0.5f, 0.8f, false);
+        trader.ProcessSignal(open, portfolio, 50_000m, 0);
+
+        var partial = new TradingSignal(
+            TradeDirection.Flat, 0f, 0f, false,
+            PartialCloseFrac: 0.5f);
+        trader.ProcessSignal(partial, portfolio, 50_500m, 5);
+
+        Assert.Single(portfolio.TradeHistory);
+        Assert.Equal(CloseReason.PartialClose, portfolio.TradeHistory[0].Reason);
+        Assert.True(portfolio.TradeHistory[0].IsBrainDrivenExit,
+            "PartialClose must be marked as brain-driven");
     }
 
     [Fact]

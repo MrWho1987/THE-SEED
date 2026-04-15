@@ -14,18 +14,44 @@ public enum OrderType
 }
 
 /// <summary>
-/// V14: reasons a position can be closed. Used for attribution and reward shaping.
+/// Reasons a position can be closed. Used for attribution, reward shaping, and
+/// distinguishing brain-driven "smart exits" from reactive/protective closes.
+///
+/// Brain-driven (each is a distinct action output): ExitSignal, TakeProfit, TrailingStop,
+/// BrainStopLoss, PartialClose. The reward system grants a small bootstrap bonus
+/// whenever one of these fires, so the brain learns to USE outputs 3 and 6-10.
+///
+/// Reactive/protective (not brain-driven): DirectionFlip (no explicit exit), StopLoss
+/// (config fallback), KillSwitch (safety layer), EndOfSession (forced close).
 /// </summary>
 public enum CloseReason
 {
-    DirectionFlip,     // flipped to opposite direction
-    ExitSignal,        // brain's explicit exit output
-    StopLoss,          // protective SL hit
-    TakeProfit,        // TP target hit
-    TrailingStop,      // trailing stop swept
-    KillSwitch,        // portfolio-level kill switch
+    DirectionFlip,     // flipped to opposite direction — not a smart exit
+    ExitSignal,        // brain's explicit exit output[3] fired
+    StopLoss,          // protective config-default SL hit (not brain-driven)
+    TakeProfit,        // brain-set TP target (output[9]) hit
+    TrailingStop,      // brain-enabled trailing stop (output[7]/[8]) swept
+    KillSwitch,        // portfolio-level kill switch (not brain-driven)
     EndOfSession,      // forced close at backtest end
-    PartialClose       // partial size reduction
+    PartialClose,      // brain-initiated partial size reduction (output[6])
+    BrainStopLoss      // brain-set SL override (output[10]) hit
+}
+
+/// <summary>
+/// Returns true if the close was driven by the brain explicitly USING one of its
+/// action outputs (3 or 6-10). Used to bootstrap learning of smart-exit behaviors.
+/// </summary>
+public static class CloseReasonExtensions
+{
+    public static bool IsBrainDrivenExit(this CloseReason reason) => reason switch
+    {
+        CloseReason.ExitSignal => true,
+        CloseReason.TakeProfit => true,
+        CloseReason.TrailingStop => true,
+        CloseReason.BrainStopLoss => true,
+        CloseReason.PartialClose => true,
+        _ => false
+    };
 }
 
 public sealed class Position
@@ -136,7 +162,15 @@ public readonly record struct ClosedTrade(
     int HoldingTicks,
     DateTimeOffset OpenTime,
     DateTimeOffset CloseTime,
-    bool ClosedByExitSignal = false,          // legacy: true = closed via brain's explicit exit output
-    float Leverage = 1.0f,                    // leverage used at time of open (for analytics)
-    CloseReason Reason = CloseReason.DirectionFlip  // V14: structured close reason
-);
+    float Leverage = 1.0f,                           // leverage used at time of open (for analytics)
+    CloseReason Reason = CloseReason.DirectionFlip   // structured close reason; drives brain-driven-exit bonus
+)
+{
+    /// <summary>
+    /// Derived helper: was this trade closed by the brain deliberately using one of its
+    /// action outputs? (output[3] explicit exit, output[6] partial, output[7/8] trail,
+    /// output[9] TP, output[10] SL override). Used by reward shaping to bootstrap learning
+    /// of the V11 action-space outputs.
+    /// </summary>
+    public bool IsBrainDrivenExit => Reason.IsBrainDrivenExit();
+}

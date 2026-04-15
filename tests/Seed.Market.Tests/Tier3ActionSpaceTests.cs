@@ -91,13 +91,14 @@ public class Tier3ActionSpaceTests
     // ── D3: CloseReason enum ───────────────────────────────────────────────
 
     [Fact]
-    public void CloseReason_HasAllEightValues()
+    public void CloseReason_HasAllNineValues()
     {
         var reasons = Enum.GetValues<CloseReason>();
-        Assert.Equal(8, reasons.Length);
+        Assert.Equal(9, reasons.Length);
         Assert.Contains(CloseReason.DirectionFlip, reasons);
         Assert.Contains(CloseReason.ExitSignal, reasons);
         Assert.Contains(CloseReason.StopLoss, reasons);
+        Assert.Contains(CloseReason.BrainStopLoss, reasons);
         Assert.Contains(CloseReason.TakeProfit, reasons);
         Assert.Contains(CloseReason.TrailingStop, reasons);
         Assert.Contains(CloseReason.KillSwitch, reasons);
@@ -270,7 +271,10 @@ public class Tier3ActionSpaceTests
 
         Assert.Empty(portfolio.OpenPositions);
         Assert.Single(portfolio.TradeHistory);
-        Assert.Equal(CloseReason.StopLoss, portfolio.TradeHistory[0].Reason);
+        // Brain-set SL uses BrainStopLoss (distinct from config-default StopLoss)
+        Assert.Equal(CloseReason.BrainStopLoss, portfolio.TradeHistory[0].Reason);
+        Assert.True(portfolio.TradeHistory[0].IsBrainDrivenExit,
+            "BrainStopLoss must be marked as brain-driven");
     }
 
     // ── C6: Multi-position ─────────────────────────────────────────────────
