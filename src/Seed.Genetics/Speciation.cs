@@ -92,12 +92,21 @@ public sealed class SpeciationManager
         // Remove empty species
         _species.RemoveAll(s => s.Members.Count == 0);
 
-        // Update representatives (first member after sorting by genome ID)
+        // V11d: Update representatives deterministically.
+        // - Keep the previous representative if it's still a member of this species
+        //   (stable rep across generations — standard NEAT practice for niche persistence)
+        // - Otherwise fall back to the first-inserted member (Members is built by
+        //   foreach over the population list in deterministic insertion order, so the
+        //   first member is fully deterministic across runs)
+        //
+        // Previous code used `OrderBy(g => g.GenomeId).First()` where GenomeId comes
+        // from Guid.NewGuid() — non-deterministic across runs with the same RNG seed.
+        // This was the source of run-to-run trajectory divergence at gen 3 onward.
         foreach (var sp in _species)
         {
-            sp.Representative = sp.Members
-                .OrderBy(g => g.GenomeId)
-                .First();
+            if (sp.Members.Count == 0) continue;
+            if (sp.Representative == null || !sp.Members.Contains(sp.Representative))
+                sp.Representative = sp.Members[0];
         }
     }
 

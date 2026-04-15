@@ -41,6 +41,13 @@ public sealed class MarketAgent
     private float _prevRollingSharpe;
     private readonly Queue<int> _recentTradeTicks = new();
 
+    // V11d Fix 7 observability: Welford's online mean/variance per output (raw post-Interpret values).
+    // Used to detect dormant outputs (std ≈ 0) vs actively-modulated outputs (std > 0.05).
+    private readonly int _outputObsCount = 11;  // matches ActionInterpreter.OutputCount
+    private readonly long[] _obsCounts;
+    private readonly double[] _obsMean;
+    private readonly double[] _obsM2;
+
     public Guid GenomeId { get; }
     public PortfolioState Portfolio => _portfolio;
     public int Tick => _tick;
@@ -60,6 +67,29 @@ public sealed class MarketAgent
         _peakExitBonus = MathF.Max(0f, peakExitBonus);
         _portfolio = trader.CreatePortfolio();
         _prevEquity = _portfolio.InitialBalance;
+
+        _obsCounts = new long[_outputObsCount];
+        _obsMean = new double[_outputObsCount];
+        _obsM2 = new double[_outputObsCount];
+    }
+
+    /// <summary>
+    /// V11d Fix 7: snapshot of running mean/std for each of the 11 raw brain outputs
+    /// (post-tanh/sigmoid, pre-deadzone). Used by training observability to identify
+    /// dormant outputs (std ≈ 0 → never used) vs actively varied outputs (std &gt; 0.05).
+    /// </summary>
+    public OutputObservation GetOutputObservation()
+    {
+        var means = new float[_outputObsCount];
+        var stds = new float[_outputObsCount];
+        for (int i = 0; i < _outputObsCount; i++)
+        {
+            means[i] = (float)_obsMean[i];
+            stds[i] = _obsCounts[i] > 1
+                ? (float)Math.Sqrt(_obsM2[i] / (_obsCounts[i] - 1))
+                : 0f;
+        }
+        return new OutputObservation(means, stds, _obsCounts[0]);
     }
 
     public TradeResult ProcessTick(SignalSnapshot snapshot, decimal currentPrice)
@@ -74,6 +104,20 @@ public sealed class MarketAgent
         InjectAgentState(signals, ctx.Price, ctx.ElapsedHours);
 
         var outputs = _brain.Step(signals, new BrainStepContext(_tick));
+
+        // V11d Fix 7: Welford's online mean/var update for raw brain outputs (pre-Interpret).
+        // Captures the brain's actual output distribution so observability can detect dormant
+        // outputs (low std) vs intentionally-modulated outputs (higher std).
+        int obsLen = Math.Min(outputs.Length, _outputObsCount);
+        for (int i = 0; i < obsLen; i++)
+        {
+            float v = outputs[i];
+            if (float.IsNaN(v) || float.IsInfinity(v)) continue;
+            _obsCounts[i]++;
+            double delta = v - _obsMean[i];
+            _obsMean[i] += delta / _obsCounts[i];
+            _obsM2[i] += delta * (v - _obsMean[i]);
+        }
 
         var currentSignal = ActionInterpreter.Interpret(outputs, _maxLeverage);
         _lastGeneratedSignal = currentSignal;
@@ -325,16 +369,15 @@ public sealed class MarketAgent
             var pos = _portfolio.OpenPositions[0];
             float currentPnlPct = (float)pos.UnrealizedPnlPct(currentPrice) / 100f;
 
-            // Track peak profit (for peak-exit bonus when trade closes)
+            // Track peak profit (for peak-exit bonus when trade closes — V11 addition kept)
             if (currentPnlPct > _peakUnrealizedPnl) _peakUnrealizedPnl = currentPnlPct;
 
-            // ASYMMETRIC: reward profitable holds gently, punish losing holds strongly.
-            // Previous symmetric delta-based reward created perverse incentive to close
-            // winners early (to lock tiny gains) and hold losers (avoid realizing losses).
-            if (currentPnlPct > 0)
-                reward += Math.Clamp(currentPnlPct * 2f, 0f, 0.1f);  // up to +0.1 per tick when profitable
-            else
-                reward -= Math.Clamp(-currentPnlPct * 5f, 0f, 0.15f); // up to -0.15 per tick when losing
+            // V11d: symmetric delta-based reward. Pre-V11 proven shape with zero expected
+            // value for random trading, allowing free exploration. The asymmetric absolute-pnl
+            // reward I added in A1 created aversive conditioning that suppressed exploration
+            // and locked the population in the passive local optimum.
+            float delta = currentPnlPct - _lastUnrealizedPnl;
+            reward += Math.Clamp(delta * 30f, -0.5f, 0.5f);
 
             _lastUnrealizedPnl = currentPnlPct;
         }
@@ -359,10 +402,17 @@ public sealed class MarketAgent
             reward += Math.Clamp(sharpeDelta * 0.5f, 0f, 0.05f);
         _prevRollingSharpe = currentSharpe;
 
-        // Holding time penalty applies REGARDLESS of profit, to discourage capital parking.
-        // Threshold at 40 ticks × 15 min = 10 hours max hold before pain starts.
-        if (_portfolio.OpenPositions.Count > 0 && _ticksSinceEntry > 40)
-            reward -= Math.Clamp((_ticksSinceEntry - 40) / 400f, 0f, 0.05f);
+        // V11d: holding time penalty applies ONLY to LOSING positions held > 20 ticks.
+        // Pre-V11 proven shape — incentivizes cutting losers fast while letting winners run
+        // freely (no penalty on winning holds). The symmetric-after-40-ticks penalty I added
+        // in A1 punished winners and discouraged riding profitable trends.
+        if (_portfolio.OpenPositions.Count > 0)
+        {
+            var pos2 = _portfolio.OpenPositions[0];
+            float pnlPct = (float)pos2.UnrealizedPnlPct(currentPrice) / 100f;
+            if (pnlPct <= 0f && _ticksSinceEntry > 20)
+                reward -= Math.Clamp((_ticksSinceEntry - 20) / 200f, 0f, 0.05f);
+        }
 
         _prevEquity = _portfolio.Equity(currentPrice);
         return reward;
@@ -433,5 +483,15 @@ public sealed class MarketAgent
         _totalFees = 0f;
         _prevRollingSharpe = 0f;
         _recentTradeTicks.Clear();
+
+        Array.Clear(_obsCounts);
+        Array.Clear(_obsMean);
+        Array.Clear(_obsM2);
     }
 }
+
+/// <summary>
+/// V11d Fix 7: Snapshot of brain output statistics across an evaluation. Captured per
+/// tick using Welford's online algorithm; exposed for training observability.
+/// </summary>
+public readonly record struct OutputObservation(float[] Means, float[] Stds, long TickCount);

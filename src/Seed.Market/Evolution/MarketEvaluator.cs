@@ -170,7 +170,13 @@ public sealed class MarketEvaluator
             breakdown = breakdown with { Fitness = breakdown.Fitness - penalty };
         }
 
-        return new MarketEvalResult(sg.GenomeId, breakdown);
+        // V11d Fix 7 observability: capture brain output stats and close-reason histogram
+        var outputObs = agent.GetOutputObservation();
+        var closeReasonCounts = new int[Enum.GetValues<CloseReason>().Length];
+        foreach (var t in agent.Portfolio.TradeHistory)
+            closeReasonCounts[(int)t.Reason]++;
+
+        return new MarketEvalResult(sg.GenomeId, breakdown, outputObs, closeReasonCounts);
     }
 
     /// <summary>
@@ -306,5 +312,8 @@ public sealed class MarketEvaluator
 
 public readonly record struct MarketEvalResult(
     Guid GenomeId,
-    FitnessBreakdown Fitness
+    FitnessBreakdown Fitness,
+    // V11d Fix 7 observability:
+    OutputObservation? OutputObs = null,
+    int[]? CloseReasonCounts = null  // indexed by (int)CloseReason
 );

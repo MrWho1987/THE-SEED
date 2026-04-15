@@ -27,6 +27,13 @@ public sealed class MarketEvolution
     private readonly EliteArchive _archive = new(100);
     private float _compatibilityThreshold = 3.5f;
 
+    // V11d Fix 7: in-process stuck detector — rolling 15-gen window of key signals.
+    private const int StuckWindowSize = 15;
+    private readonly Queue<float> _bestFitnessHistory = new();
+    private readonly Queue<int> _populationPosCountHistory = new();
+    private readonly Queue<float> _activeBestFitnessHistory = new();
+    private bool _stuckWarningEmittedThisRun;
+
     public int Generation { get; private set; }
     public IReadOnlyList<IGenome> Population => _population;
     public IReadOnlyDictionary<Guid, MarketEvalResult> Evaluations => _evaluations;
@@ -209,12 +216,89 @@ public sealed class MarketEvolution
             $"\"innovId\":{report.InnovationId},\"shrinkage\":{report.BestShrinkageConfidence:F3}," +
             $"\"speciesDetails\":[{specDetails}]{brainDiagJson}}}"));
 
+        // V11d Fix 7: in-process stuck detector. Tracks 15-gen rolling window and emits
+        // [STUCK-WARN] when ≥2 of 4 stuck signals fire. The external monitor greps for
+        // this line to trigger autonomous re-intervention.
+        DetectAndReportStuck(report);
+
         // 5. Reproduce
         _population = Reproduce();
         Generation++;
 
         _observatory.Flush();
         return report;
+    }
+
+    /// <summary>
+    /// V11d Fix 7: rolling-window stuck detector. Updates 3 rolling histories and emits
+    /// a [STUCK-WARN gen N] line when at least 2 of 4 stuck signals fire over 15 gens.
+    /// One warning per "stuck episode" — clears when fitness recovers.
+    /// </summary>
+    private void DetectAndReportStuck(GenerationReport report)
+    {
+        // Update rolling histories
+        _bestFitnessHistory.Enqueue(report.BestFitness);
+        if (_bestFitnessHistory.Count > StuckWindowSize) _bestFitnessHistory.Dequeue();
+
+        var (popPos, _, _) = GetPopulationReturnDistribution();
+        _populationPosCountHistory.Enqueue(popPos);
+        if (_populationPosCountHistory.Count > StuckWindowSize) _populationPosCountHistory.Dequeue();
+
+        var (activeBest, _, _, _, _) = GetActiveStats();
+        float activeBestFitness = activeBest?.Fitness ?? float.NaN;
+        _activeBestFitnessHistory.Enqueue(activeBestFitness);
+        if (_activeBestFitnessHistory.Count > StuckWindowSize) _activeBestFitnessHistory.Dequeue();
+
+        // Need a full window before evaluating signals
+        if (_bestFitnessHistory.Count < StuckWindowSize) return;
+
+        int signalsFired = 0;
+        var firedSignalNames = new List<string>();
+
+        // Signal 1: best fitness <= inactivityPenalty for 15 consecutive gens
+        if (_bestFitnessHistory.All(f => f <= _config.InactivityPenalty + 0.001f))
+        {
+            signalsFired++;
+            firedSignalNames.Add("best_fitness_at_passive");
+        }
+
+        // Signal 2: pos_count == 0 for 15 consecutive gens (no profitable genome anywhere)
+        if (_populationPosCountHistory.All(c => c == 0))
+        {
+            signalsFired++;
+            firedSignalNames.Add("zero_profitable_genomes");
+        }
+
+        // Signal 3: active_best_fitness < 0 for 15 consecutive gens
+        if (_activeBestFitnessHistory.All(f => float.IsNaN(f) || f < 0f))
+        {
+            signalsFired++;
+            firedSignalNames.Add("active_best_negative");
+        }
+
+        // Signal 4: best fitness has zero variance (no movement) over 15 gens
+        float bestMin = _bestFitnessHistory.Min();
+        float bestMax = _bestFitnessHistory.Max();
+        if (bestMax - bestMin < 0.001f)
+        {
+            signalsFired++;
+            firedSignalNames.Add("best_fitness_flat");
+        }
+
+        bool isCurrentlyStuck = signalsFired >= 2;
+        if (isCurrentlyStuck && !_stuckWarningEmittedThisRun)
+        {
+            Console.Error.WriteLine(
+                $"  [STUCK-WARN gen {Generation}] {signalsFired}/4 signals: " +
+                $"{string.Join(",", firedSignalNames)} | " +
+                $"bestRange=[{bestMin:F4}..{bestMax:F4}] " +
+                $"popPosLast={_populationPosCountHistory.Last()}");
+            _stuckWarningEmittedThisRun = true;
+        }
+        else if (!isCurrentlyStuck)
+        {
+            _stuckWarningEmittedThisRun = false;  // allow re-warning if we get stuck again later
+        }
     }
 
     private static FitnessBreakdown AverageBreakdowns(List<FitnessBreakdown> breakdowns, float consistencyWeight)
@@ -585,6 +669,35 @@ public sealed class MarketEvolution
         float minRet = active.Min(e => e.Fitness.ReturnPct);
         float maxRet = active.Max(e => e.Fitness.ReturnPct);
         return (best.Fitness, pos, neg, minRet, maxRet);
+    }
+
+    /// <summary>
+    /// V11d Fix 7: Population-wide return distribution (counts profitable / breakeven /
+    /// losing genomes across the entire population, not just active). The earliest signal
+    /// of discovery is when `pos > 0` even before the best fitness column moves.
+    /// </summary>
+    public (int Pos, int Zero, int Neg) GetPopulationReturnDistribution()
+    {
+        int pos = 0, zero = 0, neg = 0;
+        foreach (var eval in _evaluations.Values)
+        {
+            float r = eval.Fitness.ReturnPct;
+            if (r > 0.0001f) pos++;
+            else if (r < -0.0001f) neg++;
+            else zero++;
+        }
+        return (pos, zero, neg);
+    }
+
+    /// <summary>
+    /// V11d Fix 7: Get the best genome's evaluation result (with OutputObservation and
+    /// CloseReasonCounts attached). Used to print observability lines for the dominant
+    /// strategy each generation.
+    /// </summary>
+    public MarketEvalResult? GetBestEvalResult()
+    {
+        if (_evaluations.Count == 0) return null;
+        return _evaluations.Values.OrderByDescending(e => e.Fitness.Fitness).First();
     }
 
     public IGenome? GetBestGenome()

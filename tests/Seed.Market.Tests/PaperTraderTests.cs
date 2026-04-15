@@ -270,9 +270,10 @@ public class PaperTraderTests
         var open = new TradingSignal(TradeDirection.Long, 0.5f, 0.8f, false);
         trader.ProcessSignal(open, portfolio, 50_000m, 0);
 
+        // V11d: deadzone raised to 0.8, so partial close needs frac > 0.8 to fire
         var partial = new TradingSignal(
             TradeDirection.Flat, 0f, 0f, false,
-            PartialCloseFrac: 0.5f);
+            PartialCloseFrac: 0.9f);
         trader.ProcessSignal(partial, portfolio, 50_500m, 5);
 
         Assert.Single(portfolio.TradeHistory);

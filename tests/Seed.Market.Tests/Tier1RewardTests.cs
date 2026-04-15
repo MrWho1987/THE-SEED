@@ -10,9 +10,13 @@ using Seed.Market.Trading;
 namespace Seed.Market.Tests;
 
 /// <summary>
-/// Tests for A1 (asymmetric reward fix) and A2 (peak-exit bonus) in MarketAgent.
-/// These tests validate that the reward shape encourages holding winners and
-/// strongly punishes holding losers, and that the peak-exit bonus fires correctly.
+/// Tests for the V11d-restored reward shape (symmetric delta-based unrealized reward
+/// + losing-only holding penalty) and the V11 peak-exit bonus (kept).
+///
+/// The original V11 A1 "fix" introduced an asymmetric absolute-pnl reward that created
+/// aversive conditioning and locked training in a passive local optimum. V11d reverts
+/// to the pre-V11 proven shape while keeping the peak-exit bonus and brain-driven-exit
+/// bonus that V11/V11c added.
 /// </summary>
 public class Tier1RewardTests
 {
@@ -43,7 +47,7 @@ public class Tier1RewardTests
     [Fact]
     public void MarketAgent_Construction_AcceptsPeakExitBonus()
     {
-        // Smoke test: the new peakExitBonus parameter threads through without error
+        // Smoke test: the peakExitBonus parameter threads through without error
         var rng = new Rng64(42);
         var genome = SeedGenome.CreateRandom(rng);
         var dev = new BrainDeveloper(MarketAgent.InputCount, MarketAgent.OutputCount);
@@ -54,45 +58,127 @@ public class Tier1RewardTests
         Assert.NotNull(agent);
     }
 
+    // ── V11d: symmetric delta reward ────────────────────────────────────────
+
     [Fact]
-    public void AsymmetricReward_ProfitableHold_BetterThanLosingHold()
+    public void DeltaReward_SymmetricMoves_HaveEqualMagnitude()
     {
-        // Verify the new reward shape directly via a scripted MarketAgent run.
-        // Scenario: two separate scenarios with one round-trip each.
-        //   - Profitable: price climbs 2% then we close → should give net positive reward
-        //   - Losing: price drops 2% then we close → should give net negative reward
-        //
-        // The NEW asymmetric reward (A1) gives up to +0.1 per tick for profit, -0.15
-        // per tick for loss, so equal-magnitude moves produce asymmetric accumulated reward.
-        // This is the intended shape — "reward less, punish more".
-        //
-        // We validate the helper asymmetry via a scripted flat analysis rather than full
-        // brain rollout.
-        const float profitPct = 0.02f;  // 2% winning tick
-        const float lossPct = -0.02f;   // 2% losing tick
+        // Restored pre-V11 shape: reward += clamp(delta * 30, -0.5, 0.5)
+        // A +1% move and a -1% move should produce equal-magnitude rewards.
+        const float upDelta = 0.01f;
+        const float downDelta = -0.01f;
 
-        float profitReward = Math.Clamp(profitPct * 2f, 0f, 0.1f);
-        float lossReward = -Math.Clamp(-lossPct * 5f, 0f, 0.15f);
+        float upReward = Math.Clamp(upDelta * 30f, -0.5f, 0.5f);
+        float downReward = Math.Clamp(downDelta * 30f, -0.5f, 0.5f);
 
-        // Profit reward: 0.02 * 2 = 0.04 (under cap)
-        // Loss reward: -(0.02 * 5) = -0.10 (under cap)
-        Assert.Equal(0.04f, profitReward, 4);
-        Assert.Equal(-0.10f, lossReward, 4);
+        Assert.Equal(0.30f, upReward, 4);
+        Assert.Equal(-0.30f, downReward, 4);
 
-        // Loss magnitude exceeds profit magnitude — brain should avoid the round trip.
-        Assert.True(MathF.Abs(lossReward) > MathF.Abs(profitReward),
-            "Loss side of the asymmetric reward must dominate equal-magnitude profit side");
+        // Symmetric — magnitudes are equal
+        Assert.Equal(MathF.Abs(upReward), MathF.Abs(downReward), 4);
     }
 
     [Fact]
-    public void AsymmetricReward_Clamps_AtExtremes()
+    public void DeltaReward_RoundTrip_SumsToFinalChange()
     {
-        // Very large moves must be clamped: +0.1 cap for profit, -0.15 cap for loss
-        float bigProfit = Math.Clamp(0.20f * 2f, 0f, 0.1f);  // 0.4 clamped to 0.1
-        float bigLoss = -Math.Clamp(-(-0.20f) * 5f, 0f, 0.15f);  // -1.0 clamped to -0.15
-        Assert.Equal(0.1f, bigProfit);
-        Assert.Equal(-0.15f, bigLoss);
+        // Key property of the delta reward: over a full round-trip lifetime, the cumulative
+        // reward equals (final_pnl - initial_pnl) * 30, clamped per tick.
+        // For random walks, this means the EXPECTED reward is zero.
+
+        // Simulate a position that goes 0 → +1% → 0 (round trip back to flat)
+        float[] pnlPath = { 0.000f, 0.005f, 0.010f, 0.005f, 0.000f };
+
+        float cumReward = 0f;
+        float prevPnl = 0f;
+        foreach (var pnl in pnlPath)
+        {
+            float delta = pnl - prevPnl;
+            cumReward += Math.Clamp(delta * 30f, -0.5f, 0.5f);
+            prevPnl = pnl;
+        }
+
+        // Final pnl is 0, so cumulative reward should also be ~0
+        Assert.Equal(0f, cumReward, 4);
     }
+
+    [Fact]
+    public void DeltaReward_ClampsAtExtremes()
+    {
+        // Big positive delta should clamp to +0.5
+        float bigUp = Math.Clamp(0.10f * 30f, -0.5f, 0.5f);
+        Assert.Equal(0.5f, bigUp, 4);
+
+        // Big negative delta should clamp to -0.5
+        float bigDown = Math.Clamp(-0.10f * 30f, -0.5f, 0.5f);
+        Assert.Equal(-0.5f, bigDown, 4);
+    }
+
+    // ── V11d: holding penalty restored — losing only ────────────────────────
+
+    [Fact]
+    public void HoldingPenalty_FiresOnly_OnLosingHolds()
+    {
+        // V11d restored pre-V11 shape: penalty fires only if pnlPct <= 0 AND ticks > 20
+        // Winning holds have NO penalty — winners are free to run.
+        int ticks = 30;
+        float losingPnl = -0.01f;
+        float winningPnl = +0.01f;
+
+        // Losing position past threshold → penalty applies
+        float losingPenalty = (losingPnl <= 0f && ticks > 20)
+            ? Math.Clamp((ticks - 20) / 200f, 0f, 0.05f)
+            : 0f;
+        Assert.True(losingPenalty > 0f, "Losing hold past 20 ticks must be penalized");
+        Assert.Equal(0.05f, losingPenalty, 4);  // (30-20)/200 = 0.05
+
+        // Winning position past same threshold → NO penalty
+        float winningPenalty = (winningPnl <= 0f && ticks > 20)
+            ? Math.Clamp((ticks - 20) / 200f, 0f, 0.05f)
+            : 0f;
+        Assert.Equal(0f, winningPenalty);
+    }
+
+    [Fact]
+    public void HoldingPenalty_NotFired_Below20Ticks()
+    {
+        // Even losing holds get no penalty if held < 20 ticks (gives the brain time to hold)
+        int ticks = 15;
+        float losingPnl = -0.05f;
+
+        float penalty = (losingPnl <= 0f && ticks > 20)
+            ? Math.Clamp((ticks - 20) / 200f, 0f, 0.05f)
+            : 0f;
+        Assert.Equal(0f, penalty);
+    }
+
+    [Fact]
+    public void HoldingPenalty_ClampsAtMax_005()
+    {
+        // Penalty is capped at 0.05 to prevent runaway negative reward
+        int ticks = 1000;
+        float pnl = -0.10f;
+
+        float penalty = (pnl <= 0f && ticks > 20)
+            ? Math.Clamp((ticks - 20) / 200f, 0f, 0.05f)
+            : 0f;
+        Assert.Equal(0.05f, penalty, 4);
+    }
+
+    [Fact]
+    public void HoldingPenalty_BoundaryAt_PnlExactlyZero_StillApplies()
+    {
+        // Edge case: pnl exactly 0 (breakeven hold) is treated as losing for the penalty.
+        // Pre-V11 used `<= 0f` so breakeven counts. We preserve that.
+        int ticks = 25;
+        float pnl = 0f;
+
+        float penalty = (pnl <= 0f && ticks > 20)
+            ? Math.Clamp((ticks - 20) / 200f, 0f, 0.05f)
+            : 0f;
+        Assert.True(penalty > 0f);
+    }
+
+    // ── Peak-exit bonus (kept from V11 — these still apply) ─────────────────
 
     [Fact]
     public void PeakExitBonus_FullCapture_ReceivesFullBonus()
@@ -125,38 +211,9 @@ public class Tier1RewardTests
     {
         // If peak was never positive (position only went negative), bonus should not fire
         // because the condition `last.Pnl > 0 && _peakUnrealizedPnl > 0.001f` gates it.
-        // This test mirrors the guard logic:
         float pnl = -5f;
         float peak = 0f;
         bool shouldFire = pnl > 0 && peak > 0.001f;
         Assert.False(shouldFire);
-    }
-
-    [Fact]
-    public void HoldingPenalty_UnconditionalAbove40Ticks()
-    {
-        // A1 fix: holding penalty now applies regardless of profit/loss.
-        // Old behavior: only if pnlPct <= 0 && ticks > 20
-        // New behavior: if ticks > 40 (both profitable and losing holds get penalized)
-        int ticks = 50;
-        float penalty = Math.Clamp((ticks - 40) / 400f, 0f, 0.05f);
-        Assert.True(penalty > 0f);
-        Assert.Equal(0.025f, penalty, 4);  // (50-40)/400 = 0.025
-    }
-
-    [Fact]
-    public void HoldingPenalty_Clamped_At50Ticks()
-    {
-        int ticks = 1000;
-        float penalty = Math.Clamp((ticks - 40) / 400f, 0f, 0.05f);
-        Assert.Equal(0.05f, penalty);  // clamped to max
-    }
-
-    [Fact]
-    public void HoldingPenalty_NotApplied_Below40Ticks()
-    {
-        int ticks = 20;
-        float penalty = Math.Clamp((ticks - 40) / 400f, 0f, 0.05f);
-        Assert.Equal(0f, penalty);
     }
 }

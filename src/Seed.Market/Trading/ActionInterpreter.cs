@@ -22,12 +22,21 @@ public static class ActionInterpreter
     public const float ExitThreshold = 0.6f;
     public const float DirectionDeadzone = 0.15f;
 
-    // Dead zones — force the brain to explicitly emit a meaningful value before the output activates.
-    // Sigmoid dormant is ~0.5, so a 0.1 dead zone requires the brain to bias meaningfully below 0.5.
-    public const float PartialCloseDeadzone = 0.2f;
-    public const float TpDeadzone = 0.1f;
-    public const float SlDeadzone = 0.1f;
-    public const float TrailEnableThreshold = 0.5f;
+    // V11d: Dead zones at 0.8 — force the brain to produce a STRONG explicit signal before
+    // outputs 6-10 activate. Random CPPN-initialized brains have sigmoid outputs centered
+    // at 0.5, so a 0.8 deadzone requires the brain to bias raw output > ~1.4 (verified
+    // <5% random activation in CorrectDeadzone_0point8_KeepsRandomBrainsDormant test).
+    //
+    // The previous deadzones (0.1-0.5) caused random brains to activate outputs 6-10 at
+    // 50-85% rates, creating constant position churn (partial close every other tick,
+    // brain-set tight SL/TP on most trades). This anti-learning churn was a key contributor
+    // to the V11 passive-trap. With deadzones at 0.8, random brains stay dormant on outputs
+    // 6-10 and only learn to use them after base entry/exit (outputs 0-5) is established.
+    // The brain-driven-exit bonus (V11c) rewards the eventual discovery.
+    public const float PartialCloseDeadzone = 0.8f;
+    public const float TpDeadzone = 0.8f;
+    public const float SlDeadzone = 0.8f;
+    public const float TrailEnableThreshold = 0.8f;
 
     /// <summary>
     /// Interprets raw brain outputs into a TradingSignal.

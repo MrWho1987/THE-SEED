@@ -32,7 +32,7 @@ public class Tier3ActionSpaceTests
     [Fact]
     public void ActionInterpreter_PartialClose_DeadZone_Suppresses()
     {
-        // PartialCloseDeadzone = 0.2 → sigmoid output below that yields 0
+        // V11d: PartialCloseDeadzone = 0.8 → sigmoid output below that yields 0
         float[] outputs = [0.5f, 0.5f, 0.5f, 0f, 0f, 0f, -10f, 0f, 0f, 0f, 0f]; // sigmoid(-10) ≈ 0
         var signal = ActionInterpreter.Interpret(outputs);
         Assert.Equal(0f, signal.PartialCloseFrac);
@@ -177,10 +177,10 @@ public class Tier3ActionSpaceTests
         Assert.Single(portfolio.OpenPositions);
         decimal initialSize = portfolio.OpenPositions[0].Size;
 
-        // Partial close 50%
+        // V11d: deadzone raised to 0.8, so partial close needs frac > 0.8 to fire
         var partialSignal = new TradingSignal(
             TradeDirection.Flat, 0f, 0f, false,
-            PartialCloseFrac: 0.5f);
+            PartialCloseFrac: 0.9f);
         trader.ProcessSignal(partialSignal, portfolio, new TickContext(50500m, 1000m, 0f, 1, 0f));
 
         Assert.Single(portfolio.OpenPositions);

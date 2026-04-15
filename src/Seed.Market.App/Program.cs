@@ -311,6 +311,36 @@ static async Task RunBacktest(MarketConfig config, DateTimeOffset? fixedEnd = nu
         if (bestActive is { } ba)
             Console.WriteLine($"  [active] best:{ba.Fitness:F4} ret:{ba.ReturnPct:P1} trd:{ba.TotalTrades} wr:{ba.WinRate:P0} dd:{ba.MaxDrawdown:P1} ddDur:{ba.MaxDrawdownDuration:P1} | pos:{posCount} neg:{negCount} retRange:[{minRet:P1}..{maxRet:P1}]");
 
+        // V11d Fix 7: population-wide return distribution + best-genome output stats + close reasons
+        var (popPos, popZero, popNeg) = evolution.GetPopulationReturnDistribution();
+        Console.WriteLine($"  [returns] pos:{popPos} zero:{popZero} neg:{popNeg}");
+
+        var bestEvalResult = evolution.GetBestEvalResult();
+        if (bestEvalResult is { } ber)
+        {
+            if (ber.OutputObs is { } obs && obs.Means.Length >= 11 && obs.TickCount > 0)
+            {
+                // Compact one-line summary: μ:σ for each of 11 outputs (dir/size/urg/exit/pred/lev/partial/trail/dist/tp/sl)
+                Console.WriteLine(
+                    $"  [outputs] dir:{obs.Means[0]:F2}:{obs.Stds[0]:F2} sz:{obs.Means[1]:F2}:{obs.Stds[1]:F2} " +
+                    $"urg:{obs.Means[2]:F2}:{obs.Stds[2]:F2} ex:{obs.Means[3]:F2}:{obs.Stds[3]:F2} " +
+                    $"pr:{obs.Means[4]:F2}:{obs.Stds[4]:F2} lv:{obs.Means[5]:F2}:{obs.Stds[5]:F2} " +
+                    $"prt:{obs.Means[6]:F2}:{obs.Stds[6]:F2} tre:{obs.Means[7]:F2}:{obs.Stds[7]:F2} " +
+                    $"trd:{obs.Means[8]:F2}:{obs.Stds[8]:F2} tp:{obs.Means[9]:F2}:{obs.Stds[9]:F2} " +
+                    $"sl:{obs.Means[10]:F2}:{obs.Stds[10]:F2}");
+            }
+            if (ber.CloseReasonCounts is { } crc && crc.Sum() > 0)
+            {
+                int total = crc.Sum();
+                Console.WriteLine(
+                    $"  [closes] total:{total} | dirFlip:{crc[(int)CloseReason.DirectionFlip]} " +
+                    $"exit:{crc[(int)CloseReason.ExitSignal]} cfgSL:{crc[(int)CloseReason.StopLoss]} " +
+                    $"brainSL:{crc[(int)CloseReason.BrainStopLoss]} TP:{crc[(int)CloseReason.TakeProfit]} " +
+                    $"trail:{crc[(int)CloseReason.TrailingStop]} partial:{crc[(int)CloseReason.PartialClose]} " +
+                    $"kill:{crc[(int)CloseReason.KillSwitch]} eos:{crc[(int)CloseReason.EndOfSession]}");
+            }
+        }
+
         bool isDetailGen = config.CheckpointIntervalGens > 0 && (gen + 1) % config.CheckpointIntervalGens == 0;
         if (isDetailGen)
         {
