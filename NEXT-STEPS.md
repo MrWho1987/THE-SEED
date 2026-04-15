@@ -5,9 +5,37 @@
 > strategic recommendations. Nothing here changes current behavior -- it is a
 > living reference so ideas don't get lost between sessions.
 
-**Last updated:** 2026-04-01
-**Current version:** v4 (15m candles, 2% protective stop-loss)
-**Brain architecture:** 92 inputs, 5 outputs, 865 neurons (16x16x3 hidden grid)
+**Last updated:** 2026-04-15
+**Current baseline:** V11 (still v1 development, no v2 yet)
+**Brain architecture:** 110 inputs, 11 outputs, 1200 neurons (20x20x3 hidden grid),
+TopKIn 32, MaxOut 40, MaxSynapticDelay 16, ModuleCount 12
+
+## V11 Status — What's Done vs Pending
+
+Most pre-V11 roadmap items below have been folded into the V11 comprehensive foundation
+fix. Use this status map alongside the original section text:
+
+- **Section 1 Leverage:** DONE in V12/V13 — log-scale leverage via `output[5]`, MaxLeverage=125
+- **Section 2 Brain Size Expansion:** DONE in V11 Tier 4 — 20×20×3 1200-neuron substrate
+- **Section 4 Stop-Loss Evolution:** DONE in V11 Tier 3 — trailing stop, brain-controlled
+  SL override, take-profit targets all added
+- **Section 5 Additional Signals:** PARTIAL in V11 Tier 2 — Deribit options, futures
+  premium historical, expanded regime; still pending: order book WebSocket (live-only),
+  whale alerts, cross-exchange arb
+- **Section 8.3 Fitness Enhancements:** DONE in V11 Tier 1 — Sortino, Calmar,
+  Information Ratio (vs HODL), Diversification bonus, FeeDrag penalty
+- **Section 3 Code Cleanup:** NOT DONE — `Program.cs`, `HistoricalSignalEnricher.cs`,
+  `MarketEvolution.cs` still monolithic. Lower priority than retrain.
+- **Section 7 Production Deployment:** NOT STARTED — paper trading flow exists but
+  live execution layer not built.
+
+## Immediate V11 Priorities
+
+1. **Launch V11 retrain** when user approves (~25 day estimate, 3-phase pipeline).
+2. **Monitor training** every 12h, watch for signs that the 11-output action space
+   is being exercised (non-zero std on partial close / trail / TP / SL slots).
+3. **Paper trading dry run** (J1-J3 protocol) after retrain: 24h at 1x leverage,
+   then 24h at 125x, compare metrics vs training validation.
 
 ---
 
