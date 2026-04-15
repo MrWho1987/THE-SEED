@@ -1,12 +1,18 @@
 namespace Seed.Market.Signals;
 
 /// <summary>
-/// Named constants for each slot in the 92-element signal vector.
+/// Named constants for each slot in the 110-element signal vector.
 /// Grouped by data category with contiguous index ranges.
+///
+/// V14 layout:
+/// - Deribit options replaces dead News/Reddit slots 25-29
+/// - Regime expanded from 4→8 signals (88-95) with new session/volatility/trend/correlation
+/// - Risk awareness shifted 92-99 → 96-103
+/// - Portfolio context added at 104-109 (AvailableMargin, DistanceToSL/KS, etc.)
 /// </summary>
 public static class SignalIndex
 {
-    public const int Count = 100;
+    public const int Count = 110;
 
     // ── Price & Volume (0-11) ──────────────────────────────────────
     public const int BtcPrice = 0;
@@ -35,15 +41,16 @@ public static class SignalIndex
     public const int EthFundingRate = 21;
     public const int EthOpenInterest = 22;
 
-    // ── Sentiment & Social (23-30) ─────────────────────────────────
+    // ── Sentiment (23-30) ─────────────────────────────────────────
+    // Slots 25-29 were dead News/Reddit. Repurposed for Deribit options signals in V14.
     public const int FearGreedIndex = 23;
-    public const int FearGreedChange = 24;     // delta from yesterday
-    public const int NewsHeadlineSentiment = 25;
-    public const int NewsVolume = 26;          // articles per hour
-    public const int RedditSentiment = 27;
-    public const int RedditPostVolume = 28;
-    public const int SocialBullBearRatio = 29;
-    public const int SentimentMomentum = 30;   // sentiment change rate
+    public const int FearGreedChange = 24;            // delta from yesterday
+    public const int DeribitPutCallRatio = 25;        // put_vol / (put_vol + call_vol)
+    public const int DeribitPutCallOI = 26;           // put_OI / (put_OI + call_OI)
+    public const int DeribitIVPercentile = 27;        // current IV's percentile in 30-day window
+    public const int DeribitSkew = 28;                // 25-delta put IV - 25-delta call IV
+    public const int DeribitMaxPainDistance = 29;     // |spot - max_pain| / spot
+    public const int SentimentMomentum = 30;          // sentiment change rate (LIVE-only; typically dormant)
 
     // ── On-Chain (31-40) ───────────────────────────────────────────
     public const int HashRate = 31;
@@ -116,21 +123,38 @@ public static class SignalIndex
     public const int EthMomentum = 86;
     public const int MomentumDivergence = 87;  // BTC momentum - ETH momentum
 
-    // ── Regime Context (88-91) ───────────────────────────────────
-    public const int RegimeVolatility = 88;    // rolling 24h realized vol percentile [0,1]
-    public const int RegimeTrend = 89;         // rolling momentum strength [-1,1]
-    public const int RegimeChange = 90;        // rate of regime transition
-    public const int MarketStress = 91;        // composite stress indicator
+    // ── Regime Context (88-95) ─────────────────────────────────────
+    // V14 expansion: added TimeOfDaySession, VolatilityPercentile, TrendStrengthAdx, CorrelationRegime
+    // These feed the brain's gate layer to provide richer regime awareness.
+    public const int RegimeVolatility = 88;       // rolling 24h realized vol percentile [0,1]
+    public const int RegimeTrend = 89;            // rolling momentum strength [-1,1]
+    public const int RegimeChange = 90;           // rate of regime transition
+    public const int MarketStress = 91;           // composite stress indicator
+    public const int TimeOfDaySession = 92;       // UTC hour / 24; gates learn Asian/EU/US session patterns
+    public const int VolatilityPercentile = 93;   // rolling 100-bar realized vol percentile rank
+    public const int TrendStrengthAdx = 94;       // |EMA12 - EMA26| / Atr14 (ADX-like)
+    public const int CorrelationRegime = 95;      // BTC-ETH correlation normalized to [0,1]
 
-    // ── Risk Awareness (92-99) ──────────────────────────────────
-    public const int RollingSharpe = 92;        // annualized, tanh(x/5) [-1,1]
-    public const int RollingDrawdown = 93;      // 100-tick rolling max DD [0,1]
-    public const int WinRate = 94;              // closed trades win ratio [0,1]
-    public const int TradeFrequency = 95;       // recent trades / 10 [0,1]
-    public const int AvgHoldingDuration = 96;   // mean ticks / 100 [0,1]
-    public const int CumulativeFees = 97;       // total fees / balance [0,1]
-    public const int ConsecutiveWins = 98;      // current win streak / 5 [0,1]
-    public const int ConsecutiveLosses = 99;    // current loss streak / 5 [0,1]
+    // ── Risk Awareness (96-109) ────────────────────────────────────
+    // V14: shifted from 92-99 → 96-103 to accommodate regime expansion.
+    // New portfolio context signals added at 104-109.
+    public const int RollingSharpe = 96;          // annualized, tanh(x/5) [-1,1]
+    public const int RollingDrawdown = 97;        // 100-tick rolling max DD [0,1]
+    public const int WinRate = 98;                // closed trades win ratio [0,1]
+    public const int TradeFrequency = 99;         // recent trades / 10 [0,1]
+    public const int AvgHoldingDuration = 100;    // mean ticks / 100 [0,1]
+    public const int CumulativeFees = 101;        // total fees / balance [0,1]
+    public const int ConsecutiveWins = 102;       // current win streak / 5 [0,1]
+    public const int ConsecutiveLosses = 103;     // current loss streak / 5 [0,1]
+
+    // NEW portfolio context (V14): give agent direct awareness of available margin,
+    // distance to safety thresholds, and trade cadence.
+    public const int AvailableMarginPct = 104;       // (equity - total_notional) / equity
+    public const int DistanceToStopLoss = 105;       // closest active SL distance in % (0 if flat)
+    public const int DistanceToKillSwitch = 106;     // (equity - ks_threshold) / initial_equity
+    public const int TimeSinceLastTrade = 107;       // ticks / 100 clamped [0,1]
+    public const int EffectiveLeverage = 108;        // total_notional / equity
+    public const int WinLossStreakMagnitude = 109;   // log(avg_win$ / avg_loss$) clamped
 
     public static class Categories
     {
@@ -155,9 +179,9 @@ public static class SignalIndex
         public const int MultiAssetStart = 80;
         public const int MultiAssetEnd = 87;
         public const int RegimeStart = 88;
-        public const int RegimeEnd = 91;
-        public const int RiskAwarenessStart = 92;
-        public const int RiskAwarenessEnd = 99;
+        public const int RegimeEnd = 95;
+        public const int RiskAwarenessStart = 96;
+        public const int RiskAwarenessEnd = 109;
     }
 
     public static int GetCategoryIndex(int signalIndex) => signalIndex switch

@@ -35,6 +35,11 @@ public sealed record MarketConfig
     // explicit exits fail to emerge.
     public float ExplicitExitBonus { get; init; } = 0.02f;
 
+    // PeakExitBonus: reward bonus scaled by captureRatio = realizedPct / peakUnrealizedPct
+    // when a profitable position is closed. Encourages exiting winners near their peak
+    // instead of giving back gains. Default 0.1 (10% of the ±1 reward range).
+    public float PeakExitBonus { get; init; } = 0.1f;
+
     // ── Evolution ──
     public int PopulationSize { get; init; } = 50;
     public int Generations { get; init; } = 100;
@@ -47,11 +52,15 @@ public sealed record MarketConfig
 
     // ── Fitness ──
     public float ShrinkageK { get; init; } = 10f;
-    public float FitnessSharpeWeight { get; init; } = 0.45f;
-    public float FitnessSortinoWeight { get; init; } = 0.15f;
+    public float FitnessSharpeWeight { get; init; } = 0.22f;
+    public float FitnessSortinoWeight { get; init; } = 0.13f;
     public float FitnessReturnWeight { get; init; } = 0.20f;
-    public float FitnessDrawdownDurationWeight { get; init; } = 0.10f;
-    public float FitnessCVaRWeight { get; init; } = 0.10f;
+    public float FitnessDrawdownDurationWeight { get; init; } = 0.13f;
+    public float FitnessCVaRWeight { get; init; } = 0.17f;
+    public float FitnessCalmarWeight { get; init; } = 0.05f;
+    public float FitnessInfoRatioWeight { get; init; } = 0.05f;
+    public float FitnessFeeDragWeight { get; init; } = 0.03f;
+    public float FitnessDiversificationWeight { get; init; } = 0.02f;
     public float InactivityPenalty { get; init; } = -0.1f;
     public int MinTradesForActive { get; init; } = 3;
     public float WindowConsistencyWeight { get; init; } = 0f;
@@ -148,12 +157,15 @@ public sealed record MarketConfig
     public void Validate()
     {
         float sum = FitnessSharpeWeight + FitnessSortinoWeight + FitnessReturnWeight
-                  + FitnessDrawdownDurationWeight + FitnessCVaRWeight;
+                  + FitnessDrawdownDurationWeight + FitnessCVaRWeight
+                  + FitnessCalmarWeight + FitnessInfoRatioWeight
+                  + FitnessFeeDragWeight + FitnessDiversificationWeight;
         if (MathF.Abs(sum - 1.0f) > 0.01f)
             throw new InvalidOperationException(
-                $"Fitness weights must sum to 1.0, got {sum:F3} " +
+                $"Fitness weights must sum to 1.0 across 9 components, got {sum:F3} " +
                 $"(Sharpe={FitnessSharpeWeight}, Sortino={FitnessSortinoWeight}, Return={FitnessReturnWeight}, " +
-                $"DD={FitnessDrawdownDurationWeight}, CVaR={FitnessCVaRWeight})");
+                $"DD={FitnessDrawdownDurationWeight}, CVaR={FitnessCVaRWeight}, Calmar={FitnessCalmarWeight}, " +
+                $"InfoRatio={FitnessInfoRatioWeight}, FeeDrag={FitnessFeeDragWeight}, Diversification={FitnessDiversificationWeight})");
 
         if (BarsPerHour <= 0)
             throw new InvalidOperationException(
@@ -168,6 +180,11 @@ public sealed record MarketConfig
             throw new InvalidOperationException(
                 $"ExplicitExitBonus must be in [0, 0.5], got {ExplicitExitBonus}. " +
                 $"Recommended default: 0.02. Above 0.5 risks warping training reward.");
+
+        if (PeakExitBonus < 0f || PeakExitBonus > 0.5f)
+            throw new InvalidOperationException(
+                $"PeakExitBonus must be in [0, 0.5], got {PeakExitBonus}. " +
+                $"Recommended default: 0.1. Above 0.5 risks warping training reward.");
     }
 
     public void Save(string path)

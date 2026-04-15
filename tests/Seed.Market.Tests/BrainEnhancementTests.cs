@@ -29,7 +29,7 @@ public class BrainEnhancementTests
 
         // RollingSharpe signal should be in [-1, 1] (tanh normalized)
         // Can't check exact value but signal infrastructure works
-        Assert.True(SignalIndex.Count == 100, "SignalIndex should be 100 after expansion");
+        Assert.True(SignalIndex.Count == 110, "SignalIndex should be 110 after V14 expansion");
     }
 
     [Fact]
@@ -191,8 +191,8 @@ public class BrainEnhancementTests
                 Assert.False(float.IsNaN(outputs[o]), $"NaN at tick {t} output {o}");
         }
 
-        // Verify MaxSynapticDelay is 12 in the budget
-        Assert.Equal(12, MarketEvaluator.MarketBrainBudget.MaxSynapticDelay);
+        // Verify MaxSynapticDelay is 16 in V14 budget
+        Assert.Equal(16, MarketEvaluator.MarketBrainBudget.MaxSynapticDelay);
     }
 
     [Fact]
@@ -213,13 +213,15 @@ public class BrainEnhancementTests
     }
 
     [Fact]
-    public void SignalIndex_Count100_With12Categories()
+    public void SignalIndex_Count110_With12Categories()
     {
-        Assert.Equal(100, SignalIndex.Count);
+        Assert.Equal(110, SignalIndex.Count);
         Assert.Equal(12, SignalIndex.CategoryCount);
         Assert.Equal(0, SignalIndex.GetCategoryIndex(0));   // Price
-        Assert.Equal(10, SignalIndex.GetCategoryIndex(88));  // Regime
-        Assert.Equal(11, SignalIndex.GetCategoryIndex(92));  // RiskAwareness
+        Assert.Equal(10, SignalIndex.GetCategoryIndex(88));  // Regime start (old)
+        Assert.Equal(10, SignalIndex.GetCategoryIndex(95));  // Regime end (V14 expanded)
+        Assert.Equal(11, SignalIndex.GetCategoryIndex(96));  // RiskAwareness start (V14 shifted)
+        Assert.Equal(11, SignalIndex.GetCategoryIndex(109)); // RiskAwareness end (portfolio context)
     }
 
     // ── Tier 1.2 BrainDeveloper force-wire tests ──────────────────────────────
@@ -236,7 +238,7 @@ public class BrainEnhancementTests
 
         // Every output node must have >= 1 incoming edge
         var outputNodes = graph.Nodes.Where(n => n.Type == BrainNodeType.Output).ToList();
-        Assert.Equal(6, outputNodes.Count);  // v2 has 6 outputs
+        Assert.Equal(11, outputNodes.Count);  // V14 has 11 outputs
 
         foreach (var outputNode in outputNodes)
         {
@@ -288,7 +290,7 @@ public class BrainEnhancementTests
 
         // Just verify the compilation succeeded with MinOutputConnectivity=0
         Assert.True(graph.NodeCount > 0);
-        Assert.Equal(6, graph.OutputCount);
+        Assert.Equal(11, graph.OutputCount);
     }
 
     // --- Helpers ---

@@ -102,11 +102,15 @@ public class FitnessTests
         Assert.False(float.IsInfinity(result.Fitness));
 
         float logReturn = MathF.Log(1f + MathF.Abs(result.ReturnPct)) * MathF.Sign(result.ReturnPct);
-        float expectedFitness = result.AdjustedSharpe * 0.45f
-                              + result.AdjustedSortino * 0.15f
+        float expectedFitness = result.AdjustedSharpe * 0.22f
+                              + result.AdjustedSortino * 0.13f
                               + logReturn * 0.20f
-                              - result.MaxDrawdownDuration * 0.10f
-                              - (result.CVaR5 < 0 ? -result.CVaR5 : 0f) * 0.10f;
+                              - result.MaxDrawdownDuration * 0.13f
+                              - (result.CVaR5 < 0 ? -result.CVaR5 : 0f) * 0.17f
+                              + result.Calmar * 0.05f
+                              + result.InfoRatio * 0.05f
+                              - result.FeeDrag * 0.03f
+                              + result.Diversification * 0.02f;
 
         Assert.Equal(expectedFitness, result.Fitness, 4);
     }

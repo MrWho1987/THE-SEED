@@ -15,16 +15,22 @@ namespace Seed.Market.Evolution;
 /// </summary>
 public sealed class MarketEvaluator
 {
+    // V14 architecture: expanded to handle 110 inputs / 11 outputs / richer regime gating.
+    // - HiddenWidth/Height 20: 1200 neurons total (+56% over v13's 16x16x3)
+    // - TopKIn 32: doubles fan-in to address sparsity bottleneck
+    // - MaxOut 40: doubles outgoing edges for richer information propagation
+    // - MaxSynapticDelay 16: 4h temporal context at 15min bars (was 3h)
+    // - ModuleCount 12: matches SignalCategory count for symmetric module layout
     public static readonly DevelopmentBudget MarketBrainBudget = new(
-        HiddenWidth: 16,
-        HiddenHeight: 16,
+        HiddenWidth: 20,
+        HiddenHeight: 20,
         HiddenLayers: 3,
-        TopKIn: 16,
-        MaxOut: 20,
+        TopKIn: 32,
+        MaxOut: 40,
         LocalNeighborhoodRadius: 3,
         GlobalCandidateSamplesPerNeuron: 24,
-        MaxSynapticDelay: 12,
-        ModuleCount: 8,
+        MaxSynapticDelay: 16,
+        ModuleCount: 12,
         GateNeuronCount: 12);
 
     public static readonly int[] SignalCategoryMap = BuildCategoryMap();
@@ -127,7 +133,7 @@ public sealed class MarketEvaluator
         var sg = (SeedGenome)entry.Genome;
         var brain = new BrainRuntime(entry.Graph, sg.Learn, sg.Stable, 1);
         var trader = new PaperTrader(_config);
-        var agent = new MarketAgent(sg.GenomeId, brain, trader, maxLeverage: _config.MaxLeverage, explicitExitBonus: _config.ExplicitExitBonus);
+        var agent = new MarketAgent(sg.GenomeId, brain, trader, maxLeverage: _config.MaxLeverage, explicitExitBonus: _config.ExplicitExitBonus, peakExitBonus: _config.PeakExitBonus);
 
         for (int t = 0; t < history.Length; t++)
         {
@@ -151,7 +157,12 @@ public sealed class MarketEvaluator
         int openAtEnd = agent.Portfolio.OpenPositions.Count;
         trader.CloseAllPositions(agent.Portfolio, finalPrice, agent.Tick);
 
-        var breakdown = _fitnessFunction.ComputeDetailed(agent.Portfolio, finalPrice);
+        // Compute HODL return baseline for Information Ratio fitness term
+        float firstP = rawPrices[0];
+        float hodlReturn = (firstP > 0f && !float.IsNaN(firstP) && !float.IsInfinity(firstP))
+            ? (lastP - firstP) / firstP : 0f;
+
+        var breakdown = _fitnessFunction.ComputeDetailed(agent.Portfolio, finalPrice, hodlReturn);
 
         if (openAtEnd > 0)
         {
@@ -229,7 +240,7 @@ public sealed class MarketEvaluator
             var graph = _developer.CompileGraph(sg, genomeBudget, devCtx, SignalCategoryMap, RegimeStart, RegimeEnd);
             var brain = new BrainRuntime(graph, sg.Learn, sg.Stable, 1);
             var trader = new PaperTrader(_config);
-            agents.Add((new MarketAgent(sg.GenomeId, brain, trader, maxLeverage: _config.MaxLeverage, explicitExitBonus: _config.ExplicitExitBonus), trader, weights[i]));
+            agents.Add((new MarketAgent(sg.GenomeId, brain, trader, maxLeverage: _config.MaxLeverage, explicitExitBonus: _config.ExplicitExitBonus, peakExitBonus: _config.PeakExitBonus), trader, weights[i]));
         }
 
         var ensembleTrader = new PaperTrader(_config);
@@ -283,7 +294,13 @@ public sealed class MarketEvaluator
         decimal finalPrice = (float.IsNaN(lastEP) || float.IsInfinity(lastEP) || lastEP <= 0f)
             ? ensemblePortfolio.InitialBalance : (decimal)lastEP;
         ensembleTrader.CloseAllPositions(ensemblePortfolio, finalPrice, history.Length);
-        return _fitnessFunction.ComputeDetailed(ensemblePortfolio, finalPrice);
+
+        // HODL baseline for Information Ratio
+        float firstEP = rawPrices[0];
+        float hodlReturn = (firstEP > 0f && !float.IsNaN(firstEP) && !float.IsInfinity(firstEP))
+            ? (lastEP - firstEP) / firstEP : 0f;
+
+        return _fitnessFunction.ComputeDetailed(ensemblePortfolio, finalPrice, hodlReturn);
     }
 }
 

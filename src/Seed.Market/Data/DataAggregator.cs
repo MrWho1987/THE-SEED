@@ -66,7 +66,8 @@ public sealed class DataAggregator : IDisposable
             new SentimentFeed(),
             new OnChainFeed(),
             new MacroFeed(),
-            new StablecoinFeed()
+            new StablecoinFeed(),
+            new DeribitFeed(),  // V14: options-based sentiment (DVOL, put/call)
         };
 
         if (!string.IsNullOrEmpty(config?.CoinglassApiKey))
@@ -235,17 +236,18 @@ public sealed class DataAggregator : IDisposable
     /// <summary>
     /// Signals with no reliable historical source are zeroed so the brain
     /// never trains on data it won't have in deployment (or vice versa).
+    ///
+    /// V14 notes:
+    /// - BidAskSpread/OrderImbalance remain live-only (WebSocket order book)
+    /// - News/Reddit slots (25-29) are now Deribit options, populated in both paths
+    /// - SentimentMomentum is live-only (derived from Fear & Greed delta)
+    /// - FuturesPremium: computed by BinanceFuturesFeed / BinanceFuturesHistorical, available in both paths
     /// </summary>
     private void ZeroMaskLiveOnlySignals()
     {
         _rawSignals[SignalIndex.BtcBidAskSpread] = 0f;
         _rawSignals[SignalIndex.BtcOrderImbalance] = 0f;
-        _rawSignals[SignalIndex.NewsHeadlineSentiment] = 0f;
-        _rawSignals[SignalIndex.NewsVolume] = 0f;
-        _rawSignals[SignalIndex.RedditSentiment] = 0f;
-        _rawSignals[SignalIndex.RedditPostVolume] = 0f;
-        _rawSignals[SignalIndex.SocialBullBearRatio] = 0f;
-        // FuturesPremium: computed by BinanceFuturesFeed, available in both paths — do NOT zero
+        _rawSignals[SignalIndex.SentimentMomentum] = 0f;
     }
 
     private void ComputeDerivedSignals()

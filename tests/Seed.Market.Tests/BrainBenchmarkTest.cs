@@ -27,8 +27,10 @@ public class BrainBenchmarkTest
         sw.Stop();
 
         double usPerStep = sw.Elapsed.TotalMicroseconds / steps;
-        Assert.True(usPerStep < 1000,
-            $"Brain step took {usPerStep:F1} us/step -- should be < 1000 us");
+        // V14: brain grew from 768→1200 neurons + TopKIn 16→32. Step cost roughly 2x.
+        // Cap at 4000us/step (~4ms) with headroom for CI system load.
+        Assert.True(usPerStep < 4000,
+            $"Brain step took {usPerStep:F1} us/step -- should be < 4000 us (V14 budget)");
     }
 
     [Fact]
@@ -51,8 +53,10 @@ public class BrainBenchmarkTest
         sw.Stop();
 
         double msPerCompile = sw.Elapsed.TotalMilliseconds / (genomes.Count - 1);
-        Assert.True(msPerCompile < 1000,
-            $"Brain compile took {msPerCompile:F1} ms -- should be < 1000 ms");
+        // V14: compile cost grew with substrate expansion. Relax threshold to 3000ms
+        // to absorb CI system noise on the larger brain.
+        Assert.True(msPerCompile < 3000,
+            $"Brain compile took {msPerCompile:F1} ms -- should be < 3000 ms (V14 budget)");
     }
 
     [Fact]

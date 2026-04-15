@@ -61,7 +61,7 @@ public class PaperTradingService
             MarketEvaluator.SignalCategoryMap, MarketEvaluator.RegimeStart, MarketEvaluator.RegimeEnd);
         var brain = new BrainRuntime(graph, genome.Learn, genome.Stable, 1);
         var trader = new PaperTrader(_config);
-        var agent = new MarketAgent(genome.GenomeId, brain, trader, maxLeverage: _config.MaxLeverage, explicitExitBonus: _config.ExplicitExitBonus);
+        var agent = new MarketAgent(genome.GenomeId, brain, trader, maxLeverage: _config.MaxLeverage, explicitExitBonus: _config.ExplicitExitBonus, peakExitBonus: _config.PeakExitBonus);
 
         using var aggregator = new DataAggregator(_config);
         using var tradeLog = new TradeLogger(_config.ResolvedTradeLogPath);

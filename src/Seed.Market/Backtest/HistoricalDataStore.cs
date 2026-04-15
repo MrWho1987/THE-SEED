@@ -140,6 +140,10 @@ public sealed class HistoricalDataStore
 
         var rollingVol = ComputeRollingVolatility(closes, volWindow);
 
+        // V14: precompute rolling volatility percentile over 100-bar window
+        int volPctWindow = 100;
+        var volPercentile = ComputeRollingPercentile(rollingVol, volPctWindow);
+
         for (int i = 0; i < n; i++)
         {
             var raw = new float[SignalIndex.Count];
@@ -206,6 +210,25 @@ public sealed class HistoricalDataStore
                 MathF.Abs(vixChange) * 2f + (liqLong + liqShort) * 0.5f + fundingAbs * 10f + volPct * 0.5f,
                 0f, 1f);
 
+            // V14 new regime signals (92-95)
+            // TimeOfDaySession: UTC hour / 24, simple temporal encoding for session awareness
+            raw[SignalIndex.TimeOfDaySession] = c.Time.Hour / 24f;
+
+            // VolatilityPercentile: rolling 100-bar percentile rank (0 = lowest, 1 = highest)
+            raw[SignalIndex.VolatilityPercentile] = volPercentile[i];
+
+            // TrendStrengthAdx: |EMA12 - EMA26| / Atr14 (ADX-like approximation)
+            float ema12v = raw[SignalIndex.Ema12];
+            float ema26v = raw[SignalIndex.Ema26];
+            float atrv = raw[SignalIndex.Atr14];
+            raw[SignalIndex.TrendStrengthAdx] = atrv > 1e-6f
+                ? Math.Clamp(MathF.Abs(ema12v - ema26v) / atrv, 0f, 5f) / 5f
+                : 0f;
+
+            // CorrelationRegime: BtcEthCorrelation normalized to [0, 1] from [-1, 1]
+            float btcEthCorr = raw[SignalIndex.BtcEthCorrelation];
+            raw[SignalIndex.CorrelationRegime] = (btcEthCorr + 1f) * 0.5f;
+
             snapshots[i] = normalizer.Normalize(raw, c.Time, i);
         }
 
@@ -251,6 +274,31 @@ public sealed class HistoricalDataStore
             }
         }
         return vol;
+    }
+
+    /// <summary>
+    /// For each index i, returns the percentile rank of data[i] among the previous `window` values.
+    /// Output range [0, 1]: 0 = smallest in window, 1 = largest. Useful for regime detection
+    /// (is current volatility unusually high vs recent history?).
+    /// </summary>
+    private static float[] ComputeRollingPercentile(float[] data, int window)
+    {
+        int n = data.Length;
+        var pct = new float[n];
+        for (int i = 0; i < n; i++)
+        {
+            int start = Math.Max(0, i - window + 1);
+            int count = i - start + 1;
+            if (count < 2) { pct[i] = 0.5f; continue; }
+
+            float current = data[i];
+            int below = 0;
+            for (int j = start; j <= i; j++)
+                if (data[j] < current) below++;
+
+            pct[i] = (float)below / (count - 1);
+        }
+        return pct;
     }
 
     private static TechnicalIndicators.Candle[]? LoadCandlesFromCache(string path)

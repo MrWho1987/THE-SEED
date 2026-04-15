@@ -175,6 +175,38 @@ public sealed class HistoricalSignalEnricher
             report.Sources.Add(new("Derivatives (Binance)", DataSourceStatus.Failed, 0, Error: ex.Message));
         }
 
+        // V14 G1: Binance futures historical klines → FuturesPremium
+        try
+        {
+            Console.WriteLine("[ENRICH] Downloading futures klines for FuturesPremium...");
+            int slotsBefore = CountSlots(result);
+            await AddFuturesPremium(result, timestamps, btcCloses, start, end, n);
+            int slotsAdded = CountSlots(result) - slotsBefore;
+            Console.WriteLine($"[ENRICH] +FuturesPremium: {slotsAdded} slots");
+            report.Sources.Add(new("Futures Klines (Binance)", DataSourceStatus.Success, slotsAdded));
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ENRICH] FuturesPremium failed: {ex.Message}");
+            report.Sources.Add(new("Futures Klines (Binance)", DataSourceStatus.Failed, 0, Error: ex.Message));
+        }
+
+        // V14 G2: Deribit DVOL historical → DeribitIVPercentile
+        try
+        {
+            Console.WriteLine("[ENRICH] Downloading Deribit DVOL (IV index)...");
+            int slotsBefore = CountSlots(result);
+            await AddDeribitIvPercentile(result, timestamps, start, end, n);
+            int slotsAdded = CountSlots(result) - slotsBefore;
+            Console.WriteLine($"[ENRICH] +Deribit IV: {slotsAdded} slots");
+            report.Sources.Add(new("Deribit DVOL", DataSourceStatus.Success, slotsAdded));
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ENRICH] Deribit failed: {ex.Message}");
+            report.Sources.Add(new("Deribit DVOL", DataSourceStatus.Failed, 0, Error: ex.Message));
+        }
+
         // Coinglass: Liquidation history + Exchange balance
         if (!string.IsNullOrEmpty(_coinglassApiKey))
         {
@@ -664,6 +696,185 @@ public sealed class HistoricalSignalEnricher
             result[i] = currentRate;
         }
 
+        return result;
+    }
+
+    // ── V14 G1: Binance Futures Klines → FuturesPremium ─────────────────
+
+    private async Task AddFuturesPremium(
+        Dictionary<int, float[]> result, DateTimeOffset[] ts, float[] btcCloses,
+        DateTimeOffset start, DateTimeOffset end, int n)
+    {
+        var futuresCandles = await FetchBinanceFuturesKlines("BTCUSDT", "btc_futures", start, end);
+        var futuresCloses = AlignTimeseriesToBars(futuresCandles, ts, n);
+
+        var premium = new float[n];
+        for (int i = 0; i < n; i++)
+        {
+            float spot = btcCloses[i];
+            float future = futuresCloses[i];
+            if (spot > 0f && future > 0f)
+                premium[i] = (future - spot) / spot;
+        }
+        result[SignalIndex.FuturesPremium] = premium;
+    }
+
+    private async Task<List<(long UnixMs, float Close)>> FetchBinanceFuturesKlines(
+        string symbol, string cacheName, DateTimeOffset start, DateTimeOffset end)
+    {
+        var cache = Path.Combine(_cacheDir, $"{cacheName}_{start:yyyyMMdd}_{end:yyyyMMdd}_{_interval}.jsonl");
+        if (File.Exists(cache))
+        {
+            var cached = LoadTimeseriesCache(cache);
+            if (cached != null) return cached;
+        }
+
+        var data = new List<(long, float)>();
+        long startMs = start.ToUnixTimeMilliseconds();
+        long endMs = end.ToUnixTimeMilliseconds();
+
+        while (startMs < endMs)
+        {
+            try
+            {
+                // Binance futures klines endpoint; max 1500 candles per request
+                var url = $"https://fapi.binance.com/fapi/v1/klines?symbol={symbol}" +
+                          $"&interval={_interval}&startTime={startMs}&endTime={endMs}&limit=1500";
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                var json = await _client.GetStringAsync(url, cts.Token);
+                var arr = JsonSerializer.Deserialize<JsonElement>(json);
+                int count = arr.GetArrayLength();
+                if (count == 0) break;
+
+                for (int i = 0; i < count; i++)
+                {
+                    var k = arr[i];
+                    long t = k[0].GetInt64();
+                    float close = float.Parse(k[4].GetString()!, CultureInfo.InvariantCulture);
+                    data.Add((t, close));
+                }
+
+                long newStart = arr[count - 1][6].GetInt64() + 1;  // closeTime + 1
+                if (newStart <= startMs || count < 1500) break;
+                startMs = newStart;
+                await Task.Delay(200);
+            }
+            catch { break; }
+        }
+
+        SaveTimeseriesCache(cache, data);
+        return data;
+    }
+
+    // ── V14 G2: Deribit Historical Volatility / DVOL → IV percentile ────
+
+    private async Task AddDeribitIvPercentile(
+        Dictionary<int, float[]> result, DateTimeOffset[] ts,
+        DateTimeOffset start, DateTimeOffset end, int n)
+    {
+        var dvol = await FetchDeribitDvol(start, end);
+        if (dvol.Count == 0)
+        {
+            Console.WriteLine("[ENRICH] Deribit DVOL returned no data");
+            return;
+        }
+
+        var dvolAligned = ForwardFillToBars(dvol, ts, n);
+
+        // 30-day rolling percentile of DVOL
+        int pctWindow = 30 * 24 * _barsPerHour;  // 30 days in bars
+        var ivPct = new float[n];
+        for (int i = 0; i < n; i++)
+        {
+            int start2 = Math.Max(0, i - pctWindow + 1);
+            int count = i - start2 + 1;
+            if (count < 2) { ivPct[i] = 0.5f; continue; }
+
+            float current = dvolAligned[i];
+            int below = 0;
+            for (int j = start2; j <= i; j++)
+                if (dvolAligned[j] < current) below++;
+            ivPct[i] = (float)below / (count - 1);
+        }
+        result[SignalIndex.DeribitIVPercentile] = ivPct;
+    }
+
+    private async Task<List<(long UnixMs, float Value)>> FetchDeribitDvol(DateTimeOffset start, DateTimeOffset end)
+    {
+        var cache = Path.Combine(_cacheDir, $"deribit_dvol_{start:yyyyMMdd}_{end:yyyyMMdd}.jsonl");
+        if (File.Exists(cache))
+        {
+            var cached = LoadTimeseriesCache(cache);
+            if (cached != null) return cached;
+        }
+
+        var data = new List<(long, float)>();
+        long startMs = start.ToUnixTimeMilliseconds();
+        long endMs = end.ToUnixTimeMilliseconds();
+        const long ninetyDaysMs = 90L * 24 * 60 * 60 * 1000;
+        long cursorStart = startMs;
+
+        while (cursorStart < endMs)
+        {
+            long cursorEnd = Math.Min(cursorStart + ninetyDaysMs, endMs);
+            try
+            {
+                // Deribit public volatility index endpoint. Resolution 3600s = 1h.
+                var url = "https://www.deribit.com/api/v2/public/get_volatility_index_data" +
+                          $"?currency=BTC&start_timestamp={cursorStart}&end_timestamp={cursorEnd}&resolution=3600";
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                var json = await _client.GetStringAsync(url, cts.Token);
+                var doc = JsonSerializer.Deserialize<JsonElement>(json);
+
+                if (doc.TryGetProperty("result", out var resultObj)
+                    && resultObj.TryGetProperty("data", out var arr)
+                    && arr.ValueKind == JsonValueKind.Array)
+                {
+                    int count = arr.GetArrayLength();
+                    for (int i = 0; i < count; i++)
+                    {
+                        // Deribit returns [timestamp_ms, open, high, low, close]
+                        long t = arr[i][0].GetInt64();
+                        float close = (float)arr[i][4].GetDouble();
+                        data.Add((t, close));
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ENRICH] Deribit DVOL chunk failed: {ex.Message}");
+            }
+
+            cursorStart = cursorEnd + 1;
+            await Task.Delay(500);
+        }
+
+        SaveTimeseriesCache(cache, data);
+        return data;
+    }
+
+    /// <summary>
+    /// Align an irregular timeseries (e.g., futures klines) to target bar timestamps
+    /// by carrying forward the most recent value.
+    /// </summary>
+    private static float[] AlignTimeseriesToBars(
+        List<(long UnixMs, float Value)> source, DateTimeOffset[] ts, int n)
+    {
+        var result = new float[n];
+        if (source.Count == 0) return result;
+
+        int sIdx = 0;
+        float current = source[0].Item2;
+        for (int i = 0; i < n; i++)
+        {
+            long tMs = ts[i].ToUnixTimeMilliseconds();
+            while (sIdx < source.Count - 1 && source[sIdx + 1].Item1 <= tMs)
+            {
+                sIdx++;
+                current = source[sIdx].Item2;
+            }
+            result[i] = current;
+        }
         return result;
     }
 

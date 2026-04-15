@@ -21,12 +21,14 @@ public sealed class MarketAgent
     private readonly PortfolioState _portfolio;
     private readonly float _maxLeverage;
     private readonly float _explicitExitBonus;
+    private readonly float _peakExitBonus;
     private int _tick;
     private int _ticksSinceEntry;
     private float _elapsedHoursAtEntry;
 
     private int _lastTradeCount;
     private float _lastUnrealizedPnl;
+    private float _peakUnrealizedPnl;  // tracks peak P&L of current open position for peak-exit bonus
     private decimal _lastPrice;
     private decimal _prevEquity;
     private TradingSignal? _pendingSignal;
@@ -46,7 +48,8 @@ public sealed class MarketAgent
     public float MaxLeverage => _maxLeverage;
 
     public MarketAgent(Guid genomeId, BrainRuntime brain, PaperTrader trader,
-        AblationConfig? ablation = null, float maxLeverage = 1.0f, float explicitExitBonus = 0.02f)
+        AblationConfig? ablation = null, float maxLeverage = 1.0f, float explicitExitBonus = 0.02f,
+        float peakExitBonus = 0.1f)
     {
         GenomeId = genomeId;
         _brain = brain;
@@ -54,6 +57,7 @@ public sealed class MarketAgent
         _ablation = ablation ?? AblationConfig.Default;
         _maxLeverage = MathF.Max(1.0f, maxLeverage);
         _explicitExitBonus = MathF.Max(0f, explicitExitBonus);
+        _peakExitBonus = MathF.Max(0f, peakExitBonus);
         _portfolio = trader.CreatePortfolio();
         _prevEquity = _portfolio.InitialBalance;
     }
@@ -111,13 +115,34 @@ public sealed class MarketAgent
 
     private void InjectAgentState(float[] signals, decimal currentPrice, float elapsedHours)
     {
+        decimal equity = _portfolio.Equity(currentPrice);
+
+        // V14 H3: aggregate across multi-positions instead of assuming OpenPositions[0].
+        //   CurrentPnl: total unrealized PnL as fraction of initial balance
+        //   PositionDirection: net signed notional (long - short) / total notional in [-1, 1]
+        //   HoldingDuration: _ticksSinceEntry (tracked from first open)
         if (_portfolio.OpenPositions.Count > 0)
         {
-            var pos = _portfolio.OpenPositions[0];
-            float pnlPct = (float)pos.UnrealizedPnlPct(currentPrice) / 100f;
+            decimal totalUnrealized = 0m;
+            decimal longNotional = 0m;
+            decimal shortNotional = 0m;
+            foreach (var p in _portfolio.OpenPositions)
+            {
+                totalUnrealized += p.UnrealizedPnl(currentPrice);
+                decimal notional = p.Size * currentPrice;
+                if (p.Direction == TradeDirection.Long) longNotional += notional;
+                else if (p.Direction == TradeDirection.Short) shortNotional += notional;
+            }
+
+            float pnlPct = _portfolio.InitialBalance > 0m
+                ? (float)(totalUnrealized / _portfolio.InitialBalance) : 0f;
             signals[SignalIndex.CurrentPnl] = Math.Clamp(pnlPct, -1f, 1f);
-            signals[SignalIndex.PositionDirection] = pos.Direction == TradeDirection.Long ? 1f
-                : pos.Direction == TradeDirection.Short ? -1f : 0f;
+
+            decimal totalNot = longNotional + shortNotional;
+            float netDirection = totalNot > 0m
+                ? (float)((longNotional - shortNotional) / totalNot) : 0f;
+            signals[SignalIndex.PositionDirection] = netDirection;
+
             signals[SignalIndex.HoldingDuration] = Math.Min(_ticksSinceEntry / 100f, 1f);
         }
         else
@@ -128,11 +153,11 @@ public sealed class MarketAgent
         }
 
         float drawdown = _portfolio.MaxEquity > 0
-            ? (float)((_portfolio.MaxEquity - _portfolio.Equity(currentPrice)) / _portfolio.MaxEquity)
+            ? (float)((_portfolio.MaxEquity - equity) / _portfolio.MaxEquity)
             : 0f;
         signals[SignalIndex.CurrentDrawdown] = Math.Clamp(drawdown, 0f, 1f);
 
-        // Risk awareness signals (92-99)
+        // Risk awareness signals (96-103)
         signals[SignalIndex.RollingSharpe] = MathF.Tanh(_rolling.RollingSharpe / 5f);
         signals[SignalIndex.RollingDrawdown] = Math.Clamp(_rolling.RollingDrawdown, 0f, 1f);
 
@@ -155,6 +180,87 @@ public sealed class MarketAgent
             ? Math.Clamp(_totalFees / (float)_portfolio.InitialBalance, 0f, 1f) : 0f;
         signals[SignalIndex.ConsecutiveWins] = Math.Clamp(_consecutiveWins / 5f, 0f, 1f);
         signals[SignalIndex.ConsecutiveLosses] = Math.Clamp(_consecutiveLosses / 5f, 0f, 1f);
+
+        // V14 portfolio context signals (104-109)
+        var cfg = _trader.Config;
+        decimal totalNotional = 0m;
+        foreach (var p in _portfolio.OpenPositions)
+            totalNotional += p.Size * currentPrice;
+
+        // AvailableMarginPct = (equity - notional) / equity, clamped
+        float availableMargin = equity > 0m
+            ? (float)((equity - totalNotional) / equity) : 1f;
+        signals[SignalIndex.AvailableMarginPct] = Math.Clamp(availableMargin, 0f, 1f);
+
+        // DistanceToStopLoss: closest active SL distance in % (0 if flat)
+        // Uses config StopLossPct as the protective threshold.
+        if (_portfolio.OpenPositions.Count > 0 && cfg.StopLossPct > 0m)
+        {
+            decimal minDist = decimal.MaxValue;
+            foreach (var p in _portfolio.OpenPositions)
+            {
+                decimal unrealized = p.UnrealizedPnlPct(currentPrice) / 100m;
+                // Distance = slack before stop fires = stopLossPct + unrealized (negative unrealized reduces slack)
+                decimal dist = cfg.StopLossPct + unrealized;
+                if (dist < minDist) minDist = dist;
+            }
+            signals[SignalIndex.DistanceToStopLoss] = Math.Clamp((float)minDist / (float)cfg.StopLossPct, 0f, 1f);
+        }
+        else
+        {
+            signals[SignalIndex.DistanceToStopLoss] = 1f;  // no position = full slack
+        }
+
+        // DistanceToKillSwitch: (current equity - KS threshold) / initial_equity
+        if (cfg.KillSwitchDrawdownPct > 0m && _portfolio.InitialBalance > 0m)
+        {
+            decimal ksThreshold = _portfolio.MaxEquity * (1m - cfg.KillSwitchDrawdownPct);
+            float distKS = (float)((equity - ksThreshold) / _portfolio.InitialBalance);
+            signals[SignalIndex.DistanceToKillSwitch] = Math.Clamp(distKS, 0f, 1f);
+        }
+        else
+        {
+            signals[SignalIndex.DistanceToKillSwitch] = 1f;
+        }
+
+        // TimeSinceLastTrade: ticks since last trade, clamped
+        int ticksSince = _recentTradeTicks.Count > 0
+            ? _tick - _recentTradeTicks.Last()
+            : _tick;
+        signals[SignalIndex.TimeSinceLastTrade] = Math.Clamp(ticksSince / 100f, 0f, 1f);
+
+        // EffectiveLeverage: total notional / equity
+        float effLev = equity > 0m ? (float)(totalNotional / equity) : 0f;
+        signals[SignalIndex.EffectiveLeverage] = Math.Clamp(effLev / Math.Max(1f, cfg.MaxLeverage), 0f, 1f);
+
+        // WinLossStreakMagnitude: log ratio of avg win to avg loss, clamped to [-1, 1]
+        if (tradeCount >= 4)
+        {
+            decimal avgWin = 0m;
+            decimal avgLoss = 0m;
+            int winCount = 0, lossCount = 0;
+            foreach (var t in _portfolio.TradeHistory)
+            {
+                if (t.Pnl > 0) { avgWin += t.Pnl; winCount++; }
+                else if (t.Pnl < 0) { avgLoss += -t.Pnl; lossCount++; }
+            }
+            if (winCount > 0) avgWin /= winCount;
+            if (lossCount > 0) avgLoss /= lossCount;
+
+            if (avgWin > 0m && avgLoss > 0m)
+            {
+                float logRatio = MathF.Log((float)(avgWin / avgLoss));
+                signals[SignalIndex.WinLossStreakMagnitude] = Math.Clamp(logRatio / 2f, -1f, 1f);
+            }
+            else
+            {
+                signals[SignalIndex.WinLossStreakMagnitude] = 0f;
+            }
+        }
+        else
+        {
+            signals[SignalIndex.WinLossStreakMagnitude] = 0f;
+        }
     }
 
     private void UpdateTradeTracking(decimal currentPrice)
@@ -188,7 +294,8 @@ public sealed class MarketAgent
         if (_portfolio.TradeHistory.Count > _lastTradeCount)
         {
             var last = _portfolio.TradeHistory[^1];
-            reward += Math.Clamp((float)(last.Pnl / _portfolio.InitialBalance) * 50f, -1f, 1f);
+            float realizedPct = (float)(last.Pnl / _portfolio.InitialBalance);
+            reward += Math.Clamp(realizedPct * 50f, -1f, 1f);
 
             // Explicit-exit bonus: reward the brain for USING the exit output (output[3])
             // rather than relying solely on direction reversals. Tips evolution toward
@@ -197,14 +304,36 @@ public sealed class MarketAgent
             if (last.ClosedByExitSignal)
                 reward += _explicitExitBonus;
 
+            // Peak-exit bonus: reward for closing profitable positions near their peak.
+            // captureRatio = realizedPct / peakUnrealized, clamped to [0, 1].
+            // Encourages holding winners to their peak rather than closing early.
+            if (last.Pnl > 0 && _peakUnrealizedPnl > 0.001f)
+            {
+                float captureRatio = Math.Clamp(realizedPct / _peakUnrealizedPnl, 0f, 1f);
+                reward += captureRatio * _peakExitBonus;
+            }
+
+            // Reset peak tracker for next position
+            _peakUnrealizedPnl = 0f;
             _lastTradeCount = _portfolio.TradeHistory.Count;
         }
 
         if (_portfolio.OpenPositions.Count > 0)
         {
-            float currentPnlPct = (float)_portfolio.OpenPositions[0].UnrealizedPnlPct(currentPrice) / 100f;
-            float delta = currentPnlPct - _lastUnrealizedPnl;
-            reward += Math.Clamp(delta * 30f, -0.5f, 0.5f);
+            var pos = _portfolio.OpenPositions[0];
+            float currentPnlPct = (float)pos.UnrealizedPnlPct(currentPrice) / 100f;
+
+            // Track peak profit (for peak-exit bonus when trade closes)
+            if (currentPnlPct > _peakUnrealizedPnl) _peakUnrealizedPnl = currentPnlPct;
+
+            // ASYMMETRIC: reward profitable holds gently, punish losing holds strongly.
+            // Previous symmetric delta-based reward created perverse incentive to close
+            // winners early (to lock tiny gains) and hold losers (avoid realizing losses).
+            if (currentPnlPct > 0)
+                reward += Math.Clamp(currentPnlPct * 2f, 0f, 0.1f);  // up to +0.1 per tick when profitable
+            else
+                reward -= Math.Clamp(-currentPnlPct * 5f, 0f, 0.15f); // up to -0.15 per tick when losing
+
             _lastUnrealizedPnl = currentPnlPct;
         }
         else
@@ -213,6 +342,7 @@ public sealed class MarketAgent
             float equityDelta = Math.Clamp((float)((equity - _prevEquity) / _portfolio.InitialBalance) * 5f, -0.1f, 0.1f);
             reward += equityDelta;
             _lastUnrealizedPnl = 0f;
+            _peakUnrealizedPnl = 0f;  // reset when flat
         }
 
         // Reward reshaping: volatility penalty
@@ -227,13 +357,10 @@ public sealed class MarketAgent
             reward += Math.Clamp(sharpeDelta * 0.5f, 0f, 0.05f);
         _prevRollingSharpe = currentSharpe;
 
-        // Reward reshaping: holding time penalty (unprofitable > 20 ticks)
-        if (_portfolio.OpenPositions.Count > 0)
-        {
-            float pnlPct = (float)_portfolio.OpenPositions[0].UnrealizedPnlPct(currentPrice) / 100f;
-            if (pnlPct <= 0f && _ticksSinceEntry > 20)
-                reward -= Math.Clamp((_ticksSinceEntry - 20) / 200f, 0f, 0.05f);
-        }
+        // Holding time penalty applies REGARDLESS of profit, to discourage capital parking.
+        // Threshold at 40 ticks × 15 min = 10 hours max hold before pain starts.
+        if (_portfolio.OpenPositions.Count > 0 && _ticksSinceEntry > 40)
+            reward -= Math.Clamp((_ticksSinceEntry - 40) / 400f, 0f, 0.05f);
 
         _prevEquity = _portfolio.Equity(currentPrice);
         return reward;
@@ -294,6 +421,7 @@ public sealed class MarketAgent
         _elapsedHoursAtEntry = 0f;
         _lastTradeCount = 0;
         _lastUnrealizedPnl = 0f;
+        _peakUnrealizedPnl = 0f;
         _lastPrice = 0m;
         _prevEquity = _portfolio.InitialBalance;
         _pendingSignal = null;

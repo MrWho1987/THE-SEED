@@ -211,19 +211,19 @@ public class PolishTests
         var graph = dev.CompileGraph(custom, budget, new DevelopmentContext(42, 0));
 
         Assert.Equal(SignalIndex.Count, graph.InputCount);
-        Assert.Equal(6, graph.OutputCount);
+        Assert.Equal(11, graph.OutputCount);
 
         var brain = new BrainRuntime(graph, custom.Learn, custom.Stable, 1);
         var ctx = new BrainStepContext(0);
         var outputs = brain.Step(new float[SignalIndex.Count], ctx);
-        Assert.Equal(6, outputs.Length);
+        Assert.Equal(11, outputs.Length);
     }
 
     private sealed class ConstantFitness : IFitnessFunction
     {
         private readonly float _value;
         public ConstantFitness(float value) => _value = value;
-        public FitnessBreakdown ComputeDetailed(PortfolioState portfolio, decimal finalPrice)
+        public FitnessBreakdown ComputeDetailed(PortfolioState portfolio, decimal finalPrice, float hodlReturn = 0f)
         {
             return new FitnessBreakdown(
                 Fitness: _value, ReturnPct: 0, MaxDrawdown: 0,

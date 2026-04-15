@@ -12,17 +12,18 @@ namespace Seed.Market.Tests;
 public class LearningSignalTests
 {
     [Fact]
-    public void OutputCount_Is6()
+    public void OutputCount_Is11()
     {
-        // v2: 6 outputs — direction, size, urgency, exit, price prediction, leverage
-        Assert.Equal(6, ActionInterpreter.OutputCount);
-        Assert.Equal(6, MarketAgent.OutputCount);
+        // V14: 11 outputs — direction, size, urgency, exit, price prediction, leverage,
+        //                   partial close, trail enable, trail dist, tp offset, sl override
+        Assert.Equal(11, ActionInterpreter.OutputCount);
+        Assert.Equal(11, MarketAgent.OutputCount);
     }
 
     [Fact]
-    public void Interpret_6Outputs_DoesNotThrow()
+    public void Interpret_11Outputs_DoesNotThrow()
     {
-        float[] outputs = [1f, 0.5f, 0.8f, 0.1f, 0.3f, 0.2f];
+        float[] outputs = [1f, 0.5f, 0.8f, 0.1f, 0.3f, 0.2f, 0.4f, 0.6f, 0.5f, 0.5f, 0.5f];
         var signal = ActionInterpreter.Interpret(outputs);
         Assert.Equal(TradeDirection.Long, signal.Direction);
     }
@@ -131,7 +132,7 @@ public class LearningSignalTests
     }
 
     [Fact]
-    public void BrainCompiles_With6Outputs()
+    public void BrainCompiles_With11Outputs()
     {
         var rng = new Rng64(42);
         var genome = SeedGenome.CreateRandom(rng);
@@ -139,15 +140,15 @@ public class LearningSignalTests
         var graph = dev.CompileGraph(genome, MarketEvaluator.MarketBrainBudget, new DevelopmentContext(42, 0));
 
         Assert.Equal(SignalIndex.Count, graph.InputCount);
-        Assert.Equal(6, graph.OutputCount);
+        Assert.Equal(11, graph.OutputCount);
 
         var brain = new BrainRuntime(graph, genome.Learn, genome.Stable, 1);
         var outputs = brain.Step(new float[SignalIndex.Count], new BrainStepContext(0));
-        Assert.Equal(6, outputs.Length);
+        Assert.Equal(11, outputs.Length);
     }
 
     [Fact]
-    public void FullAgent_ProcessesTicks_With6Outputs()
+    public void FullAgent_ProcessesTicks_With11Outputs()
     {
         var (agent, _) = CreateAgent();
         var normalizer = new SignalNormalizer();

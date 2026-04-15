@@ -1,20 +1,33 @@
 namespace Seed.Market.Trading;
 
 /// <summary>
-/// Maps brain float[6] output to a TradingSignal.
-/// Output semantics:
-///   [0] tanh    → direction (-1 short, 0 flat, +1 long)
-///   [1] sigmoid → position size (0% to 100% of max)
-///   [2] sigmoid → urgency (0 = patient limit, 1 = immediate market)
-///   [3] sigmoid → exit signal (> threshold closes position)
-///   [4] tanh    → price prediction (curiosity modulator; not consumed by trading)
-///   [5] tanh    → leverage confidence (negative/zero = 1x; positive log-scales to MaxLeverage)
+/// Maps brain float[11] output to a TradingSignal.
+///
+/// V14 output layout (11 total):
+///   [0]  tanh    → direction (-1 short, 0 flat, +1 long)
+///   [1]  sigmoid → position size (0% to 100% of max)
+///   [2]  sigmoid → urgency (0 = patient limit, 1 = immediate market)
+///   [3]  sigmoid → exit signal (> threshold closes position)
+///   [4]  tanh    → price prediction (curiosity modulator; not consumed by trading)
+///   [5]  tanh    → leverage confidence (negative/zero = 1x; positive log-scales to MaxLeverage)
+///   [6]  sigmoid → partial close fraction (only takes effect if > 0.2, reduces open position)
+///   [7]  sigmoid → enable trailing stop (> 0.5 enables on open)
+///   [8]  sigmoid → trailing stop distance [0.5%, 10%] log-scaled
+///   [9]  sigmoid → take-profit offset [0.5%, 15%] log-scaled (dead zone below 0.1)
+///   [10] sigmoid → stop-loss override [0.5%, 5%] log-scaled (dead zone below 0.1)
 /// </summary>
 public static class ActionInterpreter
 {
-    public const int OutputCount = 6;
+    public const int OutputCount = 11;
     public const float ExitThreshold = 0.6f;
     public const float DirectionDeadzone = 0.15f;
+
+    // Dead zones — force the brain to explicitly emit a meaningful value before the output activates.
+    // Sigmoid dormant is ~0.5, so a 0.1 dead zone requires the brain to bias meaningfully below 0.5.
+    public const float PartialCloseDeadzone = 0.2f;
+    public const float TpDeadzone = 0.1f;
+    public const float SlDeadzone = 0.1f;
+    public const float TrailEnableThreshold = 0.5f;
 
     /// <summary>
     /// Interprets raw brain outputs into a TradingSignal.
@@ -36,6 +49,13 @@ public static class ActionInterpreter
         // outputs[4] is the price-prediction curiosity output, consumed by ComputeCuriosity.
         float rawLeverageTanh = outputs.Length > 5 ? MathF.Tanh(Safe(outputs[5])) : 0f;
 
+        // V14 new outputs (6-10), each sigmoid-scaled to [0, 1]
+        float rawPartialClose = outputs.Length > 6 ? Sigmoid(Safe(outputs[6])) : 0f;
+        float rawTrailEnable = outputs.Length > 7 ? Sigmoid(Safe(outputs[7])) : 0f;
+        float rawTrailDist = outputs.Length > 8 ? Sigmoid(Safe(outputs[8])) : 0f;
+        float rawTpOffset = outputs.Length > 9 ? Sigmoid(Safe(outputs[9])) : 0f;
+        float rawSlOverride = outputs.Length > 10 ? Sigmoid(Safe(outputs[10])) : 0f;
+
         var direction = TradeDirection.Flat;
         if (rawDir > DirectionDeadzone) direction = TradeDirection.Long;
         else if (rawDir < -DirectionDeadzone) direction = TradeDirection.Short;
@@ -44,19 +64,41 @@ public static class ActionInterpreter
         float urgency = MathF.Max(0f, MathF.Min(1f, rawUrgency));
         bool exit = rawExit > ExitThreshold;
 
-        // Leverage: log-scaled via exponential mapping so a dormant/negative output yields 1×
-        // (safe default) and a strong positive signal reaches maxLeverage. At maxLeverage=1
-        // this collapses to leverage=1 identically for all outputs. At maxLeverage=125:
-        //   tanh ≤ 0  → 1×     (no leverage)
-        //   tanh=0.3  → 4.3×   (moderate)
-        //   tanh=0.5  → 11.2×  (medium-high)
-        //   tanh=0.7  → 33.6×  (high)
-        //   tanh=0.9  → 82.2×  (aggressive)
-        //   tanh=1.0  → 125×   (max)
-        // Log scale matches how traders actually pick leverage (1, 2, 5, 10, 25, 125).
+        // Leverage: log-scaled via exponential mapping. See V13 rationale.
         float leverageCeiling = MathF.Max(1.0f, maxLeverage);
-        float positiveSignal = MathF.Max(0f, rawLeverageTanh);  // [0, 1], dormant/negative = 0
+        float positiveSignal = MathF.Max(0f, rawLeverageTanh);
         float leverage = MathF.Pow(leverageCeiling, positiveSignal);
+
+        // V14: partial close — only activates if the brain explicitly pushes above dead zone
+        float partialCloseFrac = rawPartialClose > PartialCloseDeadzone ? rawPartialClose : 0f;
+
+        // V14: trailing stop
+        bool enableTrailingStop = rawTrailEnable > TrailEnableThreshold;
+        float trailDist = 0f;
+        if (enableTrailingStop)
+        {
+            // Log-scale map [0, 1] → [0.5%, 10%]: logLo=ln(0.005)=-5.30, range=ln(0.10/0.005)=3.00
+            float logDist = -5.30f + rawTrailDist * 3.00f;
+            trailDist = MathF.Exp(logDist);
+        }
+
+        // V14: take-profit offset
+        float tpOffset = 0f;
+        if (rawTpOffset > TpDeadzone)
+        {
+            // Log-scale [0, 1] → [0.5%, 15%]: logLo=ln(0.005)=-5.30, range=ln(0.15/0.005)=3.40
+            float logTp = -5.30f + rawTpOffset * 3.40f;
+            tpOffset = MathF.Exp(logTp);
+        }
+
+        // V14: stop-loss override
+        float slOverride = 0f;
+        if (rawSlOverride > SlDeadzone)
+        {
+            // Log-scale [0, 1] → [0.5%, 5%]: logLo=ln(0.005)=-5.30, range=ln(0.05/0.005)=2.30
+            float logSl = -5.30f + rawSlOverride * 2.30f;
+            slOverride = MathF.Exp(logSl);
+        }
 
         return new TradingSignal(
             direction,
@@ -66,7 +108,12 @@ public static class ActionInterpreter
             rawExit,
             leverage,
             rawSizeSigmoid,
-            positiveSignal);  // RawLeverage stores the clamped [0,1] signal before scaling
+            positiveSignal,
+            partialCloseFrac,
+            enableTrailingStop,
+            trailDist,
+            tpOffset,
+            slOverride);
     }
 
     private static float Safe(float x) =>
