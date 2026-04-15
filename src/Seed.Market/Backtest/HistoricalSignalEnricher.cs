@@ -1305,6 +1305,16 @@ public sealed class HistoricalSignalEnricher
         }
 
         // 2. Exchange balance (daily) → SupplyOnExchanges + ExchangeNetFlow
+        //
+        // Coinglass v4 response format for /api/exchange/balance/chart:
+        //   { "code":"0", "msg":"success", "data": [ { "time_list":[...],
+        //       "price_list":[...], "data_map": { "binance":[...], "okx":[...], ... } } ] }
+        // "data" is an ARRAY containing a single object. Exchange balances live under
+        // "data_map" (exchange name → array aligned with time_list). The top-level
+        // "price_list" is the BTC price series, not balance.
+        //
+        // Legacy/fallback: some older endpoints return data as Object directly, or exchanges
+        // as nested objects with their own "price_list". The parser below handles both.
         try
         {
             var supplyOnExch = new float[n];
@@ -1314,51 +1324,92 @@ public sealed class HistoricalSignalEnricher
                 $"{baseUrl}/api/exchange/balance/chart?symbol=BTC&range=1d");
 
             var balDoc = JsonSerializer.Deserialize<JsonElement>(balJson);
-            if (balDoc.TryGetProperty("data", out var balData) &&
-                balData.TryGetProperty("time_list", out var timeList))
+            if (balDoc.TryGetProperty("data", out var balData))
             {
-                // Sum all exchange balances per timestamp
-                int timeCount = timeList.GetArrayLength();
-                var dailyBalances = new (long time, float balance)[timeCount];
+                JsonElement root;
+                if (balData.ValueKind == JsonValueKind.Array && balData.GetArrayLength() > 0)
+                    root = balData[0];
+                else if (balData.ValueKind == JsonValueKind.Object)
+                    root = balData;
+                else
+                    root = default;
 
-                for (int t = 0; t < timeCount; t++)
-                    dailyBalances[t].time = timeList[t].GetInt64();
-
-                // Sum across all exchanges for each timestamp
-                foreach (var prop in balData.EnumerateObject())
+                if (root.ValueKind == JsonValueKind.Object
+                    && root.TryGetProperty("time_list", out var timeList)
+                    && timeList.ValueKind == JsonValueKind.Array)
                 {
-                    if (prop.Name == "time_list") continue;
-                    if (!prop.Value.TryGetProperty("price_list", out var priceList)) continue;
-                    int len = priceList.GetArrayLength();
-                    for (int t = 0; t < Math.Min(len, timeCount); t++)
+                    int timeCount = timeList.GetArrayLength();
+                    var dailyBalances = new (long time, float balance)[timeCount];
+                    for (int t = 0; t < timeCount; t++)
+                        dailyBalances[t].time = timeList[t].GetInt64();
+
+                    // Prefer data_map; fall back to scanning root object
+                    JsonElement exchangeMap;
+                    if (root.TryGetProperty("data_map", out var dataMap)
+                        && dataMap.ValueKind == JsonValueKind.Object)
                     {
-                        if (priceList[t].ValueKind == JsonValueKind.Number)
-                            dailyBalances[t].balance += (float)priceList[t].GetDouble();
+                        exchangeMap = dataMap;
                     }
-                }
-
-                // Forward-fill daily balances to bar timestamps
-                int pi = 0;
-                float prevBal = 0f;
-                for (int i = 0; i < n; i++)
-                {
-                    long barMs = timestamps[i].ToUnixTimeMilliseconds();
-                    while (pi < dailyBalances.Length - 1 && dailyBalances[pi + 1].time <= barMs)
-                        pi++;
-                    if (pi < dailyBalances.Length && dailyBalances[pi].time <= barMs)
+                    else
                     {
-                        float bal = dailyBalances[pi].balance;
-                        supplyOnExch[i] = Math.Clamp(bal / circulatingSupply, 0f, 1f);
-
-                        if (prevBal > 0)
-                            netFlow[i] = Math.Clamp((bal - prevBal) / netFlowScale, -1f, 1f);
-                        prevBal = bal;
+                        exchangeMap = root;
                     }
-                }
 
-                result[SignalIndex.SupplyOnExchanges] = supplyOnExch;
-                result[SignalIndex.ExchangeNetFlow] = netFlow;
-                slotsAdded += 2;
+                    foreach (var prop in exchangeMap.EnumerateObject())
+                    {
+                        if (prop.Name is "time_list" or "price_list" or "data_map") continue;
+
+                        // Each exchange's value can be:
+                        //   (a) Array of balances aligned with time_list (v4 data_map format)
+                        //   (b) Object with nested "price_list": [...] (legacy format)
+                        JsonElement balanceArray;
+                        if (prop.Value.ValueKind == JsonValueKind.Array)
+                        {
+                            balanceArray = prop.Value;
+                        }
+                        else if (prop.Value.ValueKind == JsonValueKind.Object
+                                 && prop.Value.TryGetProperty("price_list", out var nested)
+                                 && nested.ValueKind == JsonValueKind.Array)
+                        {
+                            balanceArray = nested;
+                        }
+                        else
+                        {
+                            continue;
+                        }
+
+                        int len = balanceArray.GetArrayLength();
+                        for (int t = 0; t < Math.Min(len, timeCount); t++)
+                        {
+                            var v = balanceArray[t];
+                            if (v.ValueKind == JsonValueKind.Number)
+                                dailyBalances[t].balance += (float)v.GetDouble();
+                        }
+                    }
+
+                    // Forward-fill daily balances to bar timestamps
+                    int pi = 0;
+                    float prevBal = 0f;
+                    for (int i = 0; i < n; i++)
+                    {
+                        long barMs = timestamps[i].ToUnixTimeMilliseconds();
+                        while (pi < dailyBalances.Length - 1 && dailyBalances[pi + 1].time <= barMs)
+                            pi++;
+                        if (pi < dailyBalances.Length && dailyBalances[pi].time <= barMs)
+                        {
+                            float bal = dailyBalances[pi].balance;
+                            supplyOnExch[i] = Math.Clamp(bal / circulatingSupply, 0f, 1f);
+
+                            if (prevBal > 0)
+                                netFlow[i] = Math.Clamp((bal - prevBal) / netFlowScale, -1f, 1f);
+                            prevBal = bal;
+                        }
+                    }
+
+                    result[SignalIndex.SupplyOnExchanges] = supplyOnExch;
+                    result[SignalIndex.ExchangeNetFlow] = netFlow;
+                    slotsAdded += 2;
+                }
             }
         }
         catch (Exception ex)
