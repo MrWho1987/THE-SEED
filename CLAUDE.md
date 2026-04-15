@@ -4,9 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What This Is
 
-THE-SEED is a neuroevolutionary crypto trading system. It evolves neural network agents using NEAT/CPPN genome encoding, compiles them into sparse recurrent brains via HyperNEAT-style substrate development, and trains them against historical market data with walk-forward validation. Agents process 92 normalized market signals and output trading decisions.
+THE-SEED is a neuroevolutionary crypto trading system. It evolves neural network agents using NEAT/CPPN genome encoding, compiles them into sparse recurrent brains via HyperNEAT-style substrate development, and trains them against historical market data with walk-forward validation. Agents process 110 normalized market signals and emit 11 trading decision outputs.
 
-Current version: **v4** — 15-minute candles, 2% protective stop-loss, 865-neuron brain (16x16x3 hidden grid).
+Current baseline: **V11** — still v1 development (no v2 yet). 15-minute candles, Binance futures
+(MaxLeverage 125), 20×20×3 brain (1200 neurons, TopKIn 32, MaxOut 40, MaxSynapticDelay 16),
+11-output action space (direction/size/urgency/exit/predict/leverage/partialClose/trailEnable/
+trailDist/tpOffset/slOverride), 9-component fitness (Sharpe/Sortino/Return/DDDuration/CVaR/
+Calmar/InfoRatio/FeeDrag/Diversification).
 
 ## Build, Test, Run
 
@@ -73,7 +77,7 @@ Architecture details, domain concepts, code conventions, and configuration refer
 
 1. **Determinism is sacred.** All randomness flows through `Rng64` (xoshiro256**) with domain-separated seeds via `SeedDerivation`. Never use `System.Random` or `Guid.NewGuid()` in evolution/training paths.
 2. **All tests must pass.** Run `dotnet test` after any code change. The test suite covers fitness computation, signal normalization, trading logic, risk management, and genome operations.
-3. **Fitness weights must sum to 1.0.** The five fitness weights (Sharpe, Sortino, Return, DrawdownDuration, CVaR) are validated at runtime.
+3. **Fitness weights must sum to 1.0.** V11: nine fitness weights (Sharpe, Sortino, Return, DrawdownDuration, CVaR, Calmar, InfoRatio, FeeDrag, Diversification) validated at runtime in `MarketConfig.Validate()`.
 4. **Safety mechanisms live outside the brain.** Stop-loss, kill-switch, and daily loss limits are execution-layer concerns — the brain cannot learn to circumvent them.
 5. **Fine-tune, don't restart.** When expanding capabilities, seed populations from existing trained genomes rather than starting from scratch.
 6. **No logic changes during refactoring.** Extract-only moves. Verify tests pass after each structural change.
