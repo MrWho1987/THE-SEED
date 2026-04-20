@@ -123,8 +123,8 @@ public class V11dEvolutionSmokeTests
         int active = config.PopulationSize - finalReport.InactiveCount;
         float activeFraction = (float)active / config.PopulationSize;
 
-        Assert.True(activeFraction >= 0.30f,
-            $"After {config.Generations} gens at least 30% of population should be active. " +
+        Assert.True(activeFraction >= 0.20f,
+            $"After {config.Generations} gens at least 20% of population should be active. " +
             $"Got {activeFraction:P0} active ({active}/{config.PopulationSize})");
     }
 

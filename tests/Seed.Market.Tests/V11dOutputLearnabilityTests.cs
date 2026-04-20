@@ -3,14 +3,16 @@ using Seed.Market.Trading;
 namespace Seed.Market.Tests;
 
 /// <summary>
-/// V11d output-learnability test: verifies that outputs 6-10 (partialClose, trailEnable,
-/// trailDist, tpOffset, slOverride) are REACHABLE under intentional brain signal, not
-/// merely "dormant by default". The deadzone fix (raised to 0.8) makes random brains
-/// stay dormant, but the brain must still be able to push these outputs above 0.8 once
-/// it learns to.
+/// V11e output-learnability test: verifies that outputs 6-10 are REACHABLE through the
+/// FULL brain→ActionInterpreter pipeline, not just ActionInterpreter in isolation.
 ///
-/// This test feeds explicit raw outputs to ActionInterpreter.Interpret and verifies that
-/// strong-positive raw values DO activate each output 6-10.
+/// The brain applies tanh (max ±1.0), then ActionInterpreter applies sigmoid → max 0.731.
+/// V11d's deadzone of 0.80 was ABOVE this ceiling (proven in DeadzoneMathTests).
+/// V11e lowered deadzones to 0.70, which IS reachable: sigmoid(tanh(1.25)) ≈ 0.70.
+///
+/// Tests verify both:
+/// - ActionInterpreter-level reachability (raw outputs from brain go through sigmoid)
+/// - Pipeline ceiling awareness (raw > 1.0 is impossible from a real brain)
 /// </summary>
 public class V11dOutputLearnabilityTests
 {
@@ -88,6 +90,7 @@ public class V11dOutputLearnabilityTests
     {
         // The ultimate agent uses ALL of outputs 6-10 simultaneously when warranted.
         // Verify they don't conflict with each other when all are strong-positive.
+        // NOTE: raw=3 bypasses brain's tanh (max 1.0). These test ActionInterpreter only.
         float[] outputs = [0.5f, 0.5f, 0.5f, 0f, 0f, 0f, 3f, 3f, 3f, 3f, 3f];
         var signal = ActionInterpreter.Interpret(outputs);
 
@@ -96,5 +99,60 @@ public class V11dOutputLearnabilityTests
         Assert.True(signal.TrailingStopDistance > 0f);
         Assert.True(signal.TakeProfitOffset > 0f);
         Assert.True(signal.StopLossOverride > 0f);
+    }
+
+    // ── V11e: Pipeline reachability tests ─────────────────────────────────
+    // These verify outputs are reachable through the ACTUAL brain→interpreter pipeline
+    // where brain output = tanh(x) → max 1.0, then sigmoid(tanh) → max 0.731.
+
+    [Fact]
+    public void Pipeline_MaxBrainOutput_ExceedsDeadzone()
+    {
+        // The brain's max output is tanh(∞) = 1.0.
+        // sigmoid(1.0) = 0.731. Deadzone is 0.70. 0.731 > 0.70 ✓
+        float maxBrainOutput = MathF.Tanh(100f); // ≈ 1.0
+        float sigmoid = 1f / (1f + MathF.Exp(-maxBrainOutput));
+
+        Assert.True(sigmoid > ActionInterpreter.PartialCloseDeadzone,
+            $"sigmoid(tanh(∞)) = {sigmoid:F4} must exceed deadzone {ActionInterpreter.PartialCloseDeadzone}");
+        Assert.True(sigmoid > ActionInterpreter.TrailEnableThreshold,
+            $"sigmoid(tanh(∞)) = {sigmoid:F4} must exceed trail threshold {ActionInterpreter.TrailEnableThreshold}");
+        Assert.True(sigmoid > ActionInterpreter.TpDeadzone,
+            $"sigmoid(tanh(∞)) = {sigmoid:F4} must exceed TP deadzone {ActionInterpreter.TpDeadzone}");
+        Assert.True(sigmoid > ActionInterpreter.SlDeadzone,
+            $"sigmoid(tanh(∞)) = {sigmoid:F4} must exceed SL deadzone {ActionInterpreter.SlDeadzone}");
+    }
+
+    [Fact]
+    public void Pipeline_RealisticBrainOutput_CanActivate()
+    {
+        // A brain with weighted_sum = 1.5 → tanh(1.5) = 0.905 → sigmoid(0.905) = 0.712
+        // 0.712 > 0.70 → activates at deadzone 0.70
+        float realisticOutput = MathF.Tanh(1.5f); // 0.905
+        float[] outputs = [0.5f, 0.5f, 0.5f, 0f, 0f, 0f,
+                           realisticOutput, realisticOutput, realisticOutput,
+                           realisticOutput, realisticOutput];
+        var signal = ActionInterpreter.Interpret(outputs);
+
+        Assert.True(signal.PartialCloseFrac > 0f,
+            $"tanh(1.5) = {realisticOutput:F3} → sigmoid = {1f / (1f + MathF.Exp(-realisticOutput)):F3} should activate partial close at 0.70");
+        Assert.True(signal.EnableTrailingStop);
+    }
+
+    [Fact]
+    public void Pipeline_ModerateBrainOutput_StaysDormant()
+    {
+        // A brain with weighted_sum = 0.5 → tanh(0.5) = 0.462 → sigmoid(0.462) = 0.614
+        // 0.614 < 0.70 → stays dormant
+        float moderateOutput = MathF.Tanh(0.5f); // 0.462
+        float[] outputs = [0.5f, 0.5f, 0.5f, 0f, 0f, 0f,
+                           moderateOutput, moderateOutput, moderateOutput,
+                           moderateOutput, moderateOutput];
+        var signal = ActionInterpreter.Interpret(outputs);
+
+        Assert.Equal(0f, signal.PartialCloseFrac);
+        Assert.False(signal.EnableTrailingStop);
+        Assert.Equal(0f, signal.TakeProfitOffset);
+        Assert.Equal(0f, signal.StopLossOverride);
     }
 }

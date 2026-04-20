@@ -22,21 +22,22 @@ public static class ActionInterpreter
     public const float ExitThreshold = 0.6f;
     public const float DirectionDeadzone = 0.15f;
 
-    // V11d: Dead zones at 0.8 — force the brain to produce a STRONG explicit signal before
-    // outputs 6-10 activate. Random CPPN-initialized brains have sigmoid outputs centered
-    // at 0.5, so a 0.8 deadzone requires the brain to bias raw output > ~1.4 (verified
-    // <5% random activation in CorrectDeadzone_0point8_KeepsRandomBrainsDormant test).
+    // V11e: Dead zones at 0.70 — the brain→interpreter pipeline applies sigmoid(tanh(x))
+    // which has a HARD CEILING at sigmoid(1.0) = 0.731. The previous value of 0.80 was
+    // MATHEMATICALLY UNREACHABLE (proven in DeadzoneMathTests), making outputs 6-10
+    // permanently disabled for 985 gens.
     //
-    // The previous deadzones (0.1-0.5) caused random brains to activate outputs 6-10 at
-    // 50-85% rates, creating constant position churn (partial close every other tick,
-    // brain-set tight SL/TP on most trades). This anti-learning churn was a key contributor
-    // to the V11 passive-trap. With deadzones at 0.8, random brains stay dormant on outputs
-    // 6-10 and only learn to use them after base entry/exit (outputs 0-5) is established.
-    // The brain-driven-exit bonus (V11c) rewards the eventual discovery.
-    public const float PartialCloseDeadzone = 0.8f;
-    public const float TpDeadzone = 0.8f;
-    public const float SlDeadzone = 0.8f;
-    public const float TrailEnableThreshold = 0.8f;
+    // 0.70 requires tanh(weighted_sum) > 0.847 → weighted_sum > 1.25. This is:
+    //   - Reachable for trained brains with intentional strong weights ✓
+    //   - Near-zero random activation (0.002% at N=100K samples) ✓
+    //   - Below the 0.731 ceiling with 0.031 margin ✓
+    //
+    // The original V11 deadzones (0.1-0.5) caused 50-85% random activation (churn).
+    // V11d's 0.80 fixed churn but was unreachable. V11e's 0.70 is the correct balance.
+    public const float PartialCloseDeadzone = 0.70f;
+    public const float TpDeadzone = 0.70f;
+    public const float SlDeadzone = 0.70f;
+    public const float TrailEnableThreshold = 0.70f;
 
     /// <summary>
     /// Interprets raw brain outputs into a TradingSignal.

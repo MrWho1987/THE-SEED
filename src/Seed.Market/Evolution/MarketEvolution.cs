@@ -127,6 +127,8 @@ public sealed class MarketEvolution
         else
         {
             var accumulated = new Dictionary<Guid, List<FitnessBreakdown>>();
+            // V11e: track the last window's full result to preserve OutputObs/CloseReasonCounts
+            var lastWindowResults = new Dictionary<Guid, MarketEvalResult>();
             foreach (var (snaps, prices, rawVols, rawFunding) in windows)
             {
                 var results = _evaluator.Evaluate(_population, snaps, prices, rawVols, rawFunding, Generation);
@@ -135,6 +137,7 @@ public sealed class MarketEvolution
                     if (!accumulated.ContainsKey(id))
                         accumulated[id] = [];
                     accumulated[id].Add(result.Fitness);
+                    lastWindowResults[id] = result;
                 }
             }
 
@@ -142,7 +145,8 @@ public sealed class MarketEvolution
             foreach (var (id, breakdowns) in accumulated)
             {
                 var avg = AverageBreakdowns(breakdowns, _config.WindowConsistencyWeight);
-                _evaluations[id] = new MarketEvalResult(id, avg);
+                var last = lastWindowResults[id];
+                _evaluations[id] = new MarketEvalResult(id, avg, last.OutputObs, last.CloseReasonCounts);
             }
         }
 
@@ -370,7 +374,8 @@ public sealed class MarketEvolution
             {
                 var f = eval.Fitness;
                 var boosted = f with { Fitness = f.Fitness + bonus };
-                _evaluations[id] = new MarketEvalResult(id, boosted);
+                // V11e: preserve OutputObs and CloseReasonCounts through diversity bonus
+                _evaluations[id] = new MarketEvalResult(id, boosted, eval.OutputObs, eval.CloseReasonCounts);
             }
         }
     }
