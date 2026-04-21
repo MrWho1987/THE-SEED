@@ -105,25 +105,26 @@ fix. Use this status map alongside the original section text:
 **Effort:** Low (config change + retraining)
 **Requires retraining:** Yes (but can seed from existing genomes)
 
-### Current Architecture
+### Current Architecture (V11e)
 ```
-Input layer:  92 neurons  (one per signal)
-Hidden grid:  16 x 16 x 3 layers = 768 neurons
-Output layer: 5 neurons   (direction, size, urgency, exit, price prediction)
-Total:        865 neurons
+Input layer:  110 neurons  (one per signal)
+Hidden grid:  20 x 20 x 3 layers = 1200 neurons
+Output layer: 11 neurons   (direction, size, urgency, exit, predict, leverage,
+                            partialClose, trailEnable, trailDist, tpOffset, slOverride)
+Total:        1321 neurons
 ```
 
-Each hidden neuron receives up to 16 incoming connections (TopKIn) and sends to
-up to 20 (MaxOut). Connections are sparse -- the CPPN decides which exist.
+Each hidden neuron receives up to 32 incoming connections (TopKIn) and sends to
+up to 40 (MaxOut). MaxSynapticDelay = 16 ticks (4 hours at 15-min bars).
+12 gate neurons modulate 12 signal categories via regime context signals.
 
-### Recommended Expansion Path
+### Historical Expansion Path (pre-V11 → V11)
 
-| Phase  | Hidden Grid  | Total Neurons | When                        |
-|--------|-------------|---------------|-----------------------------|
-| v4     | 16x16x3     | 865           | Current (baseline)          |
-| v5     | 24x24x4     | ~2,309        | After v4 validated          |
-| v6     | 32x32x5     | ~5,125        | If v5 shows clear gains     |
-| v7+    | Evolved     | Variable      | Let evolution decide        |
+| Phase  | Hidden Grid  | Total Neurons | Status |
+|--------|-------------|---------------|--------|
+| v4     | 16x16x3     | 865           | Archived baseline |
+| **V11e** | **20x20x3** | **1321** | **Current (in training)** |
+| Future | Evolved     | Variable      | Let evolution decide |
 
 ### Why Not Go Big Immediately?
 - More neurons = more connections to evolve = more generations needed.
@@ -230,7 +231,7 @@ src/Seed.Market/Data/
 
 ### Behavioral Guardrails
 - Every refactoring must be extract-only: move code to new files, update
-  references, verify all 179+ tests still pass.
+  references, verify all 358 tests still pass.
 - No logic changes during refactoring. Only structural moves.
 - Commit each file split independently so any regression is easy to bisect.
 
@@ -531,5 +532,5 @@ FUTURE:    Multi-Asset (Section 6)
    circumvent them.
 5. **Fine-tune, don't restart** -- leverage existing trained genomes as starting
    populations for incremental improvements.
-6. **Test at every step** -- all 179+ existing tests must pass after any change.
+6. **Test at every step** -- all 358 existing tests must pass after any change.
    Add new tests for new features before implementing them.

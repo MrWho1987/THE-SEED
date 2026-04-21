@@ -21,9 +21,9 @@ Seed.Dashboard      WPF control room (Windows only)
 
 2. **Brain development.** The CPPN is queried across a substrate grid to produce a continuous rate-based neural network with leaky integration, neuromodulation, and Hebbian plasticity — hundreds to thousands of neurons and synapses.
 
-3. **Market signals.** The system ingests 92 normalized market signals spanning price action, volume, derivatives, on-chain metrics, sentiment, macroeconomic indicators, stablecoin flows, technical indicators, temporal encoding, agent state, multi-asset correlations, and regime context.
+3. **Market signals.** The system ingests 110 normalized market signals spanning price action, volume, derivatives (including Deribit options), on-chain metrics, sentiment, macroeconomic indicators, stablecoin flows, technical indicators, temporal encoding, agent state, multi-asset correlations, regime context, and portfolio awareness.
 
-4. **Neuroevolution.** Populations of agents compete in simulated market environments. Fitness combines Sharpe ratio, Sortino ratio, raw return, drawdown duration, and CVaR (Conditional Value at Risk). NEAT speciation maintains diversity.
+4. **Neuroevolution.** Populations of agents compete in simulated market environments. Fitness combines 9 objectives: Sharpe, Sortino, return, drawdown duration, CVaR, Calmar, Information Ratio (vs HODL), fee drag, and diversification. NEAT speciation maintains diversity.
 
 5. **Walk-forward validation.** Training windows advance only when validation fitness exceeds a threshold, preventing overfitting to a single market regime.
 

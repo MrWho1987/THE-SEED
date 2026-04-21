@@ -1,6 +1,16 @@
 # Market signals catalog
 
-The market layer exposes a fixed-length signal vector used as input to CPPN brains. The authoritative size is **`SignalIndex.Count == 92`**. Some comments elsewhere still say 88 (for example `SignalSnapshot` and `MarketAgent` XML); those references are outdated.
+The market layer exposes a fixed-length signal vector used as input to CPPN brains.
+The authoritative size is **`SignalIndex.Count == 110`** (V11+). The authoritative
+source is `src/Seed.Market/Signals/SignalIndex.cs`.
+
+V11 changes from the original 92-signal layout:
+- Slots 25-29: repurposed from dead News/Reddit to Deribit options signals
+- Regime expanded from 4→8 signals (88-95; added TimeOfDaySession, VolatilityPercentile,
+  TrendStrengthAdx, CorrelationRegime)
+- Risk Awareness shifted from 92-99 → 96-103 to accommodate regime expansion
+- New portfolio context signals added at 104-109 (AvailableMarginPct, DistanceToStopLoss,
+  DistanceToKillSwitch, TimeSinceLastTrade, EffectiveLeverage, WinLossStreakMagnitude)
 
 ---
 
@@ -10,7 +20,7 @@ The market layer exposes a fixed-length signal vector used as input to CPPN brai
 |----------|-----------|--------|-----------------|
 | Price & Volume | `PriceStart` 0 | `PriceEnd` 11 | 12 |
 | Derivatives | `DerivativesStart` 12 | `DerivativesEnd` 22 | 11 |
-| Sentiment & Social | `SentimentStart` 23 | `SentimentEnd` 30 | 8 |
+| Sentiment (incl. Deribit) | `SentimentStart` 23 | `SentimentEnd` 30 | 8 |
 | On-Chain | `OnChainStart` 31 | `OnChainEnd` 40 | 10 |
 | Macro | `MacroStart` 41 | `MacroEnd` 50 | 10 |
 | Stablecoin & Market Structure | `StablecoinStart` 51 | `StablecoinEnd` 56 | 6 |
@@ -18,11 +28,18 @@ The market layer exposes a fixed-length signal vector used as input to CPPN brai
 | Temporal Encoding | `TemporalStart` 69 | `TemporalEnd` 75 | 7 |
 | Agent Internal State | `AgentStateStart` 76 | `AgentStateEnd` 79 | 4 |
 | Multi-Asset Relative | `MultiAssetStart` 80 | `MultiAssetEnd` 87 | 8 |
-| Regime Context | `RegimeStart` 88 | `RegimeEnd` 91 | 4 |
+| Regime Context | `RegimeStart` 88 | `RegimeEnd` 95 | 8 |
+| Risk Awareness + Portfolio | `RiskAwarenessStart` 96 | `RiskAwarenessEnd` 109 | 14 |
+
+**Total: 110 signals across 12 categories (CategoryCount = 12)**
 
 ---
 
-## 2. Complete signal table (all 92)
+## 2. Complete signal table
+
+The table below shows the original 92 signals (slots 0-91). For the full V11 layout
+(slots 0-109 including the expanded regime, shifted risk awareness, and new portfolio
+context signals), refer directly to `src/Seed.Market/Signals/SignalIndex.cs`.
 
 Descriptions are taken from trailing comments on the corresponding constants in `SignalIndex.cs`. An em dash (—) means that constant has no such comment in source.
 

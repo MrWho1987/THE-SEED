@@ -324,10 +324,20 @@ Flags **not referenced by `BrainRuntime` or `BrainDeveloper`** in this repositor
 
 ## Default budget snapshot (`DevelopmentBudget`)
 
-From `Seed.Core/Budgets.cs`, `DevelopmentBudget.Default`:
+From `Seed.Core/Budgets.cs`, `DevelopmentBudget.Default` (library defaults; the market
+training uses `MarketEvaluator.MarketBrainBudget` which overrides these):
 
 - `HiddenWidth = 12`, `HiddenHeight = 12`, `HiddenLayers = 2`
 - `TopKIn = 12`, `MaxOut = 16`
 - `LocalNeighborhoodRadius = 2`
 - `GlobalCandidateSamplesPerNeuron = 16`
 - `MaxSynapticDelay = 5`
+
+**V11 MarketBrainBudget** (from `MarketEvaluator.cs`, used for actual training):
+
+- `HiddenWidth = 20`, `HiddenHeight = 20`, `HiddenLayers = 3` (1200 hidden neurons)
+- `TopKIn = 32`, `MaxOut = 40`
+- `LocalNeighborhoodRadius = 3`
+- `GlobalCandidateSamplesPerNeuron = 24`
+- `MaxSynapticDelay = 16` (4 hours at 15-min bars)
+- `ModuleCount = 12`, `GateNeuronCount = 12`

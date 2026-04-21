@@ -24,7 +24,7 @@ Seed.sln
 │   ├── Seed.Market.App         CLI entry point (all execution modes)
 │   └── Seed.Dashboard          WPF control room (Windows only, MaterialDesign dark theme)
 ├── tests/
-│   └── Seed.Market.Tests       xUnit test suite (~140+ test cases)
+│   └── Seed.Market.Tests       xUnit test suite (~358 test cases)
 └── tools/
     └── Seed.Backtest           Standalone API verifier (.NET 9)
 ```
@@ -108,7 +108,7 @@ Live Exchange APIs
                 └── SignalNormalizer.Normalize()
                         │
                         ▼
-                SignalSnapshot (92 signals)
+                SignalSnapshot (110 signals)
                         │
                         ▼
                 MarketAgent.ProcessTick(snapshot, tickContext)
@@ -126,7 +126,7 @@ Live Exchange APIs
 
 ```
 SeedGenome
-  ├── CppnNetwork (9 inputs → 6 outputs, variable hidden nodes)
+  ├── CppnNetwork (9 inputs → 6 outputs, variable hidden nodes; produces 11-output brain)
   ├── DevelopmentParams (substrate dimensions, connectivity threshold)
   ├── LearningParams (Hebbian plasticity rates)
   └── StabilityParams (homeostasis, weight clamping)
@@ -159,5 +159,5 @@ BrainDeveloper.CompileGraph(genome, budget, ctx)
 - **Deterministic RNG:** `Rng64` (xoshiro256**) with `SeedDerivation` domain-separated seeds ensures reproducible runs across invocations. All randomness flows from the single `RunSeed` config value.
 - **Generational evolution:** The system uses standard NEAT generational replacement, not continuous ecology. Each generation evaluates the full population, selects parents, produces offspring, and advances.
 - **One-tick action delay:** `MarketAgent` executes the *previous* tick's trading signal on the current tick. This prevents look-ahead bias by ensuring decisions are based on data available at decision time, not execution time.
-- **CPPN indirect encoding:** Rather than evolving weights directly, the system evolves a pattern-producing network (CPPN) that generates connectivity and weights across a geometric substrate. This enables compact genome representation for large brains (e.g., 865 neurons / 4,918 synapses from a 17-node CPPN).
+- **CPPN indirect encoding:** Rather than evolving weights directly, the system evolves a pattern-producing network (CPPN) that generates connectivity and weights across a geometric substrate. This enables compact genome representation for large brains (e.g., V11 uses a 20×20×3 substrate = 1,200 hidden neurons + 110 inputs + 11 outputs, all developed from a compact CPPN genome).
 - **Continuous neurons, not spiking:** Despite some legacy naming, `BrainRuntime` uses continuous rate-based neurons with `tanh` activation and leaky time-constant integration, not discrete spike events.

@@ -18,7 +18,7 @@ Calmar/InfoRatio/FeeDrag/Diversification).
 # Build everything
 dotnet build
 
-# Run all tests (xUnit, ~140+ cases)
+# Run all tests (xUnit, ~358 cases)
 dotnet test
 
 # Run a single test file

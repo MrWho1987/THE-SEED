@@ -207,7 +207,7 @@ Each budget is a `readonly record struct` with optional constructor parameters (
 
 - Computed: `int TotalHiddenNeurons => HiddenWidth * HiddenHeight * HiddenLayers`.
 
-**Usage:** The market pipeline compiles brains with a dedicated `DevelopmentBudget` instance (`MarketEvaluator.MarketBrainBudget` in `Seed.Market`), not necessarily `DevelopmentBudget.Default`. Brain development (`Seed.Development`) takes a `DevelopmentBudget` for compilation.
+**Usage:** The market pipeline compiles brains with a dedicated `DevelopmentBudget` instance (`MarketEvaluator.MarketBrainBudget` in `Seed.Market`), not necessarily `DevelopmentBudget.Default`. V11+ MarketBrainBudget: HiddenWidth=20, HiddenHeight=20, HiddenLayers=3, TopKIn=32, MaxOut=40, MaxSynapticDelay=16, ModuleCount=12, GateNeuronCount=12.
 
 ### `RuntimeBudget`
 

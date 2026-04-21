@@ -261,6 +261,45 @@ fixes were verified by smoke testing before launching the full retrain.
 
 ---
 
+## V11e Deadzone Fix + Observability (2026-04-21)
+
+### Critical bug found and fixed
+V11d's deadzones at 0.80 for outputs 6-10 were MATHEMATICALLY UNREACHABLE.
+Brain outputs go through `tanh` (max 1.0) then ActionInterpreter applies `sigmoid`
+(max sigmoid(1.0) = 0.731). Since 0.731 < 0.80, outputs 6-10 were permanently disabled
+for 985 gens. Proven by 6 unit tests in `DeadzoneMathTests.cs`.
+
+Fix: lowered deadzones to 0.70 (sigmoid(tanh(1.25)) ≈ 0.70, reachable with strong
+weights, 0.002% random activation). Also fixed [outputs]/[closes] observability bug
+caused by `ApplyDiversityBonus` and multi-window accumulation stripping `OutputObs`
+from `MarketEvalResult`.
+
+### V11e output discovery timeline (Phase 2, resumed from gen 985)
+
+| Gen | Output discovered | Close % | Evidence |
+|-----|-------------------|---------|----------|
+| ~986 | **TrailingStop** (output 7/8) | 27/43 = 63% | trailEnable mean 0.92 → sigmoid 0.715 > 0.70 |
+| ~988 | **TakeProfit** (output 9) | 25/47 = 53% | tp mean 0.98 → sigmoid 0.727 > 0.70 |
+| ~992 | **PartialClose** (output 6) | 106/180 = 59% | prt occasionally swings above 0.70 at +2σ |
+| 996 | **BrainStopLoss** (output 10) | 7/97 = 7% | sl std 0.63, activates at tail of distribution |
+
+**4 of 5 V11 action outputs discovered within ~11 gens of V11e fix.**
+Only ExitSignal (output[3]) remains dormant — functionally redundant with the other exits.
+
+### Gen 996 snapshot (most complete agent so far)
+```
+Fitness: +2.2446 | Sharpe: 4.70 | Sortino: 8.17
+Return: 15.0% | WR: 58% | Trades: 100 | DD: 10.7%
+Closes: dirFlip:32 cfgSL:47 brainSL:7 TP:6 trail:2 eos:3
+Active outputs (std > 0.05): dir, sz, urg, lv, tre, trd, tp, sl (8 of 11)
+```
+
+This genome uses MULTIPLE brain-driven exit strategies simultaneously — the first time
+we've seen trail + TP + brainSL in a single genome. This is the trading toolkit the
+V11 architecture was designed to enable.
+
+---
+
 ## Phase 2 — Refinement
 
 ### Configuration

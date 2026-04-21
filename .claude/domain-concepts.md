@@ -22,11 +22,11 @@ Instead of evolving brain weights directly, each genome encodes a CPPN — a sma
 
 The `BrainDeveloper` compiles a CPPN into a sparse recurrent `BrainGraph`:
 
-1. **Substrate layout**: Input neurons (0-91) → Hidden grid (Width × Height × Layers, default 16×16×3 = 768) → Output neurons (5: direction, size, urgency, exit, price prediction).
+1. **Substrate layout**: Input neurons (0-109, 110 signals) → Hidden grid (Width × Height × Layers, V11 default 20×20×3 = 1200) → Output neurons (11: direction, size, urgency, exit, price prediction, leverage, partialClose, trailEnable, trailDist, tpOffset, slOverride).
 2. **Connection candidates**: For each hidden/output neuron, gather local neighbors (within radius 3, ≤1 layer away) + global random samples (24 per neuron).
 3. **CPPN query**: Evaluate each candidate pair → get connection score, weight, delay, etc.
-4. **TopK selection**: Keep top 16 inputs per neuron (sorted by connection score), respecting max 20 outgoing per source.
-5. **Edge construction**: Dual weights (WSlow/WFast), plasticity gain from gate output, edge type (Normal/Modulatory), synaptic delay (0-3 ticks).
+4. **TopK selection**: Keep top 32 inputs per neuron (sorted by connection score), respecting max 40 outgoing per source.
+5. **Edge construction**: Dual weights (WSlow/WFast), plasticity gain from gate output, edge type (Normal/Modulatory), synaptic delay (0-16 ticks).
 
 ## Brain Runtime
 
@@ -36,7 +36,7 @@ Sparse recurrent network with two-speed Hebbian plasticity:
 - **Learning**: Eligibility traces decay at rate λ. Weight updates modulated by reward (realized P&L), pain (unrealized loss), and curiosity (prediction error). Fast weights update quickly; slow weights consolidate gradually (`β=0.01`). Critical period: learning rate decays to 10% over 1000 hours.
 - **Stability**: Weight clamping [-3, +3], homeostasis (`scale = exp(-β * (|a_mean| - target))`), saturation tracking for instability penalty.
 
-## Signal System (92 Inputs)
+## Signal System (110 Inputs)
 
 All signals normalized to [-1, 1]. Grouped by category:
 
@@ -44,7 +44,7 @@ All signals normalized to [-1, 1]. Grouped by category:
 |-------|----------|---------|
 | 0-11 | Price & Volume | BTC price, returns (1h/4h/24h), volume, spread, imbalance |
 | 12-22 | Derivatives | Funding rate, open interest, long/short ratio, liquidations |
-| 23-30 | Sentiment | Fear & Greed index, news volume, Reddit sentiment |
+| 23-30 | Sentiment (incl. Deribit) | Fear & Greed, Deribit options (put/call, IV, skew, max pain) |
 | 31-40 | On-Chain | Hash rate, active addresses, exchange flow, NVT |
 | 41-50 | Macro | S&P500, VIX, DXY, gold, 10Y treasury, BTC-SP500 correlation |
 | 51-56 | Stablecoin | USDT/USDC market caps, flow, BTC dominance |
@@ -52,33 +52,53 @@ All signals normalized to [-1, 1]. Grouped by category:
 | 69-75 | Temporal | Hour/day/month sin/cos encoding, event proximity |
 | 76-79 | Agent State | Current P&L %, position direction, holding duration, drawdown |
 | 80-87 | Multi-Asset | BTC-ETH spread, correlation, volatility ratio, momentum divergence |
-| 88-91 | Regime | Volatility percentile, trend momentum, regime change rate, stress |
+| 88-95 | Regime | Volatility percentile, trend, regime change, stress, TimeOfDay, VolPercentile, ADX, correlation |
+| 96-109 | Risk Awareness + Portfolio | RollingSharpe, drawdown, WR, fees, streaks, AvailableMargin, DistToSL/KS, leverage, etc. |
 
 ## Brain Outputs → Trading Actions
 
-The brain produces 5 float outputs, interpreted by `ActionInterpreter`:
+The brain produces 11 float outputs (V11+), interpreted by `ActionInterpreter`:
 
 | Output | Activation | Interpretation |
 |--------|-----------|----------------|
 | 0 | tanh | Direction: <-0.15 = short, >0.15 = long, else flat (deadzone) |
 | 1 | sigmoid | Position size as fraction of max allowed (0-1) |
 | 2 | sigmoid | Urgency: market order vs limit order preference |
-| 3 | sigmoid | Exit current position flag (>0.5 = close) |
+| 3 | sigmoid | Exit current position flag (>0.6 = close) |
 | 4 | raw | Price direction prediction (used for curiosity loss) |
+| 5 | tanh | Leverage confidence: log-scaled [1, MaxLeverage] via `MaxLev^max(0,tanh)` |
+| 6 | sigmoid | Partial close fraction (>0.70 deadzone) |
+| 7 | sigmoid | Enable trailing stop (>0.70 deadzone) |
+| 8 | sigmoid | Trailing stop distance [0.5%-10%] log-scaled |
+| 9 | sigmoid | Take-profit offset [0.5%-15%] log-scaled (>0.70 deadzone) |
+| 10 | sigmoid | Stop-loss override [0.5%-5%] log-scaled (>0.70 deadzone) |
+
+Outputs 6-10 use deadzones at 0.70 — the brain must produce `sigmoid(tanh(x)) > 0.70`
+(requires weighted_sum > 1.25) to activate. Random brains stay dormant (0.002% activation).
 
 ## Fitness Formula
 
-Multi-objective composite with Bayesian shrinkage:
+Multi-objective composite with Bayesian shrinkage (9 components, V11+):
 
 ```
-confidence = 1 - K / (K + trade_count)    [K=10, shrinks metrics when few trades]
+confidence = 1 - K / (K + trade_count)    [K=2-5 depending on phase]
 
-fitness = adjusted_sharpe × 0.45
-        + adjusted_sortino × 0.15
-        + log_return × 0.20
-        - drawdown_duration × 0.10
-        - cvar_5pct × 0.10
+fitness = adjusted_sharpe × wSharpe
+        + adjusted_sortino × wSortino
+        + log_return × wReturn
+        - drawdown_duration × wDDDur
+        - cvar_5pct × wCVaR
+        + adjusted_calmar × wCalmar
+        + adjusted_info_ratio × wInfoRatio
+        - fee_drag × wFeeDrag
+        + diversification × wDiversification
 ```
+
+All weights must sum to 1.0 (validated at runtime by `MarketConfig.Validate()`).
+Phase-specific weights emphasize different objectives:
+- Phase 1 (Discovery): wReturn=0.40, wSharpe=0.10
+- Phase 2 (Generalization): balanced + windowConsistencyWeight=0.05
+- Phase 3 (Production): wSharpe=0.30, tightest criteria
 
 **Constraints**:
 - 0 trades → fitness = -0.10 (inactivity penalty)

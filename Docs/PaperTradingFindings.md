@@ -1,4 +1,8 @@
-# Paper Trading Findings — Phase 2 Agent
+# Paper Trading Findings — Phase 2 Agent (Historical: pre-V11 baseline)
+
+> **Note:** This document describes the pre-V11 baseline agent (5 outputs, 92 signals,
+> 16×16×3 brain with 865 neurons). The current V11e agent has 11 outputs, 110 signals,
+> and a 20×20×3 brain with 1200 neurons. This file is preserved as a historical baseline.
 
 **Date:** March 31, 2026  
 **Genome:** `bff5ecde-2322-4f4b-b737-0760efd2f7c0` (Phase 2 best, gen 600)  

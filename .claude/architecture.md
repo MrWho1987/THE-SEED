@@ -33,13 +33,13 @@ The largest project, organized into subsystems:
 
 | Subsystem | Purpose |
 |-----------|---------|
-| `Agents/` | MarketAgent bridges brain to market — injects 92 signals + 4 agent state, interprets 5 brain outputs as trading signals, computes reward/pain/curiosity for learning |
+| `Agents/` | MarketAgent bridges brain to market — injects 110 signals (incl. 14 risk/portfolio context), interprets 11 brain outputs as trading signals, computes reward/pain/curiosity/risk for learning |
 | `Backtest/` | HistoricalDataStore (Binance API + caching), HistoricalSignalEnricher (7+ data sources), BacktestRunner (rolling window evaluation), RegimeDetector (diverse window selection), Checkpoint (resume logic) |
-| `Data/` | Live feeds: BinanceSpotFeed, BinanceFuturesFeed, SentimentFeed, OnChainFeed, MacroFeed, StablecoinFeed. DataAggregator orchestrates all feeds into SignalSnapshots |
+| `Data/` | Live feeds: BinanceSpotFeed, BinanceFuturesFeed, SentimentFeed, OnChainFeed, MacroFeed, StablecoinFeed, DeribitFeed, CoinglassFeed. DataAggregator orchestrates all feeds into SignalSnapshots |
 | `Evaluation/` | BaselineStrategies (buy-and-hold, random), MonteCarloSimulator, StatisticalTests, ExperimentTracker |
 | `Evolution/` | MarketEvolution (NEAT loop), MarketEvaluator (parallel genome evaluation), MarketFitness (multi-objective), EliteArchive (per-species champions) |
 | `Indicators/` | TechnicalIndicators (SMA, EMA, RSI, ATR, MACD, Bollinger, VWAP, OBV), TimeEncoding, VaderSentiment |
-| `Signals/` | SignalIndex (92-element enum), SignalSnapshot (float array + health), SignalNormalizer (per-signal min/max to [-1,1]) |
+| `Signals/` | SignalIndex (110-element constants, 12 categories), SignalSnapshot (float array + health), SignalNormalizer (rolling z-score to [-1,1]) |
 | `Trading/` | PaperTrader (realistic sim with dynamic slippage, funding rates, fees), RiskManager (VaR, position limits, kill switch), ActionInterpreter (brain outputs → TradingSignal), TradeLogger (JSONL), RollingMetrics, KellyPositionSizer, EnsembleTrader |
 
 ### Seed.Market.App (CLI)

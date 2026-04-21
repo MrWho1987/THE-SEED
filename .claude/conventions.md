@@ -37,7 +37,7 @@ var id = Guid.NewGuid();
 
 - **Framework**: xUnit 2.5.3 with Microsoft.NET.Test.Sdk 17.8.0
 - **Location**: `tests/Seed.Market.Tests/` (single test project covering market-layer logic)
-- **Coverage**: ~140+ test cases covering fitness computation, signal normalization, trading execution, risk management, genome operations, candle interval parsing
+- **Coverage**: ~358 test cases covering fitness computation, signal normalization, trading execution, risk management, genome operations, evolution smoke tests, determinism, output learnability, deadzone math, reward shape verification
 - **Run all**: `dotnet test`
 - **Run filtered**: `dotnet test tests/Seed.Market.Tests --filter "FullyQualifiedName~ClassName"` or `--filter "DisplayName~test_name"`
 - **Expectation**: All tests must pass after any code change. Add tests before implementing new features.

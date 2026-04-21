@@ -141,7 +141,7 @@ Record in `Seed.Genetics`:
 
 **`ReservedGenomeFields`:** `CppnOutputNames` (default `["c", "w", "delay", "tau", "module_tag", "gate"]`), `ReservedMutationScales` (default four floats, all `1.0f`).
 
-**`DevelopmentParams`** (defaults from `Seed.Core`): `TopKInMin` 6, `TopKInMax` 16, `MaxOutMin` 8, `MaxOutMax` 24, `ConnectionThreshold` 0.20, `InitialWeightScale` 1.0, `GlobalSampleRate` 0.02, `SubstrateWidth`/`SubstrateHeight` 16, `SubstrateLayers` 3.
+**`DevelopmentParams`** (defaults from `Seed.Core`): `TopKInMin` 6, `TopKInMax` 16, `MaxOutMin` 8, `MaxOutMax` 24, `ConnectionThreshold` 0.20, `InitialWeightScale` 1.0, `GlobalSampleRate` 0.02, `SubstrateWidth`/`SubstrateHeight` 16, `SubstrateLayers` 3. Note: these are genome-level mutation bounds. At compilation, `MarketEvaluator.MarketBrainBudget` overrides TopKIn (32), MaxOut (40), and other budget fields; the genome's `SubstrateWidth/Height/Layers` are used for the hidden grid dimensions.
 
 **`LearningParams`:** `Eta` 0.01, `EligibilityDecay` 0.95, `AlphaReward` 1.0, `AlphaPain` -1.0, `AlphaCuriosity` 0.25, `BetaConsolidate` 0.01, `GammaRecall` 0.01, `CriticalPeriodTicks` 1000, `CriticalPeriodHours` 1000f.
 

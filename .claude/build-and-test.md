@@ -44,7 +44,7 @@ dotnet test tests/Seed.Market.Tests --filter "DisplayName~SharpeRatio_ZeroTrades
 dotnet test tests/Seed.Market.Tests --filter "FullyQualifiedName~Trading"
 ```
 
-Test project: `tests/Seed.Market.Tests` (xUnit 2.5.3, ~140+ test cases).
+Test project: `tests/Seed.Market.Tests` (xUnit 2.5.3, ~358 test cases).
 
 ## Run Training
 

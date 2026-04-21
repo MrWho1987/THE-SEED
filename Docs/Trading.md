@@ -10,8 +10,8 @@ This document describes the market trading path implemented in `Seed.Market`: `M
 
 ### Inputs
 
-- **Vector length:** `MarketAgent.InputCount` equals `SignalIndex.Count` (**92**). A `float[92]` is filled from `SignalSnapshot.Signals` via `Array.Copy` for that length.
-- **Agent-state overwrite (`InjectAgentState`):** indices **76–79** (`CurrentPnl`, `PositionDirection`, `HoldingDuration`, `CurrentDrawdown`) are always set from portfolio/tick state (see `SignalIndex` in `src/Seed.Market/Signals/SignalIndex.cs`). The snapshot may populate those slots first; they are replaced each tick.
+- **Vector length:** `MarketAgent.InputCount` equals `SignalIndex.Count` (**110**, V11+). A `float[110]` is filled from `SignalSnapshot.Signals` via `Array.Copy` for that length.
+- **Agent-state overwrite (`InjectAgentState`):** indices **76–79** (`CurrentPnl`, `PositionDirection`, `HoldingDuration`, `CurrentDrawdown`) plus **96–109** (risk awareness + portfolio context) are always set from portfolio/tick state. V11+ aggregates across multi-positions (weighted by notional).
 
 **`InjectAgentState` rules:**
 
@@ -25,7 +25,7 @@ This document describes the market trading path implemented in `Seed.Market`: `M
 ### Brain step and outputs
 
 - `BrainRuntime.Step(signals, BrainStepContext)` returns the brain outputs for this tick.
-- **Output count:** `ActionInterpreter.OutputCount` = **5** (`MarketAgent.OutputCount`).
+- **Output count:** `ActionInterpreter.OutputCount` = **11** (`MarketAgent.OutputCount`, V11+).
 
 ### One-tick delay (signal execution)
 
@@ -40,7 +40,7 @@ So the signal applied to the trader is **always one tick behind** the latest bra
 
 ### Reward, pain, curiosity (learning modulators)
 
-After the trade step, `BrainRuntime.Learn` receives a length-3 span: `[reward, pain, curiosity]` (`ModulatorIndex`: Reward = 0, Pain = 1, Curiosity = 2).
+After the trade step, `BrainRuntime.Learn` receives a length-4 span: `[reward, pain, curiosity, risk]` (`ModulatorIndex`: Reward = 0, Pain = 1, Curiosity = 2, Risk = 3).
 
 **Reward (`ComputeReward`):** starts at `0`, then:
 
@@ -60,25 +60,37 @@ Finally `_prevEquity = Equity(currentPrice)` and return `reward`.
 
 ---
 
-## 2. ActionInterpreter: five outputs to `TradingSignal`
+## 2. ActionInterpreter: eleven outputs to `TradingSignal`
 
 **Location:** `src/Seed.Market/Trading/ActionInterpreter.cs`
 
-**Constants:** `OutputCount = 5`, `ExitThreshold = 0.6f`, `DirectionDeadzone = 0.15f`.
-
-The XML comment on the class still refers to “float[4]” output; **`OutputCount` is 5** and index **4** is not consumed here (it is reserved for price-direction curiosity in `MarketAgent`).
+**Constants:** `OutputCount = 11`, `ExitThreshold = 0.6f`, `DirectionDeadzone = 0.15f`,
+`PartialCloseDeadzone = 0.70f`, `TpDeadzone = 0.70f`, `SlDeadzone = 0.70f`,
+`TrailEnableThreshold = 0.70f`.
 
 For each output, `Safe(x)` replaces NaN/Infinity with `0`, else returns `x`. `Sigmoid(x) = 1 / (1 + Exp(-x))`.
 
 | Index | Use |
 |-------|-----|
-| **[0] Direction** | `rawDir = Safe(outputs[0])`. If `rawDir > 0.15` → Long; else if `rawDir < -0.15` → Short; else Flat. **No `tanh` in code** (only `Safe`). |
-| **[1] Size** | `Sigmoid(Safe(outputs[1]))`, then clamped to `[0, 1]` via `Max(0, Min(1, ...))`. |
-| **[2] Urgency** | Same as size: sigmoid then `[0, 1]`. |
+| **[0] Direction** | `rawDir = Safe(outputs[0])`. If `rawDir > 0.15` → Long; else if `rawDir < -0.15` → Short; else Flat. |
+| **[1] Size** | `Sigmoid(Safe(outputs[1]))`, then clamped to `[0, 1]`. |
+| **[2] Urgency** | Same as size: sigmoid then `[0, 1]`. Controls fill probability (≥0.8 = market order). |
 | **[3] Exit** | `Sigmoid(Safe(outputs[3]))`; **`ExitCurrent = (rawExit > 0.6)`**. |
-| **[4] Price prediction** | Not read by `Interpret`. Used in `MarketAgent.ComputeCuriosity` as `Tanh(outputs[4])` vs. price move sign. |
+| **[4] Price prediction** | Not read by `Interpret`. Used for curiosity modulator. |
+| **[5] Leverage** | `Tanh(Safe(outputs[5]))` → log-scaled to `[1, MaxLeverage]` via `MaxLev^max(0,tanh)`. |
+| **[6] Partial close** | `Sigmoid(Safe(outputs[6]))`; activates if > 0.70 deadzone. |
+| **[7] Trail enable** | `Sigmoid(Safe(outputs[7]))`; enables trailing stop if > 0.70. |
+| **[8] Trail distance** | `Sigmoid(Safe(outputs[8]))`; log-scaled to [0.5%, 10%] when trail enabled. |
+| **[9] TP offset** | `Sigmoid(Safe(outputs[9]))`; log-scaled to [0.5%, 15%] if > 0.70 deadzone. |
+| **[10] SL override** | `Sigmoid(Safe(outputs[10]))`; log-scaled to [0.5%, 5%] if > 0.70 deadzone. |
 
-Result: `new TradingSignal(direction, sizePct, urgency, exit)`.
+Outputs 6-10 use deadzones at 0.70. The brain's tanh activation produces max ±1.0, then
+sigmoid maps to max 0.731. This ceiling is above 0.70 but requires strong evolved weights
+(weighted_sum > 1.25). Random brains stay dormant on these outputs.
+
+Result: `new TradingSignal(direction, sizePct, urgency, exit, rawExit, leverage,
+rawSizePct, rawLeverage, partialCloseFrac, enableTrailingStop, trailingStopDistance,
+takeProfitOffset, stopLossOverride)`.
 
 ---
 
