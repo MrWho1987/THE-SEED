@@ -736,6 +736,89 @@ public sealed class MarketEvolution
         }
         return champions;
     }
+
+    /// <summary>
+    /// B5 — Returns up to N genomes from the current population ordered by training fitness
+    /// (highest first). Used by walk-forward testing to evaluate multiple candidates against
+    /// the validation window, not just the single top-training-fit genome.
+    /// Matches genomes that exist in BOTH _population and _evaluations — this is the set
+    /// of live genomes whose fitness was measured in the latest evaluation.
+    /// </summary>
+    public List<IGenome> GetTopNByTrainingFitness(int n)
+    {
+        if (n <= 0 || _evaluations.Count == 0 || _population.Count == 0)
+            return new List<IGenome>();
+
+        // Build (genome, fitness) pairs only for population members that have an evaluation.
+        // Genomes newly created by Reproduce() may not yet appear in _evaluations — exclude them.
+        // Deduplicate by GenomeId since elitism can copy the same genome into multiple slots.
+        var ranked = new List<(IGenome Genome, float Fitness)>();
+        var seen = new HashSet<Guid>();
+        foreach (var g in _population)
+        {
+            if (!seen.Add(g.GenomeId)) continue;
+            if (_evaluations.TryGetValue(g.GenomeId, out var eval))
+                ranked.Add((g, eval.Fitness.Fitness));
+        }
+
+        return ranked
+            .OrderByDescending(x => x.Fitness)
+            .Take(n)
+            .Select(x => x.Genome)
+            .ToList();
+    }
+
+    /// <summary>
+    /// B4 — Replace the lowest-fitness member of the population with the provided genome.
+    /// Used to protect validation-best genomes from evolutionary loss between WF checks.
+    /// Returns true if injection succeeded. The next speciation step will reassign the
+    /// injected genome to the appropriate species (first-inserted representative policy).
+    /// Strategy: find the worst POPULATION MEMBER whose fitness is known (has an entry
+    /// in _evaluations). If no overlap (e.g., called right after Reproduce when all
+    /// offspring are fresh), fall back to replacing the last position. Either way, the
+    /// injected genome will be evaluated on the next RunGeneration and speciated normally.
+    ///
+    /// CALLER RESPONSIBILITY: the provided genome's GenomeId must NOT already be present
+    /// in the population. Duplicate IDs would silently corrupt _evaluations (Dictionary
+    /// keyed by GenomeId — last-write-wins) and Reproduce's elitism step (would dedupe
+    /// implicitly). For protection-clone usage, derive a fresh GenomeId via SeedDerivation
+    /// before calling this method. Throws InvalidOperationException on duplicate.
+    /// </summary>
+    public bool InjectGenomeIntoPopulation(IGenome genome)
+    {
+        if (genome == null || _population.Count == 0) return false;
+
+        // Defensive guard: surface duplicate-ID bugs loudly instead of silently corrupting state.
+        for (int i = 0; i < _population.Count; i++)
+        {
+            if (_population[i].GenomeId == genome.GenomeId)
+                throw new InvalidOperationException(
+                    $"InjectGenomeIntoPopulation: refusing to inject genome with duplicate GenomeId {genome.GenomeId}. " +
+                    "Caller must derive a fresh GenomeId (e.g., via SeedDerivation) before injection.");
+        }
+
+        // Try 1: find worst-by-training-fit member that's still in _population
+        int targetIdx = -1;
+        float worstFit = float.MaxValue;
+        for (int i = 0; i < _population.Count; i++)
+        {
+            if (_evaluations.TryGetValue(_population[i].GenomeId, out var eval))
+            {
+                if (eval.Fitness.Fitness < worstFit)
+                {
+                    worstFit = eval.Fitness.Fitness;
+                    targetIdx = i;
+                }
+            }
+        }
+
+        // Try 2 (fallback): no population members have evaluations (fresh post-Reproduce) — use last slot
+        if (targetIdx < 0)
+            targetIdx = _population.Count - 1;
+
+        _population[targetIdx] = genome;
+        return true;
+    }
 }
 
 public readonly record struct GenerationReport(

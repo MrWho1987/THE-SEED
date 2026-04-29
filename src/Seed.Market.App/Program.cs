@@ -1,3 +1,5 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Seed.Brain;
 using Seed.Core;
 using Seed.Development;
@@ -14,6 +16,7 @@ using Seed.Observatory;
 
 var configPath = "market-config.default.json";
 string[]? pipelineConfigs = null;
+DateTimeOffset? cliEndDate = null;
 
 if (args.Length >= 2 && args[0] == "--pipeline")
 {
@@ -24,9 +27,30 @@ else if (args.Length >= 2 && args[0] == "--config")
 else if (args.Length >= 1 && !args[0].StartsWith("-"))
     configPath = args[0];
 
+// Optional --end-date "ISO-8601" flag, parsed independently of mode.
+// When provided, pipeline mode pins all phases to this end-date instead of UtcNow-1h,
+// allowing Phase N+1 to run on the same data window as analyzer runs of Phase N.
+for (int i = 0; i < args.Length - 1; i++)
+{
+    if (args[i] == "--end-date")
+    {
+        if (DateTimeOffset.TryParse(args[i + 1], System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.AssumeUniversal | System.Globalization.DateTimeStyles.AdjustToUniversal,
+                out var parsed))
+        {
+            cliEndDate = parsed;
+        }
+        else
+        {
+            Console.Error.WriteLine($"[FATAL] Invalid --end-date value: '{args[i + 1]}'. Expected ISO-8601 (e.g., 2026-04-20T21:36:00Z).");
+            return;
+        }
+    }
+}
+
 if (pipelineConfigs != null)
 {
-    await RunPipeline(pipelineConfigs);
+    await RunPipeline(pipelineConfigs, cliEndDate);
     return;
 }
 
@@ -230,13 +254,35 @@ static async Task RunBacktest(MarketConfig config, DateTimeOffset? fixedEnd = nu
 
         if (isValGen)
         {
-            var bestGenome = evolution.GetBestGenome();
-            if (bestGenome != null)
+            // B5 — Evaluate top-N training-best genomes on validation; pick the one with highest ValFit.
+            // Old behavior preserved when WalkForwardTopN <= 1.
+            int wfTopN = Math.Max(1, config.WalkForwardTopN);
+            List<IGenome> topCandidates = wfTopN > 1
+                ? evolution.GetTopNByTrainingFitness(wfTopN)
+                : (evolution.GetBestGenome() is { } only ? new List<IGenome> { only } : new List<IGenome>());
+
+            if (topCandidates.Count > 0)
             {
-                var valResult = valEvaluator.EvaluateSingle(bestGenome, valSnapshots, valPrices, valRawVolumes, valRawFunding, gen);
-                float valFit = valResult.Fitness.Fitness;
+                // Parallel eval to amortize cost; preserves determinism since EvaluateSingle is deterministic.
+                var topNValResults = new MarketEvalResult[topCandidates.Count];
+                Parallel.For(0, topCandidates.Count,
+                    new ParallelOptions { MaxDegreeOfParallelism = Math.Min(topCandidates.Count, Environment.ProcessorCount) },
+                    idx => { topNValResults[idx] = valEvaluator.EvaluateSingle(topCandidates[idx], valSnapshots, valPrices, valRawVolumes, valRawFunding, gen); });
+
+                int bestIdx = 0;
+                for (int ci = 1; ci < topNValResults.Length; ci++)
+                    if (topNValResults[ci].Fitness.Fitness > topNValResults[bestIdx].Fitness.Fitness) bestIdx = ci;
+
+                var bestGenome = topCandidates[bestIdx];
+                float valFit = topNValResults[bestIdx].Fitness.Fitness;
                 valFitStr = $"{valFit,8:F4}";
                 validationHistory.Add((gen, report.BestFitness, valFit));
+
+                if (wfTopN > 1)
+                {
+                    var all = string.Join(" ", topNValResults.Select(r => r.Fitness.Fitness.ToString("F3")));
+                    Console.WriteLine($"  [WF-TOPN] Evaluated {topNValResults.Length}: [{all}] → best ValFit {valFit:F4}");
+                }
 
                 if (valFit > bestValFitness)
                 {
@@ -244,6 +290,30 @@ static async Task RunBacktest(MarketConfig config, DateTimeOffset? fixedEnd = nu
                     bestValGenomePath = Path.Combine(checkpointDir, $"best_val_gen_{gen:D4}.json");
                     File.WriteAllText(bestValGenomePath, bestGenome.ToJson());
                     consecutiveValDeclines = 0;
+
+                    // B4 — Inject a deep-copied clone of the best-val genome (with a fresh
+                    // deterministic GenomeId) back into the population, replacing the worst-
+                    // training-fit member. Same network structure, new identity — protects the
+                    // genome from evolutionary loss without creating a duplicate-ID corruption.
+                    // The new ID is derived deterministically from (RunSeed, gen, source ID hash)
+                    // so the same training run always produces the same injection IDs.
+                    if (config.ProtectBestValInPop && bestGenome is SeedGenome sg)
+                    {
+                        // Domain tag for protection-clone ID derivation. Chosen to not collide
+                        // with SeedDerivation's existing domain constants.
+                        const ulong DOMAIN_PROTECT_INJECT = 0x50524F5445435401UL; // "PROTECT\1"
+                        ulong sourceIdLo = (ulong)(uint)sg.GenomeId.GetHashCode();
+                        ulong seedA = SeedDerivation.DeriveSeed(config.RunSeed, DOMAIN_PROTECT_INJECT, (ulong)gen, sourceIdLo, 0);
+                        ulong seedB = SeedDerivation.DeriveSeed(config.RunSeed, DOMAIN_PROTECT_INJECT, (ulong)gen, sourceIdLo, 1);
+                        var idBytes = new byte[16];
+                        BitConverter.TryWriteBytes(idBytes.AsSpan(0, 8), seedA);
+                        BitConverter.TryWriteBytes(idBytes.AsSpan(8, 8), seedB);
+                        var newGenomeId = new Guid(idBytes);
+
+                        var clone = sg.CloneGenome(newGenomeId);
+                        if (evolution.InjectGenomeIntoPopulation(clone))
+                            Console.WriteLine($"  [PROTECT] Best-val genome cloned (new id {newGenomeId.ToString()[..8]}…) into population");
+                    }
                 }
                 else
                 {
@@ -398,7 +468,27 @@ static async Task RunBacktest(MarketConfig config, DateTimeOffset? fixedEnd = nu
     Console.WriteLine($"  Trades: {bestValResult.Fitness.TotalTrades}, Win rate: {bestValResult.Fitness.WinRate:P0}");
     Console.WriteLine($"  Max drawdown: {bestValResult.Fitness.MaxDrawdown:P2}");
 
+    // Resolve the actual full-population best-val genome (printed above as bestValResult).
+    // This is the genome that will be saved to the canonical deploy path.
+    var bestValPopGenome = evolution.Population.FirstOrDefault(g => g.GenomeId == bestValResult.GenomeId) as SeedGenome;
+
+    // B3 — Save top-5 by validation at phase end (for post-training analysis / deployment candidates)
+    var top5ByVal = valResults.Values.OrderByDescending(r => r.Fitness.Fitness).Take(5).ToList();
+    for (int i = 0; i < top5ByVal.Count; i++)
+    {
+        var g = evolution.Population.FirstOrDefault(gg => gg.GenomeId == top5ByVal[i].GenomeId) as SeedGenome;
+        if (g != null)
+        {
+            var p = Path.Combine(config.OutputDirectory, $"top5_val_genome_rank{i + 1:D2}.json");
+            File.WriteAllText(p, g.ToJson());
+        }
+    }
+
     var champions = evolution.GetSpeciesChampions();
+    float ensembleFitnessRecord = 0f;
+    float ensembleReturnPctRecord = 0f;
+    float ensembleSharpeRecord = 0f;
+    int ensembleTradesRecord = 0;
     if (champions.Count >= 2)
     {
         Console.WriteLine($"\n{"═══ ENSEMBLE ═══",-74}");
@@ -408,13 +498,48 @@ static async Task RunBacktest(MarketConfig config, DateTimeOffset? fixedEnd = nu
         Console.WriteLine($"  Ensemble return: {ensembleResult.ReturnPct:P2}");
         Console.WriteLine($"  Ensemble Sharpe: {ensembleResult.AdjustedSharpe:F2}");
         Console.WriteLine($"  Ensemble trades: {ensembleResult.TotalTrades}");
+        ensembleFitnessRecord = ensembleResult.Fitness;
+        ensembleReturnPctRecord = ensembleResult.ReturnPct;
+        ensembleSharpeRecord = ensembleResult.AdjustedSharpe;
+        ensembleTradesRecord = ensembleResult.TotalTrades;
     }
 
-    // Save the best genome by VALIDATION fitness for deployment
-    if (bestValGenomePath != null && File.Exists(bestValGenomePath))
+    // B2 — Save species-champion ensemble at phase end for future loading / deployment
+    if (champions.Count > 0)
+    {
+        var ensembleBundle = new
+        {
+            phase = config.OutputDirectory,
+            generation = config.Generations,
+            championCount = champions.Count,
+            champions = champions.Cast<SeedGenome>().Select(c => c.ToJson()).ToArray(),
+            ensembleFitness = ensembleFitnessRecord,
+            ensembleReturnPct = ensembleReturnPctRecord,
+            ensembleSharpe = ensembleSharpeRecord,
+            ensembleTrades = ensembleTradesRecord,
+        };
+        var ensemblePath = Path.Combine(config.OutputDirectory, "ensemble_champions.json");
+        var ensembleOpts = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals
+        };
+        File.WriteAllText(ensemblePath, JsonSerializer.Serialize(ensembleBundle, ensembleOpts));
+        Console.WriteLine($"  Ensemble champions saved to: {ensemblePath}");
+    }
+
+    // Save the full-population best-val genome (the one whose stats were printed above)
+    // to the canonical deploy path. This is the single source of truth for deployment.
+    // Two-tier fallback handles edge cases without ambiguity.
+    if (bestValPopGenome != null)
+    {
+        File.WriteAllText(config.ResolvedGenomePath, bestValPopGenome.ToJson());
+        Console.WriteLine($"\n  Best genome (by validation, full-pop) saved to: {config.ResolvedGenomePath}");
+    }
+    else if (bestValGenomePath != null && File.Exists(bestValGenomePath))
     {
         File.Copy(bestValGenomePath, config.ResolvedGenomePath, overwrite: true);
-        Console.WriteLine($"\n  Best genome (by validation) saved to: {config.ResolvedGenomePath}");
+        Console.WriteLine($"\n  Best genome (in-training tracked, fallback) saved to: {config.ResolvedGenomePath}");
     }
     else
     {
@@ -422,7 +547,7 @@ static async Task RunBacktest(MarketConfig config, DateTimeOffset? fixedEnd = nu
         if (finalBest != null)
         {
             File.WriteAllText(config.ResolvedGenomePath, finalBest.ToJson());
-            Console.WriteLine($"\n  Best genome (by training) saved to: {config.ResolvedGenomePath}");
+            Console.WriteLine($"\n  Best genome (by training, last-resort fallback) saved to: {config.ResolvedGenomePath}");
         }
     }
 
@@ -443,6 +568,18 @@ static async Task RunBacktest(MarketConfig config, DateTimeOffset? fixedEnd = nu
 static async Task RunPaper(MarketConfig config)
 {
     Console.WriteLine("\n[PAPER] Starting paper trading with live data...");
+
+    // B6 — Signal-count validation: ensure agent's expected input size matches live signal producer.
+    // Prevents silent brain/feed mismatch that would otherwise produce undefined behavior.
+    int agentInputCount = MarketAgent.InputCount;
+    int aggregatorSignalCount = SignalIndex.Count;
+    if (agentInputCount != aggregatorSignalCount)
+    {
+        Console.Error.WriteLine($"[FATAL] Signal-count mismatch: agent expects {agentInputCount}, SignalIndex provides {aggregatorSignalCount}.");
+        Console.Error.WriteLine("[FATAL] A genome trained under a different signal layout cannot be safely deployed. Aborting.");
+        return;
+    }
+    Console.WriteLine($"[PAPER] Signal-count check passed: {aggregatorSignalCount} signals.");
 
     var genomePath = config.ResolvedGenomePath;
     if (!File.Exists(genomePath))
@@ -1003,7 +1140,7 @@ static async Task RunNeuroAblation(MarketConfig config)
 // ─────────────────────────────────────────────────────────────────────────────
 // PIPELINE MODE — run multiple backtest phases sequentially
 // ─────────────────────────────────────────────────────────────────────────────
-static async Task RunPipeline(string[] configPaths)
+static async Task RunPipeline(string[] configPaths, DateTimeOffset? fixedEnd = null)
 {
     Console.WriteLine("╔══════════════════════════════════════════════════════════════╗");
     Console.WriteLine("║          THE SEED — PIPELINE TRAINING                       ║");
@@ -1022,8 +1159,9 @@ static async Task RunPipeline(string[] configPaths)
         Console.WriteLine($"  Phase {i + 1}: {Path.GetFileName(path)} -> {cfg.OutputDirectory} (gen {cfg.Generations})");
     }
 
-    var pipelineEnd = DateTimeOffset.UtcNow.AddHours(-1);
-    Console.WriteLine($"  Fixed date range end: {pipelineEnd:yyyy-MM-dd HH:mm} UTC");
+    var pipelineEnd = fixedEnd ?? DateTimeOffset.UtcNow.AddHours(-1);
+    var endSource = fixedEnd != null ? "from --end-date CLI" : "now-1h default";
+    Console.WriteLine($"  Fixed date range end: {pipelineEnd:yyyy-MM-dd HH:mm:ss} UTC ({endSource})");
 
     string sharedCacheDir = Path.Combine(
         Path.GetDirectoryName(Path.GetFullPath(configPaths[0].Trim())) ?? ".",

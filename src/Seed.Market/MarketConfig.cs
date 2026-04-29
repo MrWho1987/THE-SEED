@@ -128,6 +128,16 @@ public sealed record MarketConfig
     public int WalkForwardMaxStallGens { get; init; } = 50;
     public int WindowStabilityGens { get; init; } = 1;
 
+    // B4 — When true and a new best-val is found, inject a copy into the population
+    // (replacing the lowest training-fitness member) to protect it from evolutionary loss.
+    // Default false for backward compatibility; enable in Phase 4 config only.
+    public bool ProtectBestValInPop { get; init; } = false;
+
+    // B5 — Number of top-by-training-fitness genomes to evaluate against validation at each
+    // walk-forward check. The maximum ValFit across the N decides pass/fail. Default 1 (old
+    // behavior). Setting to 5 gives the population a much broader chance to show generalization.
+    public int WalkForwardTopN { get; init; } = 1;
+
     // ── Paper Trading ──
     public string? GenomePath { get; init; }
     public string? TradeLogPath { get; init; }
