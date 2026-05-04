@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Seed.MetricAudit</RootNamespace>
+    <AssemblyName>Seed.MetricAudit</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Seed.Core\Seed.Core.csproj" />
+    <ProjectReference Include="..\..\src\Seed.Genetics\Seed.Genetics.csproj" />
+    <ProjectReference Include="..\..\src\Seed.Brain\Seed.Brain.csproj" />
+    <ProjectReference Include="..\..\src\Seed.Development\Seed.Development.csproj" />
+    <ProjectReference Include="..\..\src\Seed.Observatory\Seed.Observatory.csproj" />
+    <ProjectReference Include="..\..\src\Seed.Market\Seed.Market.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,324 @@
+{
+  "checkpointPath": "archive/V1-PrefinalFix/output/output_phase4_minimal/checkpoints/checkpoint_1990.json",
+  "configPath": "archive/V1-PrefinalFix/configs/market-config.phase4-minimal.json",
+  "fixedEnd": "2026-04-28 00:00:00Z",
+  "cpGeneration": 1990,
+  "valWindowBars": 17520,
+  "kWindows": 3,
+  "windowConsistencyWeight": 0.02,
+  "diversityBonusScale": 0.02,
+  "summary": {
+    "n": 3,
+    "divergentCminusB": 0,
+    "divergentAminusB": 0,
+    "divergentDminusB": 3,
+    "meanAbsCminusB": 0,
+    "meanAbsAminusB": 0,
+    "meanAbsDminusB": 1.0671772758165996,
+    "maxAbsCminusB": 0,
+    "maxAbsAminusB": 0,
+    "maxAbsDminusB": 2.065603256225586
+  },
+  "rows": [
+    {
+      "genomeId": "bef1ef16-f5e5-4ae2-b352-e07b133d4a81",
+      "pathB": {
+        "fitness": -0.9567472,
+        "breakdown": {
+          "Fitness": -0.9567472,
+          "ReturnPct": -0.1224822,
+          "MaxDrawdown": 0.15111098,
+          "TotalTrades": 21,
+          "WinRate": 0.14285715,
+          "NetPnl": -1224.822,
+          "IsActive": true,
+          "RawSharpe": -2.4697213,
+          "AdjustedSharpe": -2.1610062,
+          "Sortino": -3.1370287,
+          "AdjustedSortino": -2.7449002,
+          "CVaR5": -0.0007590294,
+          "MaxDrawdownDuration": 0.9671804,
+          "ShrinkageConfidence": 0.875,
+          "Calmar": -0.66904247,
+          "InfoRatio": 8.75,
+          "FeeDrag": 0.0031101373,
+          "Diversification": 1
+        }
+      },
+      "pathC": {
+        "fitness": -0.9567472,
+        "breakdown": {
+          "Fitness": -0.9567472,
+          "ReturnPct": -0.1224822,
+          "MaxDrawdown": 0.15111098,
+          "TotalTrades": 21,
+          "WinRate": 0.14285715,
+          "NetPnl": -1224.822,
+          "IsActive": true,
+          "RawSharpe": -2.4697213,
+          "AdjustedSharpe": -2.1610062,
+          "Sortino": -3.1370287,
+          "AdjustedSortino": -2.7449002,
+          "CVaR5": -0.0007590294,
+          "MaxDrawdownDuration": 0.9671804,
+          "ShrinkageConfidence": 0.875,
+          "Calmar": -0.66904247,
+          "InfoRatio": 8.75,
+          "FeeDrag": 0.0031101373,
+          "Diversification": 1
+        }
+      },
+      "pathA": {
+        "fitness": -0.9567472,
+        "breakdown": {
+          "Fitness": -0.9567472,
+          "ReturnPct": -0.1224822,
+          "MaxDrawdown": 0.15111098,
+          "TotalTrades": 21,
+          "WinRate": 0.14285715,
+          "NetPnl": -1224.822,
+          "IsActive": true,
+          "RawSharpe": -2.4697213,
+          "AdjustedSharpe": -2.1610062,
+          "Sortino": -3.1370287,
+          "AdjustedSortino": -2.7449002,
+          "CVaR5": -0.0007590294,
+          "MaxDrawdownDuration": 0.9671804,
+          "ShrinkageConfidence": 0.875,
+          "Calmar": -0.66904247,
+          "InfoRatio": 8.75,
+          "FeeDrag": 0.0031101373,
+          "Diversification": 1
+        }
+      },
+      "pathD": {
+        "fitness": -0.7691416,
+        "breakdown": {
+          "Fitness": -0.7691416,
+          "ReturnPct": -0.0348421,
+          "MaxDrawdown": 0.15390058,
+          "TotalTrades": 32,
+          "WinRate": 0.4425121,
+          "NetPnl": -348.421,
+          "IsActive": true,
+          "RawSharpe": -1.6709574,
+          "AdjustedSharpe": -1.4524162,
+          "Sortino": -2.0708234,
+          "AdjustedSortino": -1.7910498,
+          "CVaR5": -0.003548342,
+          "MaxDrawdownDuration": 0.8201439,
+          "ShrinkageConfidence": 0.91040206,
+          "Calmar": 0,
+          "InfoRatio": 0,
+          "FeeDrag": 0,
+          "Diversification": 0
+        }
+      },
+      "deltas": {
+        "CminusB": 0,
+        "AminusB": 0,
+        "DminusB": 0.18760556
+      }
+    },
+    {
+      "genomeId": "0dadb880-c502-4a06-9fe5-4295b52bb023",
+      "pathB": {
+        "fitness": -0.7070605,
+        "breakdown": {
+          "Fitness": -0.7070605,
+          "ReturnPct": -0.03660382,
+          "MaxDrawdown": 0.038422987,
+          "TotalTrades": 43,
+          "WinRate": 0.3488372,
+          "NetPnl": -366.0382,
+          "IsActive": true,
+          "RawSharpe": -1.8046579,
+          "AdjustedSharpe": -1.6869628,
+          "Sortino": -2.1734226,
+          "AdjustedSortino": -2.0316777,
+          "CVaR5": -0.00023541653,
+          "MaxDrawdownDuration": 0.9817922,
+          "ShrinkageConfidence": 0.9347826,
+          "Calmar": -0.87461317,
+          "InfoRatio": 9.347826,
+          "FeeDrag": 0.0019251745,
+          "Diversification": 1
+        }
+      },
+      "pathC": {
+        "fitness": -0.7070605,
+        "breakdown": {
+          "Fitness": -0.7070605,
+          "ReturnPct": -0.03660382,
+          "MaxDrawdown": 0.038422987,
+          "TotalTrades": 43,
+          "WinRate": 0.3488372,
+          "NetPnl": -366.0382,
+          "IsActive": true,
+          "RawSharpe": -1.8046579,
+          "AdjustedSharpe": -1.6869628,
+          "Sortino": -2.1734226,
+          "AdjustedSortino": -2.0316777,
+          "CVaR5": -0.00023541653,
+          "MaxDrawdownDuration": 0.9817922,
+          "ShrinkageConfidence": 0.9347826,
+          "Calmar": -0.87461317,
+          "InfoRatio": 9.347826,
+          "FeeDrag": 0.0019251745,
+          "Diversification": 1
+        }
+      },
+      "pathA": {
+        "fitness": -0.7070605,
+        "breakdown": {
+          "Fitness": -0.7070605,
+          "ReturnPct": -0.03660382,
+          "MaxDrawdown": 0.038422987,
+          "TotalTrades": 43,
+          "WinRate": 0.3488372,
+          "NetPnl": -366.0382,
+          "IsActive": true,
+          "RawSharpe": -1.8046579,
+          "AdjustedSharpe": -1.6869628,
+          "Sortino": -2.1734226,
+          "AdjustedSortino": -2.0316777,
+          "CVaR5": -0.00023541653,
+          "MaxDrawdownDuration": 0.9817922,
+          "ShrinkageConfidence": 0.9347826,
+          "Calmar": -0.87461317,
+          "InfoRatio": 9.347826,
+          "FeeDrag": 0.0019251745,
+          "Diversification": 1
+        }
+      },
+      "pathD": {
+        "fitness": -2.7726638,
+        "breakdown": {
+          "Fitness": -2.7726638,
+          "ReturnPct": -0.023800936,
+          "MaxDrawdown": 0.077213645,
+          "TotalTrades": 59,
+          "WinRate": 0.34288332,
+          "NetPnl": -238.00935,
+          "IsActive": true,
+          "RawSharpe": -6.07088,
+          "AdjustedSharpe": -5.678647,
+          "Sortino": -7.3454714,
+          "AdjustedSortino": -6.8613715,
+          "CVaR5": -0.0007788299,
+          "MaxDrawdownDuration": 0.9645426,
+          "ShrinkageConfidence": 0.9396591,
+          "Calmar": 0,
+          "InfoRatio": 0,
+          "FeeDrag": 0,
+          "Diversification": 0
+        }
+      },
+      "deltas": {
+        "CminusB": 0,
+        "AminusB": 0,
+        "DminusB": -2.0656033
+      }
+    },
+    {
+      "genomeId": "37a51b54-84c7-404b-9515-5bf8b604f9fe",
+      "pathB": {
+        "fitness": -4.259708,
+        "breakdown": {
+          "Fitness": -4.259708,
+          "ReturnPct": -0.1498062,
+          "MaxDrawdown": 0.15037832,
+          "TotalTrades": 483,
+          "WinRate": 0.29192546,
+          "NetPnl": -1498.062,
+          "IsActive": true,
+          "RawSharpe": -16.083818,
+          "AdjustedSharpe": -10,
+          "Sortino": -18.038311,
+          "AdjustedSortino": -10,
+          "CVaR5": -0.00023790596,
+          "MaxDrawdownDuration": 0.9987443,
+          "ShrinkageConfidence": 0.99382716,
+          "Calmar": -0.92255163,
+          "InfoRatio": 9.9382715,
+          "FeeDrag": 0.06479189,
+          "Diversification": 0
+        }
+      },
+      "pathC": {
+        "fitness": -4.259708,
+        "breakdown": {
+          "Fitness": -4.259708,
+          "ReturnPct": -0.1498062,
+          "MaxDrawdown": 0.15037832,
+          "TotalTrades": 483,
+          "WinRate": 0.29192546,
+          "NetPnl": -1498.062,
+          "IsActive": true,
+          "RawSharpe": -16.083818,
+          "AdjustedSharpe": -10,
+          "Sortino": -18.038311,
+          "AdjustedSortino": -10,
+          "CVaR5": -0.00023790596,
+          "MaxDrawdownDuration": 0.9987443,
+          "ShrinkageConfidence": 0.99382716,
+          "Calmar": -0.92255163,
+          "InfoRatio": 9.9382715,
+          "FeeDrag": 0.06479189,
+          "Diversification": 0
+        }
+      },
+      "pathA": {
+        "fitness": -4.259708,
+        "breakdown": {
+          "Fitness": -4.259708,
+          "ReturnPct": -0.1498062,
+          "MaxDrawdown": 0.15037832,
+          "TotalTrades": 483,
+          "WinRate": 0.29192546,
+          "NetPnl": -1498.062,
+          "IsActive": true,
+          "RawSharpe": -16.083818,
+          "AdjustedSharpe": -10,
+          "Sortino": -18.038311,
+          "AdjustedSortino": -10,
+          "CVaR5": -0.00023790596,
+          "MaxDrawdownDuration": 0.9987443,
+          "ShrinkageConfidence": 0.99382716,
+          "Calmar": -0.92255163,
+          "InfoRatio": 9.9382715,
+          "FeeDrag": 0.06479189,
+          "Diversification": 0
+        }
+      },
+      "pathD": {
+        "fitness": -3.311385,
+        "breakdown": {
+          "Fitness": -3.311385,
+          "ReturnPct": -0.101964094,
+          "MaxDrawdown": 0.15031056,
+          "TotalTrades": 278,
+          "WinRate": 0.32038677,
+          "NetPnl": -1019.6409,
+          "IsActive": true,
+          "RawSharpe": -29.029387,
+          "AdjustedSharpe": -7.134463,
+          "Sortino": -31.304213,
+          "AdjustedSortino": -7.2371826,
+          "CVaR5": -0.00095868006,
+          "MaxDrawdownDuration": 0.9912641,
+          "ShrinkageConfidence": 0.97451544,
+          "Calmar": 0,
+          "InfoRatio": 0,
+          "FeeDrag": 0,
+          "Diversification": 0
+        }
+      },
+      "deltas": {
+        "CminusB": 0,
+        "AminusB": 0,
+        "DminusB": 0.948323
+      }
+    }
+  ]
+}

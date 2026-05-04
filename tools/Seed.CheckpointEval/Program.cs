@@ -11,6 +11,7 @@ string? configPath = null;
 string? outputDir = null;
 string? endDateStr = null;
 string? cacheDir = null;
+var analyzerMode = AnalyzerMode.SingleWindow;
 
 for (int i = 0; i < args.Length; i++)
 {
@@ -30,6 +31,9 @@ for (int i = 0; i < args.Length; i++)
             break;
         case "--cache-dir":
             cacheDir = args[++i];
+            break;
+        case "--match-training":
+            analyzerMode = AnalyzerMode.MatchTraining;
             break;
         case "-h":
         case "--help":
@@ -104,7 +108,7 @@ Console.WriteLine($"Output:     {outputDir}");
 Console.WriteLine($"End date:   {fixedEnd:u}");
 Console.WriteLine();
 
-var evaluator = new CheckpointEvaluator(config);
+var evaluator = new CheckpointEvaluator(config, analyzerMode);
 var scores = await evaluator.EvaluateCheckpointAsync(checkpointPath, fixedEnd);
 
 // Build genome lookup for writing outputs
@@ -145,6 +149,10 @@ static void PrintUsage()
     Console.WriteLine("  --output <dir>       Output directory (default: <checkpoint-dir>/../analysis)");
     Console.WriteLine("  --end-date <iso>     Pipeline end date for determinism (e.g., 2026-04-20T21:36:00Z)");
     Console.WriteLine("  --cache-dir <path>   Data cache directory (default: pipeline_shared_cache if present)");
+    Console.WriteLine("  --match-training     Replicate in-training multi-window fitness (k sub-windows averaged");
+    Console.WriteLine("                       with WindowConsistencyWeight). Default mode is SingleWindow, which");
+    Console.WriteLine("                       matches in-training ValFit. Use --match-training to compare against");
+    Console.WriteLine("                       the per-gen reported BestFitness (multi-window-averaged).");
     Console.WriteLine();
     Console.WriteLine("Outputs:");
     Console.WriteLine("  best_market_genome.json        — top-1 by validation fitness");

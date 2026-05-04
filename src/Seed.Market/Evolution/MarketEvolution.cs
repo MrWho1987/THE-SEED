@@ -305,7 +305,42 @@ public sealed class MarketEvolution
         }
     }
 
-    private static FitnessBreakdown AverageBreakdowns(List<FitnessBreakdown> breakdowns, float consistencyWeight)
+    /// <summary>
+    /// Builds the K diverse sub-windows used by multi-window training evaluation. Replicates
+    /// the windowing in <c>Program.RunBacktest</c> (~line 237-247) so the analyzer's
+    /// MatchTraining mode can produce identical inputs to the in-training fitness pipeline.
+    /// Sub-window size = max(50, totalLen / k); offsets selected via RegimeDetector.
+    /// </summary>
+    public static (SignalSnapshot[] Snaps, float[] Prices, float[] RawVolumes, float[] RawFundingRates)[] BuildEvalWindows(
+        SignalSnapshot[] snapshots, float[] prices, float[] rawVolumes, float[] rawFundingRates,
+        int k, int generation, ulong runSeed)
+    {
+        int n = snapshots.Length;
+        if (n != prices.Length || n != rawVolumes.Length || n != rawFundingRates.Length)
+            throw new ArgumentException("BuildEvalWindows: input arrays must have matching length");
+        if (k <= 1)
+            return [(snapshots, prices, rawVolumes, rawFundingRates)];
+
+        int subWindowSize = Math.Max(50, n / k);
+        var diverse = Backtest.RegimeDetector.SelectDiverseWindows(prices, n, subWindowSize, k, generation, runSeed);
+        var windows = new (SignalSnapshot[], float[], float[], float[])[diverse.Length];
+        for (int w = 0; w < diverse.Length; w++)
+        {
+            var (off, len, _) = diverse[w];
+            int end = Math.Min(off + len, n);
+            if (end - off < 50) { off = 0; end = Math.Min(subWindowSize, n); }
+            windows[w] = (snapshots[off..end], prices[off..end], rawVolumes[off..end], rawFundingRates[off..end]);
+        }
+        return windows;
+    }
+
+    /// <summary>
+    /// Averages a list of per-window fitness breakdowns and applies the consistency penalty
+    /// (subtracts <c>consistencyWeight × stdev(fitness)</c>). Public so the analyzer
+    /// (CheckpointEval, MatchTraining mode) can replicate the in-training multi-window
+    /// fitness exactly. Mutating the math here changes both training and analyzer in lockstep.
+    /// </summary>
+    public static FitnessBreakdown AverageBreakdowns(List<FitnessBreakdown> breakdowns, float consistencyWeight)
     {
         int n = breakdowns.Count;
         if (n == 0) return default;

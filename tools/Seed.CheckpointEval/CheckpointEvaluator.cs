@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using Seed.Core;
 using Seed.Genetics;
 using Seed.Market;
+using Seed.Market.Agents;
 using Seed.Market.Backtest;
 using Seed.Market.Evolution;
 using Seed.Market.Signals;
@@ -24,15 +25,35 @@ public sealed record GenomeScore(
     float MaxDrawdown,
     int TotalTrades);
 
+/// <summary>
+/// Controls how the analyzer evaluates each genome:
+/// <list type="bullet">
+/// <item><c>SingleWindow</c> — one EvaluateSingle call on the entire window. Cheap,
+/// directly comparable to in-training ValFit (which uses the same path).</item>
+/// <item><c>MatchTraining</c> — split the window into <c>EvalWindowCount</c> sub-windows
+/// via <see cref="MarketEvolution.BuildEvalWindows"/> and average via
+/// <see cref="MarketEvolution.AverageBreakdowns"/> with <c>WindowConsistencyWeight</c>.
+/// Reproduces the in-training training-fitness number exactly. Use this when comparing
+/// against the per-gen reported BestFitness (multi-window-averaged) instead of ValFit.</item>
+/// </list>
+/// </summary>
+public enum AnalyzerMode
+{
+    SingleWindow,
+    MatchTraining
+}
+
 public sealed class CheckpointEvaluator
 {
     private readonly MarketConfig _config;
     private readonly MarketEvaluator _evaluator;
+    private readonly AnalyzerMode _mode;
 
-    public CheckpointEvaluator(MarketConfig config)
+    public CheckpointEvaluator(MarketConfig config, AnalyzerMode mode = AnalyzerMode.SingleWindow)
     {
         _config = config;
         _evaluator = new MarketEvaluator(config);
+        _mode = mode;
     }
 
     public async Task<List<GenomeScore>> EvaluateCheckpointAsync(
@@ -89,6 +110,8 @@ public sealed class CheckpointEvaluator
         int done = 0;
         var sw = System.Diagnostics.Stopwatch.StartNew();
 
+        Console.WriteLine($"[ANALYZER] Mode: {_mode}{(_mode == AnalyzerMode.MatchTraining ? $" (k={_config.EvalWindowCount}, consistency={_config.WindowConsistencyWeight:F3})" : "")}");
+
         Parallel.ForEach(items,
             new ParallelOptions
             {
@@ -97,7 +120,9 @@ public sealed class CheckpointEvaluator
             },
             item =>
             {
-                var result = _evaluator.EvaluateSingle(item.Genome, valSnapshots, valPrices, valRawVolumes, valRawFunding, cp.Generation);
+                var result = _mode == AnalyzerMode.MatchTraining
+                    ? EvaluateMatchTraining(item.Genome, valSnapshots, valPrices, valRawVolumes, valRawFunding, cp.Generation)
+                    : _evaluator.EvaluateSingle(item.Genome, valSnapshots, valPrices, valRawVolumes, valRawFunding, cp.Generation);
                 var score = new GenomeScore(
                     item.Source,
                     item.SourceIndex,
@@ -126,6 +151,36 @@ public sealed class CheckpointEvaluator
         // Sort descending by ValFit
         scores = scores.OrderByDescending(s => s.ValFit).ToList();
         return scores;
+    }
+
+    /// <summary>
+    /// Evaluates a single genome using the multi-window training fitness pipeline:
+    /// splits the window into K sub-windows via <see cref="MarketEvolution.BuildEvalWindows"/>,
+    /// runs <c>EvaluateSingle</c> on each, and averages via <see cref="MarketEvolution.AverageBreakdowns"/>
+    /// with the configured <c>WindowConsistencyWeight</c>. Bit-equivalent to the per-genome
+    /// fitness produced inside <c>MarketEvolution.RunGeneration(windows[])</c>.
+    /// </summary>
+    private MarketEvalResult EvaluateMatchTraining(
+        IGenome genome, SignalSnapshot[] history, float[] prices,
+        float[] rawVolumes, float[] rawFundingRates, int generationIndex)
+    {
+        int k = Math.Max(1, _config.EvalWindowCount);
+        if (k <= 1)
+            return _evaluator.EvaluateSingle(genome, history, prices, rawVolumes, rawFundingRates, generationIndex);
+
+        var windows = MarketEvolution.BuildEvalWindows(history, prices, rawVolumes, rawFundingRates, k, generationIndex, _config.RunSeed);
+        var breakdowns = new List<FitnessBreakdown>(windows.Length);
+        OutputObservation? lastObs = null;
+        int[]? lastCloseReasonCounts = null;
+        foreach (var (snaps, p, vols, funding) in windows)
+        {
+            var r = _evaluator.EvaluateSingle(genome, snaps, p, vols, funding, generationIndex);
+            breakdowns.Add(r.Fitness);
+            lastObs = r.OutputObs;
+            lastCloseReasonCounts = r.CloseReasonCounts;
+        }
+        var avg = MarketEvolution.AverageBreakdowns(breakdowns, _config.WindowConsistencyWeight);
+        return new MarketEvalResult(genome.GenomeId, avg, lastObs, lastCloseReasonCounts);
     }
 
     public static void SaveOutputs(

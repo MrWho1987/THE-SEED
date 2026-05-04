@@ -1,0 +1,58 @@
+=== Seed.MetricAudit ===
+Checkpoint:   archive/V1-PrefinalFix/output/output_phase4_minimal/checkpoints/checkpoint_1990.json
+Config:       archive/V1-PrefinalFix/configs/market-config.phase4-minimal.json
+End date:     2026-04-28 00:00:00Z
+Cache dir:    archive/V1-PrefinalFix/cache/pipeline_shared_cache
+Num genomes:  3
+Output dir:   output_metric_audit/phase4_min_gen1990
+
+[AUDIT] Loaded checkpoint gen=1990, pop=200, archive=26
+[AUDIT] Selected 3 genomes for forensics
+
+[AUDIT] Loading historical data + enrichment (cache-first)...
+[ENRICH] Downloading ETH candles...
+[ENRICH] ETH + multi-asset: 12 slots
+[ENRICH] Downloading macro data...
+[ENRICH] +Macro: 23 slots
+[ENRICH] Downloading on-chain data...
+[ENRICH] +On-chain: 31 slots
+[ENRICH] Downloading Fear & Greed...
+[ENRICH] +Fear/Greed: 34 slots
+[ENRICH] Downloading stablecoin/market data...
+[ENRICH] +Stablecoin: 40 slots
+[ENRICH] Downloading funding rates...
+[ENRICH] +Funding: 42 slots
+[ENRICH] Downloading derivatives data...
+[ENRICH] +Derivatives: 48 slots
+[ENRICH] Downloading futures klines for FuturesPremium...
+[ENRICH] +FuturesPremium: 1 slots
+[ENRICH] Downloading Deribit DVOL (IV index)...
+[ENRICH] +Deribit IV: 1 slots
+[ENRICH] Downloading Coinglass liquidation + exchange balance...
+[ENRICH] +Coinglass: 4 slots
+[ENRICH] Complete: 54 enrichment slots populated
+[AUDIT] Loaded 121016 bars; val window = 17520 bars (4380h)
+
+[AUDIT] Path B: MarketEvaluator.EvaluateSingle (single-thread)...
+[AUDIT] Path C: MarketEvaluator.Evaluate (parallel batch)...
+[AUDIT] Path A: MarketEvolution.RunGeneration (single window, no diversity bonus)...
+[AUDIT] Path D: MarketEvolution.RunGeneration (multi-window averaged)...
+
+=== RESULTS ===
+
+GenomeId                               Path B       Path C       Path A       Path D       |C-B|      |A-B|      |D-B|     
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+bef1ef16-f5e5-4ae2-b352-e07b133d4a81      -0.956747    -0.956747    -0.956747    -0.769142  0.00E+000  0.00E+000  1.88E-001
+0dadb880-c502-4a06-9fe5-4295b52bb023      -0.707061    -0.707061    -0.707061    -2.772664  0.00E+000  0.00E+000  2.07E+000
+37a51b54-84c7-404b-9515-5bf8b604f9fe      -4.259708    -4.259708    -4.259708    -3.311385  0.00E+000  0.00E+000  9.48E-001
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+Divergent (>1e-5):                                                                         0/3        0/3        3/3       
+Mean |Δ|:                                                                                   0.00E+000  0.00E+000  1.07E+000
+Max |Δ|:                                                                                    0.00E+000  0.00E+000  2.07E+000
+
+=== DIAGNOSIS ===
+  C == B: parallel evaluation is sound (no shared-state leak).
+  A == B: in-training single-window path matches analyzer (no wrapper leak).
+  D != B: multi-window averaging (3/3, max |Δ|=2.07E+000). Expected and structural — analyzer needs MatchTraining mode for full equivalence.
+
+Full report: output_metric_audit/phase4_min_gen1990\metric_audit_report.json
