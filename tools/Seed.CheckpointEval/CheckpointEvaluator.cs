@@ -23,7 +23,44 @@ public sealed record GenomeScore(
     float Sortino,
     float WinRate,
     float MaxDrawdown,
-    int TotalTrades);
+    int TotalTrades,
+    bool IsDeployBlocked = false,
+    string? DeployBlockReason = null);
+
+/// <summary>
+/// V11 action-output indices and labels (0..10). Indices 5..10 are the V11-specific
+/// expanded action channels — these are the ones the deploy gate (S9) checks for
+/// dead-channel pathology.
+/// </summary>
+internal static class V11OutputIndex
+{
+    public const int Direction = 0;
+    public const int Size = 1;
+    public const int Urgency = 2;
+    public const int Exit = 3;
+    public const int Predict = 4;
+    public const int Leverage = 5;        // lv
+    public const int PartialClose = 6;    // prt
+    public const int TrailEnable = 7;     // tre
+    public const int TrailDist = 8;       // trd
+    public const int TpOffset = 9;        // tp
+    public const int SlOverride = 10;     // sl
+
+    /// <summary>
+    /// (index, short-name) for the V11 expanded action outputs the deploy gate checks.
+    /// Standard NEAT outputs (dir/size/urg/exit/predict, indices 0..4) are not gated since
+    /// they predate V11 and are baseline-required for any agent.
+    /// </summary>
+    public static readonly (int Index, string Name)[] V11Channels =
+    [
+        (Leverage,     "lv"),
+        (PartialClose, "prt"),
+        (TrailEnable,  "tre"),
+        (TrailDist,    "trd"),
+        (TpOffset,     "tp"),
+        (SlOverride,   "sl"),
+    ];
+}
 
 /// <summary>
 /// Controls how the analyzer evaluates each genome:
@@ -123,6 +160,7 @@ public sealed class CheckpointEvaluator
                 var result = _mode == AnalyzerMode.MatchTraining
                     ? EvaluateMatchTraining(item.Genome, valSnapshots, valPrices, valRawVolumes, valRawFunding, cp.Generation)
                     : _evaluator.EvaluateSingle(item.Genome, valSnapshots, valPrices, valRawVolumes, valRawFunding, cp.Generation);
+                var (deployBlocked, deployReason) = ComputeDeployGate(result.OutputObs, _config.DeployOutputStdMin);
                 var score = new GenomeScore(
                     item.Source,
                     item.SourceIndex,
@@ -135,7 +173,9 @@ public sealed class CheckpointEvaluator
                     result.Fitness.Sortino,
                     result.Fitness.WinRate,
                     result.Fitness.MaxDrawdown,
-                    result.Fitness.TotalTrades);
+                    result.Fitness.TotalTrades,
+                    deployBlocked,
+                    deployReason);
                 lock (scores)
                 {
                     scores.Add(score);
@@ -151,6 +191,30 @@ public sealed class CheckpointEvaluator
         // Sort descending by ValFit
         scores = scores.OrderByDescending(s => s.ValFit).ToList();
         return scores;
+    }
+
+    /// <summary>
+    /// S9 deploy gate. A genome is flagged DEPLOY-BLOCKED when one or more V11 action outputs
+    /// (indices 5..10: lv/prt/tre/trd/tp/sl) had a stddev below <paramref name="threshold"/>
+    /// across the eval window. Dead V11 outputs mean the agent never explored those action
+    /// channels under any signal — so the deployed brain's behavior on those channels is
+    /// effectively undefined. Advisory by default; pair with --strict-deploy to filter the
+    /// best/top-N selections to the unblocked subset.
+    /// </summary>
+    public static (bool IsBlocked, string? Reason) ComputeDeployGate(
+        Seed.Market.Agents.OutputObservation? obs, float threshold)
+    {
+        if (obs is null || obs.Value.Stds is null || obs.Value.Stds.Length < 11)
+            return (false, null);
+        var stds = obs.Value.Stds;
+        var deadChannels = new List<string>();
+        foreach (var (idx, name) in V11OutputIndex.V11Channels)
+        {
+            if (stds[idx] < threshold)
+                deadChannels.Add($"{name}:{stds[idx]:F4}");
+        }
+        if (deadChannels.Count == 0) return (false, null);
+        return (true, $"dead V11 outputs (<{threshold:F3} stddev): {string.Join(", ", deadChannels)}");
     }
 
     /// <summary>
@@ -249,16 +313,35 @@ public sealed class CheckpointEvaluator
         sb.AppendLine($"Unique genomes eval'd: {scores.Count}");
         sb.AppendLine();
         sb.AppendLine("=== Top 10 by Validation Fitness ===");
-        sb.AppendLine($"{"Rank",4} {"Source",-9} {"Idx",4} {"Species",7} {"TrainFit",10} {"ValFit",10} {"Ret%",7} {"Sharpe",7} {"WR%",6} {"DD%",6} {"Trd",5}");
+        sb.AppendLine($"{"Rank",4} {"Source",-9} {"Idx",4} {"Species",7} {"TrainFit",10} {"ValFit",10} {"Ret%",7} {"Sharpe",7} {"WR%",6} {"DD%",6} {"Trd",5} {"Deploy",-15}");
         for (int i = 0; i < Math.Min(10, scores.Count); i++)
         {
             var s = scores[i];
+            string deploy = s.IsDeployBlocked ? "BLOCKED" : "OK";
             sb.AppendLine(string.Format(CultureInfo.InvariantCulture,
-                "{0,4} {1,-9} {2,4} {3,7} {4,10:F4} {5,10:F4} {6,7:P1} {7,7:F2} {8,6:P0} {9,6:P1} {10,5}",
+                "{0,4} {1,-9} {2,4} {3,7} {4,10:F4} {5,10:F4} {6,7:P1} {7,7:F2} {8,6:P0} {9,6:P1} {10,5} {11,-15}",
                 i + 1, s.Source, s.SourceIndex, s.SpeciesId?.ToString() ?? "-",
-                s.TrainingFit, s.ValFit, s.ReturnPct, s.AdjustedSharpe, s.WinRate, s.MaxDrawdown, s.TotalTrades));
+                s.TrainingFit, s.ValFit, s.ReturnPct, s.AdjustedSharpe, s.WinRate, s.MaxDrawdown, s.TotalTrades, deploy));
         }
         sb.AppendLine();
+
+        // S9 deploy gate summary across the full evaluated set.
+        int blockedCount = scores.Count(s => s.IsDeployBlocked);
+        int unblockedCount = scores.Count - blockedCount;
+        sb.AppendLine("=== Deploy Gate (S9) ===");
+        sb.AppendLine($"Unblocked: {unblockedCount}/{scores.Count}    Blocked: {blockedCount}/{scores.Count}");
+        if (blockedCount > 0)
+        {
+            sb.AppendLine("Blocked top-10 reasons:");
+            int shown = 0;
+            foreach (var s in scores.Take(10).Where(s => s.IsDeployBlocked))
+            {
+                sb.AppendLine($"  rank ?: {s.GenomeId} — {s.DeployBlockReason}");
+                if (++shown >= 5) break;
+            }
+        }
+        sb.AppendLine();
+
         if (scores.Count > 0)
         {
             var best = scores[0];
@@ -271,6 +354,7 @@ public sealed class CheckpointEvaluator
             sb.AppendLine($"WinRate:    {best.WinRate:P1}");
             sb.AppendLine($"MaxDD:      {best.MaxDrawdown:P2}");
             sb.AppendLine($"Trades:     {best.TotalTrades}");
+            sb.AppendLine($"Deploy:     {(best.IsDeployBlocked ? $"BLOCKED ({best.DeployBlockReason})" : "OK")}");
         }
         File.WriteAllText(Path.Combine(outputDir, "analysis_summary.txt"), sb.ToString());
 

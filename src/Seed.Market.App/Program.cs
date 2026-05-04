@@ -77,7 +77,7 @@ Directory.CreateDirectory(config.OutputDirectory);
 switch (config.Mode)
 {
     case ExecutionMode.Backtest:
-        await RunBacktest(config);
+        await RunBacktest(config, configPath, cliEndDate);
         break;
     case ExecutionMode.Paper:
         await RunPaper(config);
@@ -108,7 +108,7 @@ switch (config.Mode)
 // ─────────────────────────────────────────────────────────────────────────────
 // BACKTEST MODE — with checkpointing and resume support
 // ─────────────────────────────────────────────────────────────────────────────
-static async Task RunBacktest(MarketConfig config, DateTimeOffset? fixedEnd = null, bool resetStagnation = false)
+static async Task RunBacktest(MarketConfig config, string configPath, DateTimeOffset? fixedEnd = null, bool resetStagnation = false)
 {
     Console.WriteLine("\n[BACKTEST] Downloading historical data...");
 
@@ -203,6 +203,16 @@ static async Task RunBacktest(MarketConfig config, DateTimeOffset? fixedEnd = nu
 
     float prevBestFitness = float.MinValue;
     var genStopwatch = new System.Diagnostics.Stopwatch();
+
+    // S6 — Auto-analyzer subprocess tracker. Holds the most recent fire-and-forget
+    // `dotnet run --project tools/Seed.CheckpointEval` process so the next checkpoint
+    // can decide whether to start a new one (only if previous has exited). Prevents
+    // subprocess stacking when checkpoint cadence beats analyzer runtime.
+    System.Diagnostics.Process? autoAnalyzeProcess = null;
+    int autoAnalyzeFailCount = 0;
+
+    string autoAnalyzeOutputRoot = config.AutoAnalyzeOutputDir
+        ?? Path.Combine(config.OutputDirectory, "auto_analyses");
 
     for (int gen = startGen; gen < config.Generations; gen++)
     {
@@ -451,36 +461,126 @@ static async Task RunBacktest(MarketConfig config, DateTimeOffset? fixedEnd = nu
                 evolution.CompatibilityThreshold,
                 walkForwardOffset, stallCount,
                 cpSpeciesState, evolution.NextSpeciesId, cpArchiveState);
-            cp.Save(Path.Combine(checkpointDir, $"checkpoint_{gen + 1:D4}.json"));
+            string cpPath = Path.Combine(checkpointDir, $"checkpoint_{gen + 1:D4}.json");
+            cp.Save(cpPath);
             Console.WriteLine($"  [checkpoint saved: gen {gen + 1}]");
+
+            // S6 — fire-and-forget analyzer subprocess if enabled and prior is finished.
+            if (config.AutoAnalyzeOnCheckpoint)
+            {
+                if (autoAnalyzeProcess != null && !autoAnalyzeProcess.HasExited)
+                {
+                    Console.WriteLine($"  [auto-analyze SKIP gen {gen + 1}: prior subprocess (pid {autoAnalyzeProcess.Id}) still running]");
+                }
+                else
+                {
+                    if (autoAnalyzeProcess != null && autoAnalyzeProcess.ExitCode != 0)
+                    {
+                        autoAnalyzeFailCount++;
+                        Console.WriteLine($"  [auto-analyze WARN: prior subprocess exited with code {autoAnalyzeProcess.ExitCode} (consecutive fails: {autoAnalyzeFailCount})]");
+                    }
+                    else if (autoAnalyzeProcess != null)
+                    {
+                        autoAnalyzeFailCount = 0;  // success resets the counter
+                    }
+                    autoAnalyzeProcess?.Dispose();
+
+                    string analysisOutDir = Path.Combine(autoAnalyzeOutputRoot, $"analysis_{gen + 1:D4}");
+                    Directory.CreateDirectory(analysisOutDir);
+                    string analysisLogPath = Path.Combine(autoAnalyzeOutputRoot, $"analysis_{gen + 1:D4}_run.log");
+
+                    var psi = new System.Diagnostics.ProcessStartInfo
+                    {
+                        FileName = "dotnet",
+                        WorkingDirectory = Directory.GetCurrentDirectory(),
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        CreateNoWindow = true
+                    };
+                    psi.ArgumentList.Add("run");
+                    psi.ArgumentList.Add("--project");
+                    psi.ArgumentList.Add("tools/Seed.CheckpointEval");
+                    psi.ArgumentList.Add("--no-build");
+                    psi.ArgumentList.Add("--");
+                    psi.ArgumentList.Add("--checkpoint"); psi.ArgumentList.Add(cpPath);
+                    psi.ArgumentList.Add("--config");     psi.ArgumentList.Add(configPath);
+                    psi.ArgumentList.Add("--output");     psi.ArgumentList.Add(analysisOutDir);
+                    if (fixedEnd.HasValue)
+                    {
+                        psi.ArgumentList.Add("--end-date");
+                        psi.ArgumentList.Add(fixedEnd.Value.ToString("yyyy-MM-ddTHH:mm:ssZ"));
+                    }
+                    if (!string.IsNullOrEmpty(config.DataCacheDirectory))
+                    {
+                        psi.ArgumentList.Add("--cache-dir");
+                        psi.ArgumentList.Add(config.DataCacheDirectory);
+                    }
+
+                    try
+                    {
+                        var proc = System.Diagnostics.Process.Start(psi)
+                            ?? throw new InvalidOperationException("Process.Start returned null");
+                        // Pipe stdout+stderr to per-checkpoint log file (async, fire-and-forget).
+                        var logFile = new StreamWriter(analysisLogPath, append: false) { AutoFlush = true };
+                        proc.OutputDataReceived += (_, e) => { if (e.Data != null) logFile.WriteLine(e.Data); };
+                        proc.ErrorDataReceived  += (_, e) => { if (e.Data != null) logFile.WriteLine($"[STDERR] {e.Data}"); };
+                        proc.BeginOutputReadLine();
+                        proc.BeginErrorReadLine();
+                        proc.Exited += (_, _) => { try { logFile.Dispose(); } catch { } };
+                        proc.EnableRaisingEvents = true;
+                        autoAnalyzeProcess = proc;
+                        Console.WriteLine($"  [auto-analyze STARTED gen {gen + 1}: pid {proc.Id} → {analysisLogPath}]");
+                    }
+                    catch (Exception ex)
+                    {
+                        autoAnalyzeFailCount++;
+                        Console.Error.WriteLine($"  [auto-analyze FAIL gen {gen + 1}: {ex.Message} (consecutive fails: {autoAnalyzeFailCount})]");
+                    }
+                }
+            }
         }
     }
 
-    // Final validation run on full population
+    // S11 — Final validation run includes BOTH the live population AND the elite archive.
+    // The archive holds species champions that the population may have bred away by phase end
+    // (Phase 4 minimal post-mortem found archive sp.6 +0.9456 was the true best, hidden behind
+    // pop[126] +0.6714 because end-phase eval only scanned the population). Union by GenomeId,
+    // dedup, evaluate together, take best — guaranteeing no archived champion is overlooked.
+    var valCandidates = evolution.Population
+        .Concat(evolution.Archive.Champions.Values.Select(c => c.Genome))
+        .GroupBy(g => g.GenomeId)
+        .Select(grp => grp.First())
+        .ToList();
+    var candidateById = valCandidates.ToDictionary(g => g.GenomeId);
+    int popCount = evolution.Population.Count;
+    int archiveCount = evolution.Archive.Champions.Count;
+    int unionCount = valCandidates.Count;
+
     Console.WriteLine($"\n{"═══ VALIDATION ═══",-74}");
+    Console.WriteLine($"  Evaluating union: {popCount} pop + {archiveCount} archive elites = {unionCount} unique candidates");
     var valResults = new BacktestRunner(config)
-        .Evaluate(evolution.Population, valSnapshots, valPrices, valRawVolumes, valRawFunding, config.Generations);
+        .Evaluate(valCandidates, valSnapshots, valPrices, valRawVolumes, valRawFunding, config.Generations);
 
     var bestValResult = valResults.Values.OrderByDescending(r => r.Fitness.Fitness).First();
-    Console.WriteLine($"  Best validation fitness: {bestValResult.Fitness.Fitness:F4}");
+    bool bestFromArchive = !evolution.Population.Any(g => g.GenomeId == bestValResult.GenomeId);
+    Console.WriteLine($"  Best validation fitness: {bestValResult.Fitness.Fitness:F4} (source: {(bestFromArchive ? "ARCHIVE" : "population")})");
     Console.WriteLine($"  Sharpe (adjusted): {bestValResult.Fitness.AdjustedSharpe:F2}");
     Console.WriteLine($"  Return: {bestValResult.Fitness.ReturnPct:P2}");
     Console.WriteLine($"  Trades: {bestValResult.Fitness.TotalTrades}, Win rate: {bestValResult.Fitness.WinRate:P0}");
     Console.WriteLine($"  Max drawdown: {bestValResult.Fitness.MaxDrawdown:P2}");
 
-    // Resolve the actual full-population best-val genome (printed above as bestValResult).
-    // This is the genome that will be saved to the canonical deploy path.
-    var bestValPopGenome = evolution.Population.FirstOrDefault(g => g.GenomeId == bestValResult.GenomeId) as SeedGenome;
+    // Resolve the actual best-val genome from the union (population OR archive).
+    var bestValPopGenome = candidateById.GetValueOrDefault(bestValResult.GenomeId) as SeedGenome;
 
-    // B3 — Save top-5 by validation at phase end (for post-training analysis / deployment candidates)
+    // B3 — Save top-5 by validation across the union (population + archive).
     var top5ByVal = valResults.Values.OrderByDescending(r => r.Fitness.Fitness).Take(5).ToList();
     for (int i = 0; i < top5ByVal.Count; i++)
     {
-        var g = evolution.Population.FirstOrDefault(gg => gg.GenomeId == top5ByVal[i].GenomeId) as SeedGenome;
-        if (g != null)
+        if (candidateById.TryGetValue(top5ByVal[i].GenomeId, out var g) && g is SeedGenome sg)
         {
             var p = Path.Combine(config.OutputDirectory, $"top5_val_genome_rank{i + 1:D2}.json");
-            File.WriteAllText(p, g.ToJson());
+            File.WriteAllText(p, sg.ToJson());
         }
     }
 
@@ -1208,7 +1308,7 @@ static async Task RunPipeline(string[] configPaths, DateTimeOffset? fixedEnd = n
         // Always reset stagnation in pipeline mode — species BestFitness from previous
         // phases is unreachable under new fitness weights, causing permanent stagnation.
         // Phase 0 with an existing checkpoint also needs reset (resumed pipeline).
-        await RunBacktest(config, pipelineEnd, resetStagnation: true);
+        await RunBacktest(config, path, pipelineEnd, resetStagnation: true);
         sw.Stop();
 
         prevOutputDir = config.OutputDirectory;

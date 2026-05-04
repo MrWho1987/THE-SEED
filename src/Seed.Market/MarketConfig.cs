@@ -138,6 +138,25 @@ public sealed record MarketConfig
     // behavior). Setting to 5 gives the population a much broader chance to show generalization.
     public int WalkForwardTopN { get; init; } = 1;
 
+    // S9 — Deploy gate: minimum stddev of the V11 action outputs (indices 5..10:
+    // leverage/partialClose/trailEnable/trailDist/tpOffset/slOverride) across the eval window.
+    // A genome with one or more dead V11 outputs (stddev < this) is flagged DEPLOY-BLOCKED by
+    // the analyzer — its action layer never explored, so live behavior may be undefined under
+    // regimes the training window didn't expose. Advisory by default; strict filtering is
+    // CLI-flag-gated in the analyzer.
+    public float DeployOutputStdMin { get; init; } = 0.01f;
+
+    // S6 — When true, every checkpoint save fires a non-blocking `dotnet run --project
+    // tools/Seed.CheckpointEval` subprocess that evaluates that checkpoint against the
+    // validation window and writes analyzer outputs to AutoAnalyzeOutputDir/checkpoint_NNNN/.
+    // A lockfile in the checkpoint dir prevents stacking subprocesses if checkpoints fire
+    // faster than the analyzer completes. Default off — opt-in for ceiling-test runs only.
+    public bool AutoAnalyzeOnCheckpoint { get; init; } = false;
+
+    // S6 — Output root for the auto-analyzer subprocess. Per-checkpoint subdirectories named
+    // `analysis_NNNN/` are written here. Defaults to `<OutputDirectory>/auto_analyses/` when null.
+    public string? AutoAnalyzeOutputDir { get; init; }
+
     // ── Paper Trading ──
     public string? GenomePath { get; init; }
     public string? TradeLogPath { get; init; }
