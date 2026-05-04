@@ -50,6 +50,49 @@ Last updated: gen 1700 post-analyzer (2026-04-28)
 
 ---
 
+## Phase 4 Minimal — LAUNCHED 2026-04-29 04:00 (gens 1801→2000)
+
+- **Process**: PID 10216 (Seed.Market.App), started 2026-04-29 04:00:10 AM
+- **Log**: `training-v11e-phase4.log`
+- **Config**: `market-config.phase4-minimal.json` — relaxed weights (windowConsistencyWeight 0.02, shrinkageK 3.0, fitnessFeeDragWeight 0.05); `protectBestValInPop: true`; `walkForwardTopN: 5`; 200 gens (1801→2000)
+- **End-date pinned**: `--end-date 2026-04-20T21:36:00Z` — same window as all analyzer runs (Fix 3 confirmed working: log shows "Fixed date range end: 2026-04-20 21:36:00 UTC (from --end-date CLI)")
+- **Code state**: commit `640a20e` — Fix 1 (canonical save), Fix 2 (deterministic clone GenomeId + duplicate-ID guard), Fix 3 (--end-date CLI)
+- **Tests**: 368/368 pass; smoke verified all fixes fire correctly
+- **Paper trading**: pop[149] PID 19464 + pop[193] PID 32388 still alive, undisturbed
+- **Cron monitor**: `505fe5b9` (hourly at :47, session-only)
+- **Phase 4 WF table**: see below (separate from Phase 3 table for clarity)
+- **Decision criteria** (at gen 2000):
+  - H1 (relaxed weights help): top genome ValFit > +1.97 ⇒ PASS
+  - H2 (B-fixes preserve value): mid-phase peak ≤ end-of-phase peak ⇒ PASS
+  - H3 (founder-effect S7 binding?): V11 outputs reach \|mean\| > 0.1 in elite for ≥10% of gens ⇒ S7 NOT binding (PASS)
+
+### Phase 4 Walk-Forward History
+
+| Gen | Result | ValFit | Stall | Window |
+|---|---|---|---|---|
+| 1800 | **Pass** | **+1.1800** *(via B5 top-N candidate #2)* | 0/30 | → 34944 |
+| 1810 | **Pass** | **+0.7656** *(top-1, not new best-val)* | 0/30 | → 35616 |
+| 1820 | **Pass** | **+1.1800** *(via B5 top-N candidate #4; ties prior best, window advances)* | 0/30 | → 36288 |
+| 1830 | **Pass** | **+1.1800** *(via B5 #4 again; protected genome re-eval)* | 0/30 | → 36960 |
+| 1840 | **Pass** | **+0.2365** *(top-1; weak pass, others all negative)* | 0/30 | → 37632 |
+| 1850 | **Pass** | **+0.9443** *(top-1; OVERFIT-warn at K=5)* | 0/30 | → 38304 |
+| 1860 | **Pass** | **+0.9443** *(top-1; OVERFIT-warn K=6; broader positive spread)* | 0/30 | → 38976 |
+| 1870 | **Pass** | **+1.0775** *(via B5 top-N candidate #3; clears OVERFIT counter)* | 0/30 | → 39648 |
+| 1880 | **Pass** | **+1.3900** *(via B5 #2; new in-training best, [PROTECT] fired with id dec5f780; analyzer reports +1.22 for same genome — see S10)* | 0/30 | → 40320 |
+| 1890 | **Pass** | **+1.4033** *(via B5 #4; in-training best with [PROTECT] id d1b0e74d; analyzer reports +0.81 for same genome — S10 gap 40%)* | 0/30 | → 40992 |
+| 1900 | **Fail** | **-0.0411** *(top-N all negative, broke 10-pass streak)* | 1/30 | 40992 |
+| 1910 | **Pass** | **+0.5831** *(via B5 #4; recovers from Fail)* | 0/30 | → 41664 |
+| 1920 | **Pass** | **+1.3029** *(via B5 #2; below in-training peak +1.40, no PROTECT)* | 0/30 | → 42336 |
+| 1930 | **Fail** | **-0.8042** *(all 5 candidates negative; population regression)* | 1/30 | 42336 |
+| 1940 | **Pass** | **+0.9306** *(via B5 #4; below +1.0 analyzer threshold)* | 0/30 | → 43008 |
+| 1950 | **Fail** | **-0.4733** *(all 5 candidates negative; 2nd Fail, population regression)* | 1/30 | 43008 |
+| 1960 | **Pass** | **+0.8655** *(via B5 #4; 3 of 5 candidates positive — recovery)* | 0/30 | → 43680 |
+| 1970 | **Pass** | **+0.6061** *(via B5 #2; OVERFIT-warn K=8/20)* | 0/30 | → 44352 |
+| 1980 | **Fail** | **-0.3071** *(all 5 candidates negative; OVERFIT-warn K=9/20; declining trend +0.87→+0.61→-0.31)* | 1/30 | 44352 |
+| 1990 | **Pass** | **+1.0497** *(via B5 #4; OVERFIT K=10/20; high-freq strategy emerged 1035 trades)* | 0/30 | → 45024 |
+
+---
+
 ## Phase 3 Walk-Forward History
 
 Updated live as WF events fire.
@@ -173,6 +216,233 @@ Updated live as WF events fire.
 - **Tentative observation**: pop[149] showing more directional discrimination (mix of long+short with shorts winning); pop[193] biased toward longs against a downtrending tape
 - Both processes alive (PID 19464, 32388), heartbeat.jsonl writing every ~5s
 
+### 2026-05-01 — Phase 4 minimal ENDED at gen 2000 (63.0h compute) — H1/H2/H3 ALL FAIL
+**Pipeline termination**: `[PIPELINE] All 4 phases complete.` — clean exit.
+
+**End-of-phase printed values** (from in-training valEvaluator):
+- Best validation fitness: **+0.6714** | Sharpe 0.94 | Return 15.39% | Trades 39 | WR 36% | DD 15.13%
+- Ensemble: +0.7031 | 26 species | 553 trades
+
+**Final analyzer (canonical, fixed end-date 2026-04-20)** on checkpoint_2000:
+| Rank | Source | ValFit | Return | Sharpe | WR | DD | Trades |
+|---|---|---|---|---|---|---|---|
+| 1 | archive sp.6 | **+0.9456** | 14.5% | 1.66 | 53% | 11.8% | 676 |
+| 2 | archive sp.2 | +0.8568 | 1.2% | 1.76 | 46% | **0.4%** | 13 |
+| 3 | pop[126] (canonical save) | +0.6714 | 15.4% | 0.94 | 36% | 15.1% | 39 |
+
+**H1/H2/H3 verdict**:
+| H | Criterion | Result | **Verdict** |
+|---|---|---|---|
+| H1 | Top genome > +1.97 (Phase 3 peak) | +0.9456 | ❌ FAIL (-1.02) |
+| H2 | Mid-phase peak ≤ end-phase peak | mid +1.5274 (gen 1820) > end +0.9456 | ❌ FAIL (-0.58 regression) |
+| H3 | V11 outputs \|mean\| > 0.1 in elite ≥10% gens | end-phase elite gen 1999: lv/prt/tre/trd/tp/sl all = 0.00:0.00 | ❌ FAIL (S7 binding) |
+
+**Per plan's decision matrix: "Multiple fail → v1 ceiling at +2.01 confirmed; v2 is the path forward."**
+
+### Critical Findings from Phase 4 Final State
+
+**Fix 1 (canonical save) WORKED**: `best_market_genome.json` GenomeId `44d33f10-...-7b6659f77a87` matches the printed +0.6714 ValFit exactly. **No save/print mismatch.** ✓ The fix proved itself live in production.
+
+**NEW BUG SURFACE (S11)**: end-of-phase eval (`Program.cs:425` `BacktestRunner.Evaluate(evolution.Population, ...)`) only scans the 200-member population, **NOT the 26 archive elites**. The canonical save chose pop[126] +0.6714 but the actual best on the holdout is **archive sp.6 +0.9456**. Archive members are invisible to the canonical save.
+
+**Phase 4 produced NOTHING that beats either Phase 2 pop[149] +2.01 or Phase 3 pop[193] +1.97 on canonical analyzer**. Phase 4's mid-phase peak (pop[49] +1.5274 at gen 1820) was its best moment, and it was lost from active state by gen 1850.
+
+**Phase 4's mid-phase candidates that ARE saved on disk** (via mid-phase analyzer salvage):
+- `output_phase4_minimal/analysis_1820/best_market_genome.json` → pop[49] +1.5274 (peak)
+- `output_phase4_minimal/analysis_1900/best_market_genome.json` → archive sp.22 +1.5080
+- `output_phase4_minimal/analysis_1890/best_market_genome.json` → pop[71] +1.4938
+- `output_phase4_minimal/analysis_1850/best_market_genome.json` → archive sp.22 +1.3609
+- `output_phase4_minimal/analysis_2000/best_market_genome.json` → archive sp.6 +0.9456 (final)
+
+**Founder-effect (S7) confirmed binding**: gen 1999 elite outputs all V11 channels (lv/prt/tre/trd/tp/sl) at exactly 0.00:0.00 magnitude — the population converged back to a 6-output topology (dir/sz/urg only). The V11-rich genomes that emerged mid-phase (pop[49], pop[71]) bred away by end. **The 985-gen V11d founder period structurally locked the topology.** Phase 4's relaxed weights couldn't break that.
+
+### Updated Final Leaderboard
+
+| Rank | Source | ValFit | Return | Sharpe | WR | DD | Trades | Saved |
+|---|---|---|---|---|---|---|---|---|
+| 1 | **Phase 2 pop[149]** | **+2.0109** | 35.0% | 3.20 | 48% | 8.4% | 2442 | analysis_1200/ |
+| 2 | **Phase 3 pop[193] (gen 1700)** | **+1.9671** | 15.2% | 3.17 | 51% | 4.0% | 412 | analysis_1700/ |
+| 3 | Phase 2 pop[53] | +1.8968 | 14.1% | 3.00 | 49% | 3.8% | 387 | top10 cache |
+| 4 | Phase 4 pop[49] (gen 1820) | +1.5274 | 7.9% | 2.56 | 52% | **2.4%** | 413 | analysis_1820/ |
+| 5 | Phase 4 archive sp.22 (gen 1900) | +1.5080 | 2.1% | 2.87 | 50% | **0.6%** | 187 | analysis_1900/ |
+| 6 | Phase 4 pop[71] (gen 1890) | +1.4938 | 2.1% | 2.84 | 50% | **0.6%** | 187 | analysis_1890/ |
+| 7 | Phase 2 pop[15] | +1.43 | 13.4% | 2.07 | 47% | 5.8% | 1648 | top10 cache |
+| 8 | Phase 3 pop[46] (gen 1780) | +1.36 | 10.0% | 2.17 | 52% | 3.6% | 421 | analysis_1780/ |
+| 9 | **Phase 4 archive sp.6 (gen 2000)** | **+0.9456** | 14.5% | 1.66 | 53% | 11.8% | 676 | analysis_2000/ |
+
+**Phase 4 contribution**: 3 entries in top-10 with **dramatically lower DD** (0.6% / 2.4% vs Phase 2's 8.4% / Phase 3's 4.0%) — but ValFit ceiling -0.5 lower. Risk-adjusted, these may be more deployable than the magnitude leaders.
+
+### S11 — End-of-phase eval blind to archive (NEW structural finding)
+
+- `RunBacktest` end-of-phase eval (`Program.cs:425`) calls `Evaluate(evolution.Population, ...)` — only the 200 pop members.
+- The 26 archive elites (one per species) are evaluated by NEAT during Reproduce but NOT included in the final-eval scan.
+- Result: canonical save can miss the true best when an archive elite outperforms all pop members.
+- **Fix needed (B7?)**: end-of-phase eval should evaluate `evolution.Population.Concat(evolution.Archive.Champions.Select(c => c.Genome))` and pick best across the union.
+- This is a parallel issue to S1 (WF tests only top-trained pop) but for end-of-phase saves.
+
+### S7 confirmation — founder-effect IS binding
+
+Phase 4 minimal was the experiment for S7. Result definitive:
+- 200 generations of relaxed weights (consistency 0.10→0.02, shrinkageK 5→3) starting from a population WITH V11 outputs functional
+- Mid-phase produced V11-rich genomes (pop[49], pop[71], archive sp.22 with non-zero V11 stddev)
+- BUT they bred away by end-phase. The 6-output topology won the evolutionary competition.
+- **Conclusion**: V11d's 985 broken-deadzone gens shaped genome topology in a way that 200 corrective gens cannot reverse. Need either (a) explicit topology re-injection, (b) much more sustained pressure, or (c) fresh restart from gen 0 with V11e from start.
+
+### Decision Per Plan Matrix
+
+Plan stated: **"Multiple fail → v1 ceiling at +2.01 confirmed; v2 is the path forward."** This condition is met.
+
+Recommended next steps:
+1. **STOP further v1 training** — diminishing returns confirmed
+2. **Continue paper trading** pop[149] + pop[193] to gather production signal
+3. **Begin v2 design work** per Track F V2-Architecture-Vision.md
+4. **Optional Phase 4-extended (full 600 gens)**: only justifiable if the founder-effect can be explicitly broken — likely requires architectural change, not more compute
+
+### 2026-05-01 — Analyzer on checkpoint_1990: lineage recovery
+- **#1: pop[71] ValFit +1.3153** — ret 2.1%, Sharpe 2.58, WR 50.8%, DD 0.68%, 199 trades, GenomeId `cd227236-1452-4b97-a808-3b11a0d4229b`
+- **DIFFERENT genome than gen 1890's pop[71]** (`7e66392c...`) — same index, different individual; same lineage
+- Profile similar to gen 1890's pop[71]: ret 2.1% vs 2.12%, Sharpe 2.58 vs 2.84, DD 0.68% vs 0.57%, 199 vs 187 trades — sibling/descendant of the same species 22 conservative lineage
+- **Recovery from gen 1950 regression**: +1.0956 → +1.3153 (+0.22)
+- Phase 4 mid-phase peak still gen 1820 pop[49] +1.5274 (canonical record)
+
+### 2026-05-01 — Mid-phase analyzer on checkpoint_1950 (3rd of 3) — value regression continues
+- **NEW Phase 4 active leader**: pop[46] ValFit **+1.0956** — ret 0.80%, Sharpe 1.98, **WR 86.3%** (highest WR of any leaderboard entry), DD 0.48%, 175 trades, GenomeId `a0d138cc-e294-486d-bb99-ca61a11340fd`
+- **Archive sp.22 (the +1.5080 leader from gen 1900) is NO LONGER in top-10** — its archive slot was replaced between gens 1900-1950 by a weaker species member. The +1.5080 elite is lost from the active state.
+- **Regression vs gen 1900**: top genome dropped from +1.5080 → +1.0956 = **-0.41 ValFit in 50 gens**
+- pop[46]'s 86.3% WR with DD 0.48% is a uniquely conservative high-precision strategy — but the 0.80% return drags ValFit down (Sharpe 1.98 is lower than gen 1900's 2.87)
+- **Phase 4 mid-phase peak (analyzer-canonical) remains gen 1820's pop[49] +1.5274** — saved on disk only because we ran mid-phase analyzers; never preserved in active state.
+
+**H1, H2, H3 status check (3 of 3 mid-phase analyzers complete)**:
+- **H1 (relaxed weights help, target +1.97)**: NOT YET MET. Phase 4 best so far = +1.5274 (gen 1820). Need gen 2000 end-phase to bring +0.45 improvement. **Unlikely** given regression trend.
+- **H2 (mid-phase peak ≤ end-phase peak)**: AT RISK. Mid-phase peak = +1.5274 at gen 1820. Recent trend (gens 1900→1950) is regression -0.41. End-phase needs to recover.
+- **H3 (founder-effect S7 binding? V11 outputs |mean| > 0.1 in elite for ≥10% of gens)**: have not systematically tracked output magnitudes; will assess at end-phase analysis.
+
+**Phase 4 lineage progression observation**:
+| Gen | Top genome | ValFit | Profile |
+|---|---|---|---|
+| 1820 | pop[49] | +1.5274 | ret 7.93%, Sharpe 2.56, WR 52%, DD 2.41%, 413 trades |
+| 1850 | archive sp.22 | +1.3609 | ret 1.98%, Sharpe 2.65, WR 47%, DD 0.66%, 189 trades |
+| 1870 | archive sp.22 | +1.3567 | (same) |
+| 1880 | archive sp.22 | +1.3550 | (same) |
+| 1890 | pop[71] | +1.4938 | ret 2.12%, Sharpe 2.84, WR 50%, DD 0.57%, 187 trades (sp.22 lineage) |
+| 1900 | archive sp.22 | +1.5080 | (pop[71] promoted to archive) |
+| 1950 | pop[46] | +1.0956 | ret 0.80%, Sharpe 1.98, **WR 86.3%**, DD 0.48%, 175 trades |
+
+Phase 4 has produced **multiple deployable candidates** with excellent risk profiles (DD < 1%, Sharpe 2.0-2.8) but **none beat Phase 3 pop[193] +1.97 or Phase 2 pop[149] +2.01** on ValFit. The risk profile improvement is real but the magnitude tradeoff is unfavorable.
+
+### 2026-04-30 — Mid-phase analyzer on checkpoint_1900 — pop[71] promoted to archive
+- **#1: archive sp.22 ValFit +1.5080** — SAME GenomeId `7e66392c-c18a-43f9-adfa-02de0262442e` as gen 1890's pop[71] (+1.4938) — same metrics modulo float noise
+- pop[71] genome got **promoted into archive sp.22** between gens 1890-1900 (replaced the prior +1.36 elite that was occupying that species slot)
+- Gen 1900 metrics: ret 2.14%, Sharpe 2.87, WR 49.7%, DD 0.57%, 187 trades — basically identical to gen 1890's pop[71]
+- **Phase 4 active leader is now this archive sp.22** at +1.5080 (was +1.3550 at gens 1850-1880, refreshed +0.15 ValFit)
+- vs gen 1820 pop[49] +1.5274 (unrecoverable in population): -0.0194 (basically tied)
+- vs Phase 3 pop[193] +1.97 alert threshold: -0.46 ValFit, but pop[71] has 7× lower DD (0.57% vs 4.0%)
+- vs Phase 2 pop[149] +2.01: -0.50 ValFit, 14× lower DD
+- **Top 3 are ALL archive entries** (sp.22 +1.51, sp.6 +0.93, sp.55 +0.63) — archive is the persistence layer
+- **Archive promotion pattern observed**: pop genomes that beat their species' archive entry replace it. This is exactly the mechanism that preserves cross-generation generalizers.
+- pop[49] from gen 1820 (the unrecoverable +1.5274) was never archived — its species champion path didn't beat its species' existing archive holder, so it bred away.
+
+### 2026-04-30 — Analyzer on checkpoint_1890 + S10 confirmed with bigger gap
+- **NEW Phase 4 active leader: pop[71]** ValFit **+1.4938** — ret 2.12%, Sharpe **2.84**, WR 49.7%, **DD 0.57%** (lowest of any leaderboard entry), 187 trades, GenomeId `7e66392c-c18a-43f9-adfa-02de0262442e`
+- #2: pop[188] +1.3570 (sibling lineage, 197 trades, DD 0.5%)
+- #3: pop[77] +1.2963 (sibling lineage, 193 trades, DD 0.7%)
+- **Top 3 are a converging lineage** — three pop members with very similar conservative profile (low-volatility, Sharpe 2.5-2.8, ~190 trades, DD <1%)
+- pop[71] beats prior Phase 4 active leader (archive sp.22 +1.3550) by +0.14 ValFit
+- **vs gen 1820 pop[49] +1.5274**: pop[49] still has higher ValFit (-0.03), but pop[71] has dramatically lower DD (0.57% vs 2.41%) — different risk regimes
+
+**S10 confirmed with EVEN BIGGER gap**:
+- In-training WF reported best_val genome `5a5bd109-b065-413c-aa3a-f32efa31e702` at +1.4033
+- Analyzer reports same genome at **+0.8146** — **Δ = 0.59 ValFit (40% lower!)**
+- Gen 1880 gap was 0.17 (12%); gen 1890 gap is 0.59 (40%). The discrepancy is GROWING with later gens.
+- **Hypothesis**: brain plasticity / online state accumulation may be pickling progressive divergence. Each gen's WF eval may share state with prior gen's training eval (longer-running `valEvaluator` state) while the analyzer creates a fresh `MarketEvaluator` each time.
+- The in-training [PROTECT] clones are based on inflated ValFit — protecting noise, not real generalizers
+- **The actual mid-phase analyzer findings are the only reliable signal for Phase 4 quality assessment**
+
+**Phase 4 mid-phase peak (analyzer-canonical)** remains gen 1820's pop[49] +1.5274 (saved on disk). pop[71] +1.4938 is the new #2.
+
+**vs leaderboard targets**:
+- Phase 2 pop[149] +2.01 — pop[71] is below by 0.52 ValFit, but DD is 14× lower
+- Phase 3 pop[193] +1.97 — pop[71] is below by 0.48 ValFit, but DD is 7× lower
+
+### 2026-04-30 — Analyzer on checkpoint_1880 + WF/analyzer ValFit discrepancy discovered
+- **#1: archive sp.22 ValFit +1.3550** — same persistent elite (`78664b12-86d0-40d5-b5a1-d824f4dddd6c`), 0.66% DD, 189 trades
+- #2: pop[22] +1.2183 — **this IS GenomeId `218e8021-b98a-4a0c-bb0d-950954ebece9`, the same genome that scored +1.3900 in the in-training WF check at gen 1880**
+- #3: pop[101] +1.1757
+- #4: pop[155] +1.1114
+
+**MEASUREMENT DISCREPANCY (S10, new structural finding)**:
+- In-training WF check at gen 1880 reported genome `218e8021...` at ValFit **+1.3900**
+- Analyzer (same end-date 2026-04-20, same config, same genome from checkpoint_1880) reports same genome at ValFit **+1.2183**
+- **Δ = 0.17 ValFit (12% lower) for the SAME genome on what should be the SAME validation window**
+- Possible causes (not yet investigated):
+  - DevelopmentContext / brain compilation differences between WF's `valEvaluator` (created at training start) vs analyzer's fresh `MarketEvaluator`
+  - Internal state in MarketEvaluator (RegimeStart/RegimeEnd or similar) that depends on training-time accumulated state
+  - Brain plasticity state bleeding between agent evaluations within a parallel batch
+  - Non-determinism in `Parallel.For` ordering affecting accumulator results
+- **Implication**: in-training WF ValFit values are NOT directly comparable to analyzer ValFit values. The analyzer remains the cross-phase canonical metric, but the WF-tracked best may be inflated. This affects:
+  - B4 protection decisions (triggered on WF best, may be over-protecting noise)
+  - Phase 4 mid-phase peak interpretation (reported "+1.39" is really +1.22 by canonical metric)
+- **Should investigate before any production deployment**: is this determinism bug, eval state leak, or expected behavior?
+
+**Phase 4 mid-phase peak (analyzer-canonical) remains gen 1820's pop[49] +1.5274**. The "new best-val" reported in-training at +1.39 is actually +1.22 by canonical metric — does NOT exceed pop[49].
+
+**Population state**: 199 distinct GenomeIds out of 200 (1 duplicate from baseline NEAT elitism, same as smoke test pattern — not caused by B4 since deterministic clone IDs are unique).
+
+### 2026-04-30 — Analyzer on checkpoint_1870: archive sp.22 stable as Phase 4 active leader
+- **#1: archive sp.22 ValFit +1.3567** — same GenomeId as gen 1850 (`78664b12-86d0-40d5-b5a1-d824f4dddd6c`), basically tied (-0.004 from gen 1850, noise-level)
+- Top profile unchanged: ret 1.98%, Sharpe 2.64, WR 47%, DD 0.66%, 189 trades
+- Other top-10: pop[28] +1.1293 (ret 17.7%), pop[114] +0.9743 (1050 trades), archive sp.6 +0.9417 (ret 14.4%, 677 trades)
+- **Archive sp.22 is stable across the last 20 gens** — archive entries don't get bred away (they're protected elites by species), so this entry persists
+- **Phase 4 mid-phase PEAK so far is still gen 1820's pop[49] +1.5274** (saved in analysis_1820/, no longer in active population)
+- pop[49] would have beaten archive sp.22 by +0.17 ValFit at the cost of slightly higher DD (2.41% vs 0.66%)
+- **H2 status check (2/3 mid-phase analyzers done)**: peak +1.5274 (gen 1820), current top +1.3567. End-of-phase will need to recover pop[49]'s level OR find a new leader to make H2 pass.
+- B5 fired 4× successfully so far (gens 1800, 1820, 1830, 1870) — but mid-phase analyzer remains the actual safety net for genomes outside top-N training fit
+
+### 2026-04-29 — Mid-phase analyzer on checkpoint_1850 + first OVERFIT warning
+- **NEW Phase 4 leader: archive sp.22** at ValFit **+1.3609** — ret 1.98%, Sharpe **2.65**, WR 47%, **DD 0.66%** (very low), 189 trades
+- GenomeId `78664b12-86d0-40d5-b5a1-d824f4dddd6c` — saved as `output_phase4_minimal/analysis_1850/best_market_genome.json`
+- **Regression vs gen 1820**: leader dropped from +1.5274 (pop[49]) → +1.3609 (archive sp.22) = **-0.17 in 30 gens**
+- **pop[49] is NOT in top-10 at gen 1850** — the +1.5274 winner is no longer top-tier in current population (likely bred away or fell in val rank)
+- **[OVERFIT] warning fired at gen 1850** (K=5/20) — system-detected: validation declining for 5 checks while training improves
+- **Critical structural insight (revisits S1/S6)**: B5 only catches generalizers within top-N TRAINING fit. pop[49]'s +1.5274 was OUTSIDE top-N trained at gen 1820's WF check (B5 saw [+0.511, -0.267, -0.813, **+1.180**, -0.882], not +1.5274). So pop[49] was never WF-protected. The mid-phase analyzer is still the actual salvage mechanism — without it, +1.5274 would be invisible from training-time signals alone.
+- **Implication**: B4+B5 are PARTIAL fixes for S1 (WF-only-tests-best-training pathology). The full fix is auto-analyzer per checkpoint (S6 cheap fix from prior observations). For Phase 4 minimal, manual analyzer at every 50-gen mid-phase trigger is the operational mitigation.
+- **H2 status (mid-phase peak ≤ end-phase peak)**: now at risk. Mid-phase peak +1.5274 (gen 1820) is the running max; if end-phase peak < +1.5274, H2 fails.
+- **Risk profile is excellent**: archive sp.22 has 0.66% DD with Sharpe 2.65 — safer than ANY prior leaderboard entry. If end-phase produces a genome with similar metrics + higher ValFit, that's a strong deploy candidate.
+
+### 2026-04-29 — Analyzer on checkpoint_1820 reveals Phase 4 producing improved generalizers
+- **NEW Phase 4 leader: pop[49]** at ValFit **+1.5274** — ret 7.93%, Sharpe 2.56, WR 52.1%, **DD 2.41%**, **413 trades**
+- #2: pop[43] +1.4393 — ret 11.4%, Sharpe 2.38, WR 53%, DD 3.5%, 410 trades
+- #3: pop[22] +1.1350 (the inherited Phase 3 leader from gen 1800)
+- **H1 (relaxed weights help) directional evidence**: top genome improved from +1.18 (gen 1800 inherited) → **+1.5274** (gen 1820) — **+0.35 ValFit gain in 20 gens** under relaxed weights
+- pop[49] vs leaderboard:
+  - vs Phase 2 pop[149] (+2.01, 35% ret, Sharpe 3.20, 8.4% DD, 2442 trades): pop[49] is below on ValFit/return, but has **3.5× lower DD** (2.41% vs 8.4%) and similar trade frequency
+  - vs Phase 3 pop[193] (+1.97, 15.2% ret, Sharpe 3.17, 4.0% DD, 412 trades): pop[49] is below on ValFit by 0.44, but has **slightly lower DD** (2.41% vs 4.0%) and identical trade count
+  - **pop[49] is a more conservative variant of pop[193]'s profile**
+- GenomeId `9a5be583-de37-4a77-a35e-a6409b9d96f2` — saved as `output_phase4_minimal/analysis_1820/best_market_genome.json`
+- **Implication**: 20 gens of Phase 4 already found a genome that beats anything Phase 3 produced post-gen-1700. Trajectory is positive. Continue monitoring; mid-phase analyzer at gen 1850 will tell us if trajectory holds.
+
+### 2026-04-29 — Analyzer on Phase 4 checkpoint_1800 (inherited from Phase 3) under Phase 4 weights
+- **Cross-config baseline**: same population checkpoint (1800), evaluated with phase4-minimal config weights instead of phase3 weights
+- #1: pop[22] ValFit **+1.1800** (vs +1.1967 under Phase 3 weights — 0.017 lower, expected because feeDrag 0.02→0.05 + windowConsistency 0.10→0.02 net-shift slightly).
+- #2: pop[130] +1.1164 (vs +1.0736 under Phase 3 weights — UP by 0.043, low-trade strategies benefit from relaxed consistency weight).
+- Rankings very similar to Phase 3 analyzer; relaxed weights shift but don't reorder the top tier.
+- **Implication**: Phase 4 starts with a population that scores +1.18 max under Phase 4 weights (baseline). Phase 4 must produce a genome scoring > +1.18 to demonstrate weight-driven improvement; > +1.97 to beat Phase 3 mid-phase peak; > +2.01 to beat Phase 2 leader.
+
+### 2026-04-29 — Phase 4 minimal launch + first WF check shows B5 already saved value
+**Gen 1800 first WF check (Phase 4's inherited Phase 3 final population)**:
+- `[WF-TOPN] Evaluated 5: [-0.373 1.180 -0.733 -0.586 0.600]` — top-by-training-fit scored **-0.373** on val (would have FAILED), but top-5 search found **+1.180** in candidate #2.
+- `[PROTECT] Best-val genome cloned (new id 3b567cf6…) into population` — Fix 2 working live with deterministic fresh GenomeId.
+- `[WALK-FWD] Passed (1.1800), advanced to 34944 bars` — first Phase 4 WF Pass; advances window beyond Phase 3's final 34272 bars.
+- **Concrete S1 mitigation evidence**: without B5, gen 1800 would have FAILED at -0.37 (top-trained genome). With B5, +1.18 PASS. Confirms the WF-only-tests-best-training pathology that S1 documented; B5 is the structural fix.
+
+**End-of-phase-3 resume eval (with Fix 1 canonical save)**:
+- "Best validation fitness: 1.1966 / Sharpe 1.73 / Return 18.92% / Trades 129 / WR 36% / DD 15.36%"
+- `output_phase3/best_market_genome.json` overwritten at 04:54 AM with the +1.20 (pop[22]) genome — **Fix 1 confirmed**: canonical path now holds the printed-best, not the gen 1780 in-training tracked. Same genome that analyzer recovered earlier.
+
+**Early founder-effect (S7) signal at gen 1800 elite**:
+- `[outputs] dir:-0.03:0.73 sz:0.13:0.63 urg:-0.31:0.54 ex:0.00:0.00 pr:0.00:0.00 lv:0.08:0.56 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00`
+- **Leverage output `lv:0.08:0.56`** is active in the elite — std 0.56 is non-trivial. Direction `dir:-0.03:0.73` and size `sz:0.13:0.63` also high-stddev. This is a quantitatively different output profile than typical Phase 3 elites (where lv was often 0.00:0.00). H3 watch criterion (V11 |mean| > 0.1) not yet met (0.08 < 0.10) but variance shows the channel IS being used. Track over next 200 gens.
+
 ### 2026-04-29 — Phase 3 ENDED at gen 1800 + final analyzer reveals **degradation in last 100 gens**
 **Phase 3 termination** (per `training-v11e.log`):
 - Final gen: 1800 (158.1h wall-clock)
@@ -200,6 +470,81 @@ Updated live as WF events fire.
 **WF discrepancy mechanism confirmed**: end-of-phase val uses moving validation window (after gen 1800 training end at 34272 bars); analyzer uses fixed final-4380h holdout from `--end-date 2026-04-20`. Different windows reward different genomes. The analyzer is the cross-phase comparable metric.
 
 **Implication for Phase 4 decision**: Phase 3 was a **declining pipeline** in its last 100 gens — peaks mid-phase, erodes by end. Phase 4 inherits this degraded gen 1800 state. Whether Phase 4 reverses this requires the relaxed weights + B4 protection + B5 top-N WF to actually overcome whatever caused the decline.
+
+### 2026-04-30 — Paper trading at 52h: gap widens, pop[193] verdict reinforced
+**P&L evolution** (since launch 28-Apr 00:31 UTC):
+| Snapshot | pop[149] | pop[193] | Gap |
+|---|---|---|---|
+| 27h | +$0.21 | -$7.31 | pop[149] +$7.52 ahead |
+| 33h | -$31.41 | +$4.76 | pop[193] +$36.17 ahead |
+| **52h** | **-$57.58** | **-$2.00** | **pop[193] +$55.58 ahead** |
+
+**Stats summary (52h, 51 closed trades combined)**:
+- pop[149]: 18 trades, **5 wins (28% WR)**, gross -$53.41, fees -$4.17, net **-$57.58 (-0.58%)**
+- pop[193]: 33 trades, **14 wins (42% WR)**, gross +$1.69, fees -$3.69, net **-$2.00 (-0.02%)**
+- pop[149] largest loss: **-$20.40** (the V-bottom Short)
+- pop[193] largest win: **+$6.33** (the V-bottom Long capture)
+
+**pop[149] continues catching wrong sides at every regime change** (3rd and 4th catastrophic mistakes since 33h):
+- Trade #13 (04-29 00:15) Short 76349 → exit 78664 = **-$14.09** (kept shorting through $2300 rally)
+- Trade #14 (04-29 09:15) Long 77052 → exit 75125 = **-$12.69** (Long at local top, BTC dropped $1900)
+- Pattern crystallized: high-conviction wrong direction at every reversal point.
+
+**pop[193] adaptive bidirectional capture (04-30 night)**:
+- 01:15-01:45: 3 consecutive Shorts at 76258/76361/76575 → all closed at 75638-75726 = **+$2.17 net**
+- 06:15-06:45: 3 consecutive Longs at 75573/75676/75733 → all closed at 75983-76135 = **+$1.51 net**
+- Three correct regime calls in one 5-hour window: down-move + bounce, both timed cleanly. Not luck.
+
+**Leverage-output design philosophy contrast (refines yesterday's flipped finding)**:
+- pop[149]: **always-on** leverage allocation (currently 3.66x, rawLeverage 0.269) — constant exposure regardless of conviction → amplifies wrong-direction errors
+- pop[193]: **dormant-by-default** leverage with high-conviction firing — currently 1.00x (rawLeverage 0.000), but spiked to **15.72x at 04-28 23:30** during V-bottom Long
+- The 15.7x deployment captured the +$6.33 winner; the dormant rest of the time avoided fees during low-conviction periods
+- **pop[193]'s leverage output is NOT dead — it's selective.** S9 ("dead V11 outputs") was a short-sample misdiagnosis.
+
+**Trade-frequency mismatch growing**:
+- pop[149] live = 0.346 trades/hr vs backtest 0.557 → 62% (more selective live, healthy)
+- pop[193] live = 0.635 trades/hr vs backtest 0.094 → **676% (over-firing 6.8×!)** — at 27h was 4×, now 6.8× and growing
+- **pop[193] is finding far more "trade now" signals in live data than the validation backtest contained**. This produces small per-trade edge that fees overwhelm: gross +$1.69, fees $3.69, net -$2.
+
+**Updated deployment verdict**:
+- **pop[193] > pop[149] on every meaningful paper metric**: 42% vs 28% WR, -0.02% vs -0.58% return, $5.16 vs $20.40 worst-trade, $6.33 vs $0.83 best-trade
+- **Neither is yet real-money-ready**: pop[193] is essentially break-even (gross gain consumed by fees), pop[149] is structurally losing
+- **Phase 4 minimal candidates are likely better than both**: pop[71]/archive sp.22 has DD 0.57% and Sharpe 2.84 — far more conservative than pop[149]'s aggressive style; could be next paper-deploy target after Phase 4 ends
+
+**Meta-finding (revisits S9-style claims)**: my paper-trading observations have flipped 3 times in 2 days (pop[149] smart → pop[193] adaptive → pop[149] losing big → pop[193] consistently better). **Single-day samples mislead**; 50+ trades / 1+ week is the minimum for meaningful behavioral verdict. The 2-week observation rule from the original plan is the right discipline.
+
+### 2026-04-29 (later) — Paper trading at 33h: V-bottom reversal flipped the leaderboard
+**Yesterday's verdict was WRONG.** A 1000-point V-bottom rally on BTC (76.3k → 77.3k between 04-28 23:00 and 04-29 02:00) inverted the P&L story:
+- pop[149]: 27h +$0.21 → **33h -$31.41** (+$0.21 → -$31.41 = **-$31.62 swing**)
+- pop[193]: 27h -$7.31 → **33h +$4.76** (+$12.07 swing)
+
+**pop[149] catastrophe (catching wrong side at reversal)**:
+- 22:30: Long 7.5x going into local bottom (already wrong)
+- 23:02: **flipped Short with 13.17x leverage** — high-conviction wrong direction at the bottom
+- 23:15: Short opened, size 24.12 milli-BTC (10× normal)
+- 23:30: Short opened, size 9.47 milli-BTC
+- Both held 40 ticks (10h) through the rally → -$20.40 + -$8.00 = -$28.40 single-window
+- Gates collapsed 0.99 → 0.002 AFTER the wrong commitment, but direction stayed Short
+
+**pop[193] sophisticated reversal capture**:
+- 22:30: Short 1.0x (mild)
+- 23:02: **Flat** (sat out confusion — patient)
+- **00:06: flipped Long at 1.93x (V-bottom moment)**
+- 00:38: 5.72x → **01:10: 15.72x leverage** (max conviction with confirming price action)
+- 01:42: reduced to 4.51x (banking gains)
+- Trade #14: +$6.33 net (largest winner of either session); trades #11, #13: +$1.64 + $1.50
+
+**Live leverage output is NOT dead in pop[193]**: ranged 1.0 → 15.7 over the 4h reversal window. Yesterday's S9 finding ("rawLeverage structurally dead") was a 27h-sample artifact — pop[193] uses leverage SELECTIVELY for high-conviction moments rather than continuously. Updated read: pop[193]'s leverage is more discriminating, not dead.
+
+**Gate firing pattern reveals decision-making style**:
+- pop[193]: gateMean spikes LOW (0.052, 0.029, 0.001) precisely at direction-flip moments — brain modulating activation in response to information
+- pop[149]: gateMean drops AFTER wrong commitment (reactive) rather than at decision-making moments (proactive)
+
+**Updated leaderboard verdict**: paper-trading evidence puts pop[193] AHEAD of pop[149] for live deployment. The +0.04 ValFit gap on fixed-holdout analyzer (+2.01 vs +1.97) was understating pop[193]'s real-world quality. **Strong negation of yesterday's "pop[149] is the smarter brain" verdict.**
+
+**Both brains share the position-trap (S8) issue**: rawExit = 0.5000 (neutral) on both throughout — exits depend on stop-loss/dirFlip transitions, not active decisions. This affects ALL v1 deployments.
+
+**Important meta-finding**: a 27h paper-trading sample is INSUFFICIENT for behavioral verdict, even though I claimed it was conclusive yesterday. Need 100+ trades / multi-week data before any reliable judgment. Rolling-Sharpe diverged sharply (pop[149] +6.30 → +2.86, pop[193] -7.75 → -0.73) within a single 6-hour window — that volatility itself is the warning that single-day samples mislead.
 
 ### 2026-04-29 — Paper trading deep-read at 27h (behavior verdict ≠ P&L verdict)
 **P&L state** (insufficient for fitness verdict but signed correctly):
@@ -363,6 +708,18 @@ Findings that emerged from the Phase 3 monitoring run (gens 1201–1702). These 
   - Train the explicit exit output by adding fitness penalty for stale open positions
   - Lower `maxConcurrentPositions` from 3 to 1 in paper (force serial trading)
 - **Real fix (v2-scope)**: train brain in a true online regime where positions must be explicitly closed via the exit output
+
+### S10 — In-training WF ValFit ≠ analyzer ValFit for the same genome (NEW, **investigation needed**)
+- **Discovered at gen 1880 of Phase 4 minimal**: genome `218e8021-b98a-4a0c-bb0d-950954ebece9` scored +1.3900 in the WF check (via `valEvaluator.EvaluateSingle`) but +1.2183 in the analyzer (via `MarketEvaluator.Evaluate` on the same checkpoint with the same end-date and config). Δ = 0.17 ValFit (12% gap) for the SAME genome on what should be the SAME 4380h window.
+- Both code paths ultimately call `RunAgent` → fitness function. They should produce identical results. They don't.
+- **Hypothesized causes** (any of):
+  1. `valEvaluator` (long-lived, created at training start) has internal state (RegimeStart/RegimeEnd, accumulators) that differs from a fresh `MarketEvaluator` instance
+  2. Brain plasticity / online-learning state leaking between agent evaluations within parallel batches
+  3. `Parallel.For` execution-order sensitivity in some accumulator
+  4. Subtle floating-point reduction non-determinism (less likely, gap is 12% not eps)
+- **Implication for v1**: the WF-tracked best-val is unreliable as an absolute metric. Use only the analyzer for cross-phase / deploy-decision values.
+- **Implication for B4**: protection injection fires based on WF best-val, which may be inflated noise. Phase 4 has fired 2 [PROTECT] events; a deflated true ValFit means the "new bests" may not actually be improvements.
+- **Action item before next training cycle**: trace the eval path to find the source of the discrepancy. Until resolved, treat WF reports as approximate and analyzer reports as canonical.
 
 ### S9 — Brain-output-activity inspection should be a deploy gate
 - Live data revealed pop[193]'s `rawLeverage` is structurally dead (always 0.000), while pop[149]'s scales 1×→8× actively
