@@ -76,6 +76,8 @@ data_cache/
 !archive/baseline/logs/*.log
 !archive/Baseline/logs/
 !archive/Baseline/logs/*.log
+!archive/V1-PrefinalFix/logs/
+!archive/V1-PrefinalFix/logs/*.log
 
 # Pre-existing experimental archive dirs (from earlier sessions) — kept local only,
 # not committed to remote. Baseline/ is the canonical v1 snapshot.

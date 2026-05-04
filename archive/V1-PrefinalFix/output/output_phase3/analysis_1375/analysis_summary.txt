@@ -1,0 +1,28 @@
+=== Checkpoint Analysis Summary ===
+Checkpoint generation: 1375
+Population size:       200
+Archive elites:        26
+Unique genomes eval'd: 224
+
+=== Top 10 by Validation Fitness ===
+Rank Source     Idx Species   TrainFit     ValFit    Ret%  Sharpe    WR%    DD%   Trd
+   1 pop        116       -        NaN     1.3272  10.0 %    2.11   42 %  4.3 %   384
+   2 archive     11      25     1.2156     1.1897   3.8 %    1.94   56 %  2.0 %   984
+   3 archive     17      39     1.0197     1.1149   8.4 %    1.82   43 %  3.9 %    65
+   4 pop          0       -        NaN     0.9684  15.0 %    1.51   51 %  9.5 %   785
+   5 archive     15      32     0.5155     0.9612   1.4 %    1.91   70 %  0.6 %    33
+   6 archive     12      28     0.9230     0.7102   1.0 %    1.47   43 %  0.5 %    21
+   7 pop        190       -        NaN     0.5788   1.4 %    1.27   50 %  0.7 %    12
+   8 pop         69       -        NaN     0.5613   0.8 %    1.24   19 %  0.6 %    32
+   9 pop        100       -        NaN     0.5609   6.8 %    0.89   49 % 11.7 %  2088
+  10 pop         56       -        NaN     0.5310   0.9 %    1.19   33 %  0.4 %     9
+
+=== Best by Validation ===
+GenomeId:   5891f1cb-53f1-4694-9cda-eacfd09930a6
+Source:     pop (index 116, species -)
+ValFit:     1.3272
+Return:     10.00%
+Sharpe:     2.11
+WinRate:    41.9%
+MaxDD:      4.29%
+Trades:     384

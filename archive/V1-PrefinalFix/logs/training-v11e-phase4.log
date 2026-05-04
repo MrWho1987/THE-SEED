@@ -1,0 +1,1635 @@
+╔══════════════════════════════════════════════════════════════╗
+║          THE SEED — PIPELINE TRAINING                       ║
+║  Phases: 4                                                 ║
+╚══════════════════════════════════════════════════════════════╝
+  Phase 1: market-config.phase1.json -> output_phase1 (gen 600)
+  Phase 2: market-config.phase2.json -> output_phase2 (gen 1200)
+  Phase 3: market-config.phase3.json -> output_phase3 (gen 1800)
+  Phase 4: market-config.phase4-minimal.json -> output_phase4_minimal (gen 2000)
+  Fixed date range end: 2026-04-20 21:36:00 UTC (from --end-date CLI)
+  Shared cache: C:\Users\ederg\source\repos\THE-SEED\pipeline_shared_cache
+
+═══════════════════════════════════════════════════════════     
+  PIPELINE PHASE 1/4: market-config.phase1.json
+  Generations: 600
+  Output: output_phase1
+  Data cache: C:\Users\ederg\source\repos\THE-SEED\pipeline_shared_cache
+═══════════════════════════════════════════════════════════     
+
+[BACKTEST] Downloading historical data...
+[ENRICH] Downloading ETH candles...
+[ENRICH] ETH + multi-asset: 12 slots
+[ENRICH] Downloading macro data...
+[ENRICH] +Macro: 23 slots
+[ENRICH] Downloading on-chain data...
+[ENRICH] +On-chain: 31 slots
+[ENRICH] Downloading Fear & Greed...
+[ENRICH] +Fear/Greed: 34 slots
+[ENRICH] Downloading stablecoin/market data...
+[ENRICH] +Stablecoin: 40 slots
+[ENRICH] Downloading funding rates...
+[ENRICH] +Funding: 42 slots
+[ENRICH] Downloading derivatives data...
+[ENRICH] +Derivatives: 48 slots
+[ENRICH] Downloading futures klines for FuturesPremium...
+[ENRICH] +FuturesPremium: 1 slots
+[ENRICH] Downloading Deribit DVOL (IV index)...
+[ENRICH] +Deribit IV: 1 slots
+[ENRICH] Downloading Coinglass liquidation + exchange balance...
+[ENRICH] +Coinglass: 4 slots
+[ENRICH] Complete: 54 enrichment slots populated
+╔══════════════════════════════════════════════════════════╗
+║  DATA ENRICHMENT REPORT                                  ║
+╠════════════════════════════╦══════════╦══════════════════╣
+║ Source                     ║ Status   ║ Rows             ║
+╠════════════════════════════╬══════════╬══════════════════╣
+║ ETH + Multi-Asset          ║ SUCCESS  ║  121,515         ║
+║ Macro (Yahoo)              ║ SUCCESS  ║       10         ║
+║ On-Chain (blockchain.info) ║ SUCCESS  ║        8         ║
+║ Fear & Greed (alternati... ║ SUCCESS  ║        3         ║
+║ Stablecoin (CoinGecko)     ║ SUCCESS  ║        6         ║
+║ Funding Rates (Binance)    ║ SUCCESS  ║        2         ║
+║ Derivatives (Binance)      ║ SUCCESS  ║        6         ║
+║ Futures Klines (Binance)   ║ SUCCESS  ║        1         ║
+║ Deribit DVOL               ║ SUCCESS  ║        1         ║
+║ Coinglass (Liquidation ... ║ SUCCESS  ║        4         ║
+╠════════════════════════════╩══════════╩══════════════════╣
+║ Sources OK: 10/10  |  Range: 2022-11-02 to 2026-04-20   ║
+╚══════════════════════════════════════════════════════════╝
+[BACKTEST] Loaded 121015 candles (2022-11-02 to 2026-04-20)
+[BACKTEST] Training: 103495 bars (25873h), Validation: 17520 bars (4380h)
+[BACKTEST] Resuming from checkpoint: checkpoint_0600.json
+[BACKTEST] Restored generation 600, best fitness 2.7767
+[BACKTEST] Walk-forward offset: 8064h, stall count: 14
+[BACKTEST] Restored 25 species, archive: 57 elites
+[BACKTEST] Phase transition: reset species stagnation and cleared archive
+
+Gen       Best     Mean      Med   Sharpe  Sortino   Return    WR  Trades    DD%    CVaR  Sp Inact%   ValFit     Delta   Time
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+═══ VALIDATION ═══                                                        
+  Best validation fitness: 1.4962
+  Sharpe (adjusted): 3.28
+  Return: 109.94%
+  Trades: 189, Win rate: 35%
+  Max drawdown: 15.11%
+
+  Best genome (by validation, full-pop) saved to: output_phase1\best_market_genome.json
+
+[BACKTEST] Complete.
+
+  Phase 1 complete in 0.2h.
+
+═══════════════════════════════════════════════════════════     
+  PIPELINE PHASE 2/4: market-config.phase2.json
+  Generations: 1200
+  Output: output_phase2
+  Data cache: C:\Users\ederg\source\repos\THE-SEED\pipeline_shared_cache
+═══════════════════════════════════════════════════════════     
+  Checkpoint copied: checkpoint_0600.json
+
+[BACKTEST] Downloading historical data...
+[ENRICH] Downloading ETH candles...
+[ENRICH] ETH + multi-asset: 12 slots
+[ENRICH] Downloading macro data...
+[ENRICH] +Macro: 23 slots
+[ENRICH] Downloading on-chain data...
+[ENRICH] +On-chain: 31 slots
+[ENRICH] Downloading Fear & Greed...
+[ENRICH] +Fear/Greed: 34 slots
+[ENRICH] Downloading stablecoin/market data...
+[ENRICH] +Stablecoin: 40 slots
+[ENRICH] Downloading funding rates...
+[ENRICH] +Funding: 42 slots
+[ENRICH] Downloading derivatives data...
+[ENRICH] +Derivatives: 48 slots
+[ENRICH] Downloading futures klines for FuturesPremium...
+[ENRICH] +FuturesPremium: 1 slots
+[ENRICH] Downloading Deribit DVOL (IV index)...
+[ENRICH] +Deribit IV: 1 slots
+[ENRICH] Downloading Coinglass liquidation + exchange balance...
+[ENRICH] +Coinglass: 4 slots
+[ENRICH] Complete: 54 enrichment slots populated
+╔══════════════════════════════════════════════════════════╗
+║  DATA ENRICHMENT REPORT                                  ║
+╠════════════════════════════╦══════════╦══════════════════╣
+║ Source                     ║ Status   ║ Rows             ║
+╠════════════════════════════╬══════════╬══════════════════╣
+║ ETH + Multi-Asset          ║ SUCCESS  ║  121,515         ║
+║ Macro (Yahoo)              ║ SUCCESS  ║       10         ║
+║ On-Chain (blockchain.info) ║ SUCCESS  ║        8         ║
+║ Fear & Greed (alternati... ║ SUCCESS  ║        3         ║
+║ Stablecoin (CoinGecko)     ║ SUCCESS  ║        6         ║
+║ Funding Rates (Binance)    ║ SUCCESS  ║        2         ║
+║ Derivatives (Binance)      ║ SUCCESS  ║        6         ║
+║ Futures Klines (Binance)   ║ SUCCESS  ║        1         ║
+║ Deribit DVOL               ║ SUCCESS  ║        1         ║
+║ Coinglass (Liquidation ... ║ SUCCESS  ║        4         ║
+╠════════════════════════════╩══════════╩══════════════════╣
+║ Sources OK: 10/10  |  Range: 2022-11-02 to 2026-04-20   ║
+╚══════════════════════════════════════════════════════════╝
+[BACKTEST] Loaded 121015 candles (2022-11-02 to 2026-04-20)
+[BACKTEST] Training: 103495 bars (25873h), Validation: 17520 bars (4380h)
+[BACKTEST] Resuming from checkpoint: checkpoint_1200.json
+[BACKTEST] Restored generation 1200, best fitness 2.7767
+[BACKTEST] Walk-forward offset: 26880h, stall count: 0
+[BACKTEST] Restored 26 species, archive: 26 elites
+[BACKTEST] Phase transition: reset species stagnation and cleared archive
+
+Gen       Best     Mean      Med   Sharpe  Sortino   Return    WR  Trades    DD%    CVaR  Sp Inact%   ValFit     Delta   Time
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+═══ VALIDATION ═══                                                        
+  Best validation fitness: 1.8784
+  Sharpe (adjusted): 2.97
+  Return: 13.82%
+  Trades: 385, Win rate: 49%
+  Max drawdown: 3.80%
+
+  Best genome (by validation, full-pop) saved to: output_phase2\best_market_genome.json
+
+[BACKTEST] Complete.
+
+  Phase 2 complete in 0.2h.
+
+═══════════════════════════════════════════════════════════     
+  PIPELINE PHASE 3/4: market-config.phase3.json
+  Generations: 1800
+  Output: output_phase3
+  Data cache: C:\Users\ederg\source\repos\THE-SEED\pipeline_shared_cache
+═══════════════════════════════════════════════════════════     
+  Checkpoint copied: checkpoint_1200.json
+
+[BACKTEST] Downloading historical data...
+[ENRICH] Downloading ETH candles...
+[ENRICH] ETH + multi-asset: 12 slots
+[ENRICH] Downloading macro data...
+[ENRICH] +Macro: 23 slots
+[ENRICH] Downloading on-chain data...
+[ENRICH] +On-chain: 31 slots
+[ENRICH] Downloading Fear & Greed...
+[ENRICH] +Fear/Greed: 34 slots
+[ENRICH] Downloading stablecoin/market data...
+[ENRICH] +Stablecoin: 40 slots
+[ENRICH] Downloading funding rates...
+[ENRICH] +Funding: 42 slots
+[ENRICH] Downloading derivatives data...
+[ENRICH] +Derivatives: 48 slots
+[ENRICH] Downloading futures klines for FuturesPremium...
+[ENRICH] +FuturesPremium: 1 slots
+[ENRICH] Downloading Deribit DVOL (IV index)...
+[ENRICH] +Deribit IV: 1 slots
+[ENRICH] Downloading Coinglass liquidation + exchange balance...
+[ENRICH] +Coinglass: 4 slots
+[ENRICH] Complete: 54 enrichment slots populated
+╔══════════════════════════════════════════════════════════╗
+║  DATA ENRICHMENT REPORT                                  ║
+╠════════════════════════════╦══════════╦══════════════════╣
+║ Source                     ║ Status   ║ Rows             ║
+╠════════════════════════════╬══════════╬══════════════════╣
+║ ETH + Multi-Asset          ║ SUCCESS  ║  121,515         ║
+║ Macro (Yahoo)              ║ SUCCESS  ║       10         ║
+║ On-Chain (blockchain.info) ║ SUCCESS  ║        8         ║
+║ Fear & Greed (alternati... ║ SUCCESS  ║        3         ║
+║ Stablecoin (CoinGecko)     ║ SUCCESS  ║        6         ║
+║ Funding Rates (Binance)    ║ SUCCESS  ║        2         ║
+║ Derivatives (Binance)      ║ SUCCESS  ║        6         ║
+║ Futures Klines (Binance)   ║ SUCCESS  ║        1         ║
+║ Deribit DVOL               ║ SUCCESS  ║        1         ║
+║ Coinglass (Liquidation ... ║ SUCCESS  ║        4         ║
+╠════════════════════════════╩══════════╩══════════════════╣
+║ Sources OK: 10/10  |  Range: 2022-11-02 to 2026-04-20   ║
+╚══════════════════════════════════════════════════════════╝
+[BACKTEST] Loaded 121015 candles (2022-11-02 to 2026-04-20)
+[BACKTEST] Training: 103495 bars (25873h), Validation: 17520 bars (4380h)
+[BACKTEST] Resuming from checkpoint: checkpoint_1800.json
+[BACKTEST] Restored generation 1800, best fitness 2.7767
+[BACKTEST] Walk-forward offset: 34272h, stall count: 1
+[BACKTEST] Restored 26 species, archive: 26 elites
+[BACKTEST] Phase transition: reset species stagnation and cleared archive
+
+Gen       Best     Mean      Med   Sharpe  Sortino   Return    WR  Trades    DD%    CVaR  Sp Inact%   ValFit     Delta   Time
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+═══ VALIDATION ═══                                                        
+  Best validation fitness: 1.1966
+  Sharpe (adjusted): 1.73
+  Return: 18.92%
+  Trades: 129, Win rate: 36%
+  Max drawdown: 15.36%
+
+  Best genome (by validation, full-pop) saved to: output_phase3\best_market_genome.json
+
+[BACKTEST] Complete.
+
+  Phase 3 complete in 0.2h.
+
+═══════════════════════════════════════════════════════════     
+  PIPELINE PHASE 4/4: market-config.phase4-minimal.json
+  Generations: 2000
+  Output: output_phase4_minimal
+  Data cache: C:\Users\ederg\source\repos\THE-SEED\pipeline_shared_cache
+═══════════════════════════════════════════════════════════     
+  Checkpoint copied: checkpoint_1800.json
+
+[BACKTEST] Downloading historical data...
+[ENRICH] Downloading ETH candles...
+[ENRICH] ETH + multi-asset: 12 slots
+[ENRICH] Downloading macro data...
+[ENRICH] +Macro: 23 slots
+[ENRICH] Downloading on-chain data...
+[ENRICH] +On-chain: 31 slots
+[ENRICH] Downloading Fear & Greed...
+[ENRICH] +Fear/Greed: 34 slots
+[ENRICH] Downloading stablecoin/market data...
+[ENRICH] +Stablecoin: 40 slots
+[ENRICH] Downloading funding rates...
+[ENRICH] +Funding: 42 slots
+[ENRICH] Downloading derivatives data...
+[ENRICH] +Derivatives: 48 slots
+[ENRICH] Downloading futures klines for FuturesPremium...
+[ENRICH] +FuturesPremium: 1 slots
+[ENRICH] Downloading Deribit DVOL (IV index)...
+[ENRICH] +Deribit IV: 1 slots
+[ENRICH] Downloading Coinglass liquidation + exchange balance...
+[ENRICH] +Coinglass: 4 slots
+[ENRICH] Complete: 54 enrichment slots populated
+╔══════════════════════════════════════════════════════════╗
+║  DATA ENRICHMENT REPORT                                  ║
+╠════════════════════════════╦══════════╦══════════════════╣
+║ Source                     ║ Status   ║ Rows             ║
+╠════════════════════════════╬══════════╬══════════════════╣
+║ ETH + Multi-Asset          ║ SUCCESS  ║  121,515         ║
+║ Macro (Yahoo)              ║ SUCCESS  ║       10         ║
+║ On-Chain (blockchain.info) ║ SUCCESS  ║        8         ║
+║ Fear & Greed (alternati... ║ SUCCESS  ║        3         ║
+║ Stablecoin (CoinGecko)     ║ SUCCESS  ║        6         ║
+║ Funding Rates (Binance)    ║ SUCCESS  ║        2         ║
+║ Derivatives (Binance)      ║ SUCCESS  ║        6         ║
+║ Futures Klines (Binance)   ║ SUCCESS  ║        1         ║
+║ Deribit DVOL               ║ SUCCESS  ║        1         ║
+║ Coinglass (Liquidation ... ║ SUCCESS  ║        4         ║
+╠════════════════════════════╩══════════╩══════════════════╣
+║ Sources OK: 10/10  |  Range: 2022-11-02 to 2026-04-20   ║
+╚══════════════════════════════════════════════════════════╝
+[BACKTEST] Loaded 121015 candles (2022-11-02 to 2026-04-20)
+[BACKTEST] Training: 103495 bars (25873h), Validation: 17520 bars (4380h)
+[BACKTEST] Resuming from checkpoint: checkpoint_1800.json
+[BACKTEST] Restored generation 1800, best fitness 2.7767
+[BACKTEST] Walk-forward offset: 34272h, stall count: 1
+[BACKTEST] Restored 26 species, archive: 26 elites
+[BACKTEST] Phase transition: reset species stagnation and cleared archive
+
+Gen       Best     Mean      Med   Sharpe  Sortino   Return    WR  Trades    DD%    CVaR  Sp Inact%   ValFit     Delta   Time
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  [WF-TOPN] Evaluated 5: [-0.373 1.180 -0.733 -0.586 0.600] → best ValFit 1.1800
+  [PROTECT] Best-val genome cloned (new id 3b567cf6…) into population
+  [WALK-FWD] Passed (1.1800), advanced to 34944 bars
+1800    0.7462  -0.8215  -0.1000     1.59     2.38    11.0%   36%      96  12.5% -0.0039  26    48%   1.1800      — 1096.1s
+  [WARNING] Worst fitness -4.5066 — severe underperformance in population
+  [active] best:0.7462 ret:11.0% trd:96 wr:36% dd:12.5% ddDur:80.7% | pos:30 neg:72 retRange:[-15.1%..11.0%]
+  [returns] pos:30 zero:97 neg:72
+  [outputs] dir:-0.03:0.73 sz:0.13:0.63 urg:-0.31:0.54 ex:0.00:0.00 pr:0.00:0.00 lv:0.08:0.56 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:110 | dirFlip:45 exit:0 cfgSL:62 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1801    1.2442  -0.5963  -0.1000     2.39     3.83     5.7%   35%     126   8.7% -0.0015  26    52%  +0.4980 1509.7s
+  [WARNING] Worst fitness -4.5217 — severe underperformance in population
+  [active] best:1.2442 ret:5.7% trd:126 wr:35% dd:8.7% ddDur:56.2% | pos:32 neg:62 retRange:[-15.1%..13.9%]
+  [returns] pos:32 zero:105 neg:62
+  [outputs] dir:0.16:0.48 sz:-0.08:0.42 urg:0.03:0.25 ex:0.00:0.00 pr:0.00:0.46 lv:-0.04:0.41 prt:0.00:0.00 tre:-0.00:0.43 trd:0.04:0.42 tp:0.03:0.44 sl:-0.05:0.52
+  [closes] total:163 | dirFlip:83 exit:0 cfgSL:76 brainSL:0 TP:0 trail:1 partial:0 kill:0 eos:3
+1802    1.2448  -0.5237  -0.1000     2.39     3.83     5.7%   35%     126   8.7% -0.0015  26    62%  +0.0006 1038.6s
+  [WARNING] Worst fitness -4.5057 — severe underperformance in population
+  [active] best:1.2448 ret:5.7% trd:126 wr:35% dd:8.7% ddDur:56.2% | pos:29 neg:47 retRange:[-15.0%..13.9%]
+  [returns] pos:29 zero:123 neg:47
+  [outputs] dir:0.16:0.48 sz:-0.08:0.42 urg:0.03:0.25 ex:0.00:0.00 pr:0.00:0.46 lv:-0.04:0.41 prt:0.00:0.00 tre:-0.00:0.43 trd:0.04:0.42 tp:0.03:0.44 sl:-0.05:0.52
+  [closes] total:163 | dirFlip:83 exit:0 cfgSL:76 brainSL:0 TP:0 trail:1 partial:0 kill:0 eos:3
+1803    1.2429  -0.5490  -0.1000     2.39     3.83     5.7%   35%     126   8.7% -0.0015  26    61%  -0.0019 1032.1s
+  [WARNING] Worst fitness -4.5254 — severe underperformance in population
+  [active] best:1.2429 ret:5.7% trd:126 wr:35% dd:8.7% ddDur:56.2% | pos:27 neg:50 retRange:[-15.0%..13.9%]
+  [returns] pos:27 zero:122 neg:50
+  [outputs] dir:0.16:0.48 sz:-0.08:0.42 urg:0.03:0.25 ex:0.00:0.00 pr:0.00:0.46 lv:-0.04:0.41 prt:0.00:0.00 tre:-0.00:0.43 trd:0.04:0.42 tp:0.03:0.44 sl:-0.05:0.52
+  [closes] total:163 | dirFlip:83 exit:0 cfgSL:76 brainSL:0 TP:0 trail:1 partial:0 kill:0 eos:3
+1804    1.2466  -0.6946  -0.1000     2.39     3.83     5.7%   35%     126   8.7% -0.0015  26    59%  +0.0037 1021.9s
+  [WARNING] Worst fitness -4.6020 — severe underperformance in population
+  [active] best:1.2466 ret:5.7% trd:126 wr:35% dd:8.7% ddDur:56.2% | pos:24 neg:57 retRange:[-15.2%..8.9%]
+  [returns] pos:24 zero:118 neg:57
+  [outputs] dir:0.16:0.48 sz:-0.08:0.42 urg:0.03:0.25 ex:0.00:0.00 pr:0.00:0.46 lv:-0.04:0.41 prt:0.00:0.00 tre:-0.00:0.43 trd:0.04:0.42 tp:0.03:0.44 sl:-0.05:0.52
+  [closes] total:163 | dirFlip:83 exit:0 cfgSL:76 brainSL:0 TP:0 trail:1 partial:0 kill:0 eos:3
+  [detail] DDDur:56.2%  PopTrd:62192  MedTrd:0  ActAg:81  MaxTrd:4584  MaxStag:4/25  CtAdj:10.00  Arch:26  Edges:279/279  Sat:0%  Innov:+57  Shrk:0.98
+  [checkpoint saved: gen 1805]
+1805    1.2424  -0.5873  -0.1000     2.39     3.83     5.7%   35%     126   8.7% -0.0015  26    62%  -0.0041 1005.5s
+  [WARNING] Worst fitness -4.5261 — severe underperformance in population
+  [active] best:1.2424 ret:5.7% trd:126 wr:35% dd:8.7% ddDur:56.2% | pos:26 neg:50 retRange:[-15.0%..7.5%]
+  [returns] pos:26 zero:123 neg:50
+  [outputs] dir:0.16:0.48 sz:-0.08:0.42 urg:0.03:0.25 ex:0.00:0.00 pr:0.00:0.46 lv:-0.04:0.41 prt:0.00:0.00 tre:-0.00:0.43 trd:0.04:0.42 tp:0.03:0.44 sl:-0.05:0.52
+  [closes] total:163 | dirFlip:83 exit:0 cfgSL:76 brainSL:0 TP:0 trail:1 partial:0 kill:0 eos:3
+1806    1.2423  -0.4402  -0.1000     2.39     3.83     5.7%   35%     126   8.7% -0.0015  26    62%  -0.0001 1013.3s
+  [WARNING] Worst fitness -4.5385 — severe underperformance in population
+  [active] best:1.2423 ret:5.7% trd:126 wr:35% dd:8.7% ddDur:56.2% | pos:29 neg:47 retRange:[-15.0%..7.6%]
+  [returns] pos:29 zero:123 neg:47
+  [outputs] dir:0.16:0.48 sz:-0.08:0.42 urg:0.03:0.25 ex:0.00:0.00 pr:0.00:0.46 lv:-0.04:0.41 prt:0.00:0.00 tre:-0.00:0.43 trd:0.04:0.42 tp:0.03:0.44 sl:-0.05:0.52
+  [closes] total:163 | dirFlip:83 exit:0 cfgSL:76 brainSL:0 TP:0 trail:1 partial:0 kill:0 eos:3
+1807    1.2425  -0.6040  -0.1000     2.39     3.83     5.7%   35%     126   8.7% -0.0015  26    57%  +0.0002 1100.5s
+  [WARNING] Worst fitness -4.5339 — severe underperformance in population
+  [active] best:1.2425 ret:5.7% trd:126 wr:35% dd:8.7% ddDur:56.2% | pos:28 neg:57 retRange:[-15.1%..7.6%]
+  [returns] pos:28 zero:114 neg:57
+  [outputs] dir:0.16:0.48 sz:-0.08:0.42 urg:0.03:0.25 ex:0.00:0.00 pr:0.00:0.46 lv:-0.04:0.41 prt:0.00:0.00 tre:-0.00:0.43 trd:0.04:0.42 tp:0.03:0.44 sl:-0.05:0.52
+  [closes] total:163 | dirFlip:83 exit:0 cfgSL:76 brainSL:0 TP:0 trail:1 partial:0 kill:0 eos:3
+1808    1.2427  -0.4402  -0.1000     2.39     3.83     5.7%   35%     126   8.7% -0.0015  26    62%  +0.0002 1044.9s
+  [WARNING] Worst fitness -4.5259 — severe underperformance in population
+  [active] best:1.2427 ret:5.7% trd:126 wr:35% dd:8.7% ddDur:56.2% | pos:31 neg:45 retRange:[-15.1%..7.8%]
+  [returns] pos:31 zero:123 neg:45
+  [outputs] dir:0.16:0.48 sz:-0.08:0.42 urg:0.03:0.25 ex:0.00:0.00 pr:0.00:0.46 lv:-0.04:0.41 prt:0.00:0.00 tre:-0.00:0.43 trd:0.04:0.42 tp:0.03:0.44 sl:-0.05:0.52
+  [closes] total:163 | dirFlip:83 exit:0 cfgSL:76 brainSL:0 TP:0 trail:1 partial:0 kill:0 eos:3
+1809    1.2425  -0.4289  -0.1000     2.39     3.83     5.7%   35%     126   8.7% -0.0015  26    61%  -0.0002 931.4s
+  [WARNING] Worst fitness -4.5302 — severe underperformance in population
+  [active] best:1.2425 ret:5.7% trd:126 wr:35% dd:8.7% ddDur:56.2% | pos:33 neg:44 retRange:[-15.0%..7.8%]
+  [returns] pos:33 zero:123 neg:43
+  [outputs] dir:0.16:0.48 sz:-0.08:0.42 urg:0.03:0.25 ex:0.00:0.00 pr:0.00:0.46 lv:-0.04:0.41 prt:0.00:0.00 tre:-0.00:0.43 trd:0.04:0.42 tp:0.03:0.44 sl:-0.05:0.52
+  [closes] total:163 | dirFlip:83 exit:0 cfgSL:76 brainSL:0 TP:0 trail:1 partial:0 kill:0 eos:3
+  [detail] DDDur:56.2%  PopTrd:32810  MedTrd:0  ActAg:77  MaxTrd:3910  MaxStag:9/25  CtAdj:10.00  Arch:26  Edges:279/279  Sat:0%  Innov:+61  Shrk:0.98
+  [checkpoint saved: gen 1810]
+  [WF-TOPN] Evaluated 5: [0.766 -0.942 -0.443 0.171 -1.328] → best ValFit 0.7656
+  [WALK-FWD] Passed (0.7656), advanced to 35616 bars
+1810    1.2900  -0.6170  -0.1000     2.70     4.43     9.7%   49%     115   6.3% -0.0013  26    59%   0.7656 +0.0475 960.9s
+  [WARNING] Worst fitness -4.6353 — severe underperformance in population
+  [active] best:1.2900 ret:9.7% trd:115 wr:49% dd:6.3% ddDur:62.2% | pos:29 neg:52 retRange:[-15.1%..9.7%]
+  [returns] pos:29 zero:118 neg:52
+  [outputs] dir:0.21:0.51 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:-0.09:0.51 lv:-0.03:0.43 prt:0.00:0.00 tre:-0.14:0.50 trd:0.00:0.00 tp:0.00:0.10 sl:0.00:0.01
+  [closes] total:134 | dirFlip:71 exit:0 cfgSL:56 brainSL:0 TP:0 trail:4 partial:0 kill:0 eos:3
+1811    0.9986  -0.5718  -0.1000     2.13     3.85     2.4%   26%      11   3.1% -0.0006  26    57%  -0.2915 935.5s
+  [WARNING] Worst fitness -4.6443 — severe underperformance in population
+  [active] best:0.9986 ret:2.4% trd:11 wr:26% dd:3.1% ddDur:36.8% | pos:32 neg:53 retRange:[-15.1%..12.6%]
+  [returns] pos:32 zero:114 neg:53
+  [outputs] dir:0.38:0.32 sz:0.38:0.32 urg:0.38:0.32 ex:-0.00:0.01 pr:-0.90:0.29 lv:-0.73:0.25 prt:-1.00:0.02 tre:-1.00:0.02 trd:-1.00:0.02 tp:-1.00:0.02 sl:-1.00:0.02
+  [closes] total:13 | dirFlip:0 exit:0 cfgSL:10 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1812    0.9979  -0.4096  -0.1000     2.13     3.85     2.4%   26%      11   3.1% -0.0006  26    62%  -0.0007 916.1s
+  [WARNING] Worst fitness -4.6533 — severe underperformance in population
+  [active] best:0.9979 ret:2.4% trd:11 wr:26% dd:3.1% ddDur:36.8% | pos:38 neg:37 retRange:[-15.2%..7.2%]
+  [returns] pos:38 zero:125 neg:36
+  [outputs] dir:0.38:0.32 sz:0.38:0.32 urg:0.38:0.32 ex:-0.00:0.01 pr:-0.90:0.29 lv:-0.73:0.25 prt:-1.00:0.02 tre:-1.00:0.02 trd:-1.00:0.02 tp:-1.00:0.02 sl:-1.00:0.02
+  [closes] total:13 | dirFlip:0 exit:0 cfgSL:10 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1813    0.9975  -0.3334  -0.1000     2.13     3.85     2.4%   26%      11   3.1% -0.0006  26    64%  -0.0004 899.5s
+  [WARNING] Worst fitness -4.6360 — severe underperformance in population
+  [active] best:0.9975 ret:2.4% trd:11 wr:26% dd:3.1% ddDur:36.8% | pos:37 neg:33 retRange:[-14.9%..9.1%]
+  [returns] pos:37 zero:129 neg:33
+  [outputs] dir:0.38:0.32 sz:0.38:0.32 urg:0.38:0.32 ex:-0.00:0.01 pr:-0.90:0.29 lv:-0.73:0.25 prt:-1.00:0.02 tre:-1.00:0.02 trd:-1.00:0.02 tp:-1.00:0.02 sl:-1.00:0.02
+  [closes] total:13 | dirFlip:0 exit:0 cfgSL:10 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1814    1.1771  -0.5018  -0.1000     2.43     3.68     0.8%   50%     108   0.6% -0.0002  26    60%  +0.1796 874.1s
+  [WARNING] Worst fitness -4.6353 — severe underperformance in population
+  [active] best:1.1771 ret:0.8% trd:108 wr:50% dd:0.6% ddDur:56.0% | pos:33 neg:46 retRange:[-15.2%..9.7%]
+  [returns] pos:33 zero:120 neg:46
+  [outputs] dir:0.20:0.52 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:-0.14:0.52 lv:0.00:0.00 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:126 | dirFlip:72 exit:0 cfgSL:51 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+  [detail] DDDur:56.0%  PopTrd:30573  MedTrd:0  ActAg:79  MaxTrd:2607  MaxStag:14/25  CtAdj:10.00  Arch:26  Edges:15958/15958  Sat:0%  Innov:+71  Shrk:0.97
+  [checkpoint saved: gen 1815]
+1815    1.1762  -0.3301  -0.1000     2.43     3.68     0.8%   50%     108   0.6% -0.0002  26    62%  -0.0009 862.6s
+  [WARNING] Worst fitness -4.6351 — severe underperformance in population
+  [active] best:1.1762 ret:0.8% trd:108 wr:50% dd:0.6% ddDur:56.0% | pos:36 neg:40 retRange:[-15.0%..22.1%]
+  [returns] pos:36 zero:123 neg:40
+  [outputs] dir:0.20:0.52 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:-0.14:0.52 lv:0.00:0.00 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:126 | dirFlip:72 exit:0 cfgSL:51 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1816    1.1761  -0.4988  -0.1000     2.43     3.68     0.8%   50%     108   0.6% -0.0002  26    64%  -+0.0000 834.0s
+  [WARNING] Worst fitness -4.6361 — severe underperformance in population
+  [active] best:1.1761 ret:0.8% trd:108 wr:50% dd:0.6% ddDur:56.0% | pos:30 neg:43 retRange:[-15.0%..8.3%]
+  [returns] pos:29 zero:128 neg:42
+  [outputs] dir:0.20:0.52 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:-0.14:0.52 lv:0.00:0.00 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:126 | dirFlip:72 exit:0 cfgSL:51 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1817    1.2274  -0.3833  -0.1000     2.55     3.80     0.8%   46%     111   0.5% -0.0002  26    61%  +0.0512 914.6s
+  [WARNING] Worst fitness -4.6559 — severe underperformance in population
+  [active] best:1.2274 ret:0.8% trd:111 wr:46% dd:0.5% ddDur:59.1% | pos:39 neg:38 retRange:[-15.2%..8.5%]
+  [returns] pos:39 zero:122 neg:38
+  [outputs] dir:0.26:0.52 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:0.00:0.00 lv:0.00:0.00 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:105 | dirFlip:51 exit:0 cfgSL:51 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1818    1.2237  -0.4617  -0.1000     2.55     3.80     0.8%   46%     111   0.5% -0.0002  26    62%  -0.0036 836.7s
+  [WARNING] Worst fitness -4.6527 — severe underperformance in population
+  [active] best:1.2237 ret:0.8% trd:111 wr:46% dd:0.5% ddDur:59.1% | pos:36 neg:40 retRange:[-15.1%..13.3%]
+  [returns] pos:36 zero:123 neg:40
+  [outputs] dir:0.26:0.52 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:0.00:0.00 lv:0.00:0.00 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:105 | dirFlip:51 exit:0 cfgSL:51 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1819    1.2193  -0.3237  -0.1000     2.55     3.80     0.8%   46%     111   0.5% -0.0002  26    58%  -0.0045 859.0s
+  [WARNING] Worst fitness -4.6347 — severe underperformance in population
+  [active] best:1.2193 ret:0.8% trd:111 wr:46% dd:0.5% ddDur:59.1% | pos:53 neg:30 retRange:[-15.0%..10.3%]
+  [returns] pos:53 zero:116 neg:30
+  [outputs] dir:0.26:0.52 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:0.00:0.00 lv:0.00:0.00 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:105 | dirFlip:51 exit:0 cfgSL:51 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+  [detail] DDDur:59.1%  PopTrd:35197  MedTrd:0  ActAg:83  MaxTrd:5627  MaxStag:19/25  CtAdj:10.00  Arch:26  Edges:16659/16659  Sat:0%  Innov:+60  Shrk:0.97
+  [checkpoint saved: gen 1820]
+  [WF-TOPN] Evaluated 5: [0.511 -0.267 -0.813 1.180 -0.882] → best ValFit 1.1800
+  [WALK-FWD] Passed (1.1800), advanced to 36288 bars
+1820    1.3585  -0.5589  -0.1000     2.81     4.43     8.9%   48%     119   7.2% -0.0019  26    54%   1.1800 +0.1392 945.5s
+  [WARNING] Worst fitness -4.6374 — severe underperformance in population
+  [active] best:1.3585 ret:8.9% trd:119 wr:48% dd:7.2% ddDur:86.6% | pos:39 neg:51 retRange:[-15.1%..9.5%]
+  [returns] pos:39 zero:109 neg:51
+  [outputs] dir:0.03:0.51 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:-0.05:0.48 lv:-0.07:0.52 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.11 sl:0.05:0.33
+  [closes] total:127 | dirFlip:86 exit:0 cfgSL:41 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:0
+1821    1.3005  -0.5051  -0.1000     2.67     4.11     0.8%   50%     115   1.0% -0.0002  26    59%  -0.0580 845.9s
+  [WARNING] Worst fitness -4.6362 — severe underperformance in population
+  [active] best:1.3005 ret:0.8% trd:115 wr:50% dd:1.0% ddDur:90.1% | pos:32 neg:49 retRange:[-15.0%..9.1%]
+  [returns] pos:32 zero:118 neg:49
+  [outputs] dir:0.04:0.51 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:-0.07:0.52 lv:0.00:0.00 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.11 sl:0.04:0.34
+  [closes] total:128 | dirFlip:90 exit:0 cfgSL:35 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1822    1.3002  -0.4836  -0.1000     2.67     4.11     0.8%   50%     115   1.0% -0.0002  26    58%  -0.0003 1041.6s
+  [WARNING] Worst fitness -4.6585 — severe underperformance in population
+  [active] best:1.3002 ret:0.8% trd:115 wr:50% dd:1.0% ddDur:90.1% | pos:45 neg:39 retRange:[-15.2%..7.4%]
+  [returns] pos:45 zero:115 neg:39
+  [outputs] dir:0.04:0.51 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:-0.07:0.52 lv:0.00:0.00 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.11 sl:0.04:0.34
+  [closes] total:128 | dirFlip:90 exit:0 cfgSL:35 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1823    1.3999  -0.3534  -0.1000     2.97     4.63    11.3%   51%     112   7.0% -0.0020  26    52%  +0.0998 1399.8s
+  [WARNING] Worst fitness -4.6391 — severe underperformance in population
+  [active] best:1.3999 ret:11.3% trd:112 wr:51% dd:7.0% ddDur:65.2% | pos:55 neg:39 retRange:[-15.0%..11.3%]
+  [returns] pos:55 zero:105 neg:39
+  [outputs] dir:0.03:0.51 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:-0.06:0.50 lv:-0.06:0.53 prt:0.00:0.00 tre:0.04:0.54 trd:0.00:0.00 tp:0.01:0.11 sl:0.05:0.34
+  [closes] total:116 | dirFlip:80 exit:0 cfgSL:33 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1824    1.4002  -0.4705  -0.1000     2.97     4.63    11.3%   51%     112   7.0% -0.0020  26    55%  +0.0003 894.2s
+  [WARNING] Worst fitness -4.6339 — severe underperformance in population
+  [active] best:1.4002 ret:11.3% trd:112 wr:51% dd:7.0% ddDur:65.2% | pos:46 neg:43 retRange:[-15.1%..11.3%]
+  [returns] pos:46 zero:110 neg:43
+  [outputs] dir:0.03:0.51 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:-0.06:0.50 lv:-0.06:0.53 prt:0.00:0.00 tre:0.04:0.54 trd:0.00:0.00 tp:0.01:0.11 sl:0.05:0.34
+  [closes] total:116 | dirFlip:80 exit:0 cfgSL:33 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+  [detail] DDDur:65.2%  PopTrd:44445  MedTrd:0  ActAg:89  MaxTrd:4614  MaxStag:24/25  CtAdj:10.00  Arch:26  Edges:16078/16078  Sat:0%  Innov:+78  Shrk:0.97
+  [checkpoint saved: gen 1825]
+1825    1.3984  -0.4069  -0.1000     2.97     4.63    11.3%   51%     112   7.0% -0.0020  26    55%  -0.0019 837.8s
+  [WARNING] Worst fitness -4.6366 — severe underperformance in population
+  [active] best:1.3984 ret:11.3% trd:112 wr:51% dd:7.0% ddDur:65.2% | pos:48 neg:41 retRange:[-14.9%..11.3%]
+  [returns] pos:48 zero:110 neg:41
+  [outputs] dir:0.03:0.51 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:-0.06:0.50 lv:-0.06:0.53 prt:0.00:0.00 tre:0.04:0.54 trd:0.00:0.00 tp:0.01:0.11 sl:0.05:0.34
+  [closes] total:116 | dirFlip:80 exit:0 cfgSL:33 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1826    1.3983  -0.4087  -0.1000     2.97     4.63    11.3%   51%     112   7.0% -0.0020  26    54%  -0.0001 829.2s
+  [WARNING] Worst fitness -4.7337 — severe underperformance in population
+  [active] best:1.3983 ret:11.3% trd:112 wr:51% dd:7.0% ddDur:65.2% | pos:44 neg:46 retRange:[-15.0%..11.3%]
+  [returns] pos:44 zero:110 neg:45
+  [outputs] dir:0.03:0.51 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:-0.06:0.50 lv:-0.06:0.53 prt:0.00:0.00 tre:0.04:0.54 trd:0.00:0.00 tp:0.01:0.11 sl:0.05:0.34
+  [closes] total:116 | dirFlip:80 exit:0 cfgSL:33 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1827    1.4109  -0.2721  -0.1000     2.98     4.69    11.9%   50%     114   7.0% -0.0021  26    62%  +0.0126 1016.0s
+  [WARNING] Worst fitness -4.5200 — severe underperformance in population
+  [active] best:1.4109 ret:11.9% trd:114 wr:50% dd:7.0% ddDur:90.1% | pos:40 neg:36 retRange:[-15.1%..11.9%]
+  [returns] pos:40 zero:123 neg:36
+  [outputs] dir:0.03:0.51 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:-0.06:0.50 lv:-0.06:0.53 prt:0.00:0.00 tre:0.04:0.54 trd:0.00:0.00 tp:0.01:0.11 sl:0.05:0.34
+  [closes] total:120 | dirFlip:82 exit:0 cfgSL:35 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1828    1.4108  -0.4160  -0.1000     2.98     4.69    11.9%   50%     114   7.0% -0.0021  26    56%  -0.0002 979.2s
+  [WARNING] Worst fitness -4.6483 — severe underperformance in population
+  [active] best:1.4108 ret:11.9% trd:114 wr:50% dd:7.0% ddDur:90.1% | pos:47 neg:41 retRange:[-15.5%..11.9%]
+  [returns] pos:47 zero:111 neg:41
+  [outputs] dir:0.03:0.51 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:-0.06:0.50 lv:-0.06:0.53 prt:0.00:0.00 tre:0.04:0.54 trd:0.00:0.00 tp:0.01:0.11 sl:0.05:0.34
+  [closes] total:120 | dirFlip:82 exit:0 cfgSL:35 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1829    1.4573  -0.3966  -0.1000     2.99     4.79     5.1%   48%     134   3.3% -0.0008  26    54%  +0.0466 1128.6s
+  [WARNING] Worst fitness -4.6154 — severe underperformance in population
+  [active] best:1.4573 ret:5.1% trd:134 wr:48% dd:3.3% ddDur:67.4% | pos:46 neg:46 retRange:[-15.1%..11.9%]
+  [returns] pos:46 zero:107 neg:46
+  [outputs] dir:0.05:0.53 sz:-0.01:0.58 urg:-0.00:0.39 ex:0.00:0.00 pr:-0.02:0.42 lv:-0.04:0.45 prt:-0.00:0.01 tre:-0.01:0.49 trd:-0.13:0.62 tp:-0.12:0.59 sl:0.02:0.60
+  [closes] total:143 | dirFlip:96 exit:0 cfgSL:31 brainSL:3 TP:2 trail:8 partial:0 kill:0 eos:3
+  [detail] DDDur:67.4%  PopTrd:43386  MedTrd:0  ActAg:92  MaxTrd:3545  MaxStag:21/25  CtAdj:10.00  Arch:26  Edges:544/544  Sat:0%  Innov:+66  Shrk:0.98
+  [checkpoint saved: gen 1830]
+  [WF-TOPN] Evaluated 5: [-0.176 -0.163 -0.086 1.180 -0.221] → best ValFit 1.1800
+  [WALK-FWD] Passed (1.1800), advanced to 36960 bars
+1830    1.6963  -0.5936  -0.1000     3.40     5.34     6.7%   51%     113   6.4% -0.0012  26    54%   1.1800 +0.2390 1188.1s
+  [WARNING] Worst fitness -4.6350 — severe underperformance in population
+  [active] best:1.6963 ret:6.7% trd:113 wr:51% dd:6.4% ddDur:53.7% | pos:36 neg:55 retRange:[-15.5%..7.9%]
+  [returns] pos:34 zero:111 neg:54
+  [outputs] dir:0.08:0.50 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:-0.05:0.48 lv:-0.07:0.49 prt:0.00:0.00 tre:0.03:0.50 trd:0.00:0.00 tp:0.00:0.08 sl:0.04:0.33
+  [closes] total:156 | dirFlip:92 exit:0 cfgSL:59 brainSL:0 TP:0 trail:2 partial:0 kill:0 eos:3
+1831    1.5323  -0.4154  -0.1000     2.74     4.46    10.6%   44%     144   9.9% -0.0029  26    62%  -0.1641 1079.3s
+  [WARNING] Worst fitness -4.6441 — severe underperformance in population
+  [active] best:1.5323 ret:10.6% trd:144 wr:44% dd:9.9% ddDur:57.3% | pos:36 neg:40 retRange:[-15.1%..10.6%]
+  [returns] pos:35 zero:124 neg:40
+  [outputs] dir:0.16:0.46 sz:0.03:0.40 urg:-0.01:0.14 ex:0.00:0.00 pr:0.00:0.00 lv:0.03:0.40 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:195 | dirFlip:101 exit:0 cfgSL:91 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1832    1.5444  -0.5993  -0.1000     2.74     4.46    10.6%   44%     144   9.9% -0.0029  26    57%  +0.0121 871.6s
+  [WARNING] Worst fitness -4.6502 — severe underperformance in population
+  [active] best:1.5444 ret:10.6% trd:144 wr:44% dd:9.9% ddDur:57.3% | pos:35 neg:50 retRange:[-15.0%..10.6%]
+  [returns] pos:34 zero:116 neg:49
+  [outputs] dir:0.16:0.46 sz:0.03:0.40 urg:-0.01:0.14 ex:0.00:0.00 pr:0.00:0.00 lv:0.03:0.40 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:195 | dirFlip:101 exit:0 cfgSL:91 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1833    1.5362  -0.3909  -0.1000     3.01     4.61     8.3%   54%     124   5.9% -0.0014  26    60%  -0.0081 891.5s
+  [WARNING] Worst fitness -4.6519 — severe underperformance in population
+  [active] best:1.5362 ret:8.3% trd:124 wr:54% dd:5.9% ddDur:54.6% | pos:39 neg:39 retRange:[-15.0%..10.6%]
+  [returns] pos:39 zero:121 neg:39
+  [outputs] dir:0.22:0.49 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:-0.02:0.53 lv:-0.06:0.51 prt:0.00:0.00 tre:0.00:0.03 trd:0.00:0.00 tp:0.00:0.10 sl:0.04:0.33
+  [closes] total:166 | dirFlip:104 exit:0 cfgSL:59 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1834    1.5446  -0.4469  -0.1000     3.01     4.61     8.3%   54%     124   5.9% -0.0014  26    55%  +0.0083 904.2s
+  [WARNING] Worst fitness -4.7320 — severe underperformance in population
+  [active] best:1.5446 ret:8.3% trd:124 wr:54% dd:5.9% ddDur:54.6% | pos:50 neg:39 retRange:[-15.0%..10.6%]
+  [returns] pos:49 zero:112 neg:38
+  [outputs] dir:0.22:0.49 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:-0.02:0.53 lv:-0.06:0.51 prt:0.00:0.00 tre:0.00:0.03 trd:0.00:0.00 tp:0.00:0.10 sl:0.04:0.33
+  [closes] total:166 | dirFlip:104 exit:0 cfgSL:59 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+  [detail] DDDur:54.6%  PopTrd:43410  MedTrd:0  ActAg:89  MaxTrd:4246  MaxStag:23/25  CtAdj:10.00  Arch:26  Edges:16080/16080  Sat:0%  Innov:+47  Shrk:0.98
+  [checkpoint saved: gen 1835]
+1835    1.5355  -0.4971  -0.1000     3.01     4.61     8.3%   54%     124   5.9% -0.0014  26    54%  -0.0091 961.8s
+  [WARNING] Worst fitness -4.6509 — severe underperformance in population
+  [active] best:1.5355 ret:8.3% trd:124 wr:54% dd:5.9% ddDur:54.6% | pos:43 neg:48 retRange:[-15.1%..10.6%]
+  [returns] pos:42 zero:111 neg:46
+  [outputs] dir:0.22:0.49 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:-0.02:0.53 lv:-0.06:0.51 prt:0.00:0.00 tre:0.00:0.03 trd:0.00:0.00 tp:0.00:0.10 sl:0.04:0.33
+  [closes] total:166 | dirFlip:104 exit:0 cfgSL:59 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1836    1.5356  -0.5201  -0.1000     3.01     4.61     8.3%   54%     124   5.9% -0.0014  26    59%  +0.0001 1052.3s
+  [WARNING] Worst fitness -4.5950 — severe underperformance in population
+  [active] best:1.5356 ret:8.3% trd:124 wr:54% dd:5.9% ddDur:54.6% | pos:33 neg:48 retRange:[-15.1%..10.6%]
+  [returns] pos:32 zero:119 neg:48
+  [outputs] dir:0.22:0.49 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:-0.02:0.53 lv:-0.06:0.51 prt:0.00:0.00 tre:0.00:0.03 trd:0.00:0.00 tp:0.00:0.10 sl:0.04:0.33
+  [closes] total:166 | dirFlip:104 exit:0 cfgSL:59 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1837    1.5358  -0.4245  -0.1000     3.01     4.61     8.3%   54%     124   5.9% -0.0014  26    58%  +0.0002 1174.5s
+  [WARNING] Worst fitness -4.6338 — severe underperformance in population
+  [active] best:1.5358 ret:8.3% trd:124 wr:54% dd:5.9% ddDur:54.6% | pos:37 neg:45 retRange:[-15.1%..10.6%]
+  [returns] pos:35 zero:120 neg:44
+  [outputs] dir:0.22:0.49 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:-0.02:0.53 lv:-0.06:0.51 prt:0.00:0.00 tre:0.00:0.03 trd:0.00:0.00 tp:0.00:0.10 sl:0.04:0.33
+  [closes] total:166 | dirFlip:104 exit:0 cfgSL:59 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1838    1.5361  -0.4625  -0.1000     3.01     4.61     8.3%   54%     124   5.9% -0.0014  26    57%  +0.0003 1126.6s
+  [WARNING] Worst fitness -4.6353 — severe underperformance in population
+  [active] best:1.5361 ret:8.3% trd:124 wr:54% dd:5.9% ddDur:54.6% | pos:38 neg:47 retRange:[-15.0%..10.6%]
+  [returns] pos:38 zero:116 neg:45
+  [outputs] dir:0.22:0.49 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:-0.02:0.53 lv:-0.06:0.51 prt:0.00:0.00 tre:0.00:0.03 trd:0.00:0.00 tp:0.00:0.10 sl:0.04:0.33
+  [closes] total:166 | dirFlip:104 exit:0 cfgSL:59 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1839    1.5521  -0.4246  -0.1000     2.74     4.46    10.6%   44%     144   9.9% -0.0029  26    56%  +0.0160 1239.5s
+  [WARNING] Worst fitness -4.6357 — severe underperformance in population
+  [active] best:1.5521 ret:10.6% trd:144 wr:44% dd:9.9% ddDur:57.3% | pos:44 neg:42 retRange:[-15.1%..10.6%]
+  [returns] pos:44 zero:114 neg:41
+  [outputs] dir:0.16:0.46 sz:0.03:0.40 urg:-0.01:0.14 ex:0.00:0.00 pr:0.00:0.00 lv:0.03:0.40 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:195 | dirFlip:101 exit:0 cfgSL:91 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+  [detail] DDDur:57.3%  PopTrd:37317  MedTrd:0  ActAg:86  MaxTrd:3791  MaxStag:24/25  CtAdj:10.00  Arch:26  Edges:178/178  Sat:0%  Innov:+39  Shrk:0.98
+  [checkpoint saved: gen 1840]
+  [WF-TOPN] Evaluated 5: [0.236 -1.342 -1.113 -1.388 -1.305] → best ValFit 0.2365
+  [WALK-FWD] Passed (0.2365), advanced to 37632 bars
+1840    0.6982  -0.4333  -0.1000     1.41     2.14     3.3%   44%     147   9.6% -0.0016  26    54%   0.2365 -0.8539 1217.6s
+  [WARNING] Worst fitness -4.5079 — severe underperformance in population
+  [active] best:0.6982 ret:3.3% trd:147 wr:44% dd:9.6% ddDur:52.6% | pos:43 neg:49 retRange:[-15.0%..4.1%]
+  [returns] pos:43 zero:108 neg:48
+  [outputs] dir:0.05:0.55 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.02 pr:-0.10:0.50 lv:0.06:0.44 prt:0.00:0.00 tre:-0.13:0.54 trd:0.00:0.00 tp:0.00:0.10 sl:0.03:0.32
+  [closes] total:130 | dirFlip:73 exit:0 cfgSL:52 brainSL:0 TP:0 trail:2 partial:0 kill:0 eos:3
+1841    1.4392  -0.3507  -0.1000     2.78     4.18    11.6%   45%     141   9.4% -0.0023  26    64%  +0.7410 1131.0s
+  [WARNING] Worst fitness -4.6315 — severe underperformance in population
+  [active] best:1.4392 ret:11.6% trd:141 wr:45% dd:9.4% ddDur:56.4% | pos:31 neg:41 retRange:[-15.0%..11.6%]
+  [returns] pos:31 zero:128 neg:40
+  [outputs] dir:-0.03:0.61 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:-0.13:0.51 lv:0.08:0.46 prt:0.00:0.00 tre:-0.10:0.56 trd:0.00:0.00 tp:0.00:0.11 sl:0.02:0.33
+  [closes] total:117 | dirFlip:67 exit:0 cfgSL:45 brainSL:0 TP:0 trail:2 partial:0 kill:0 eos:3
+1842    1.4382  -0.3669  -0.1000     2.78     4.18    11.6%   45%     141   9.4% -0.0023  26    63%  -0.0010 1221.9s
+  [WARNING] Worst fitness -4.6334 — severe underperformance in population
+  [active] best:1.4382 ret:11.6% trd:141 wr:45% dd:9.4% ddDur:56.4% | pos:37 neg:36 retRange:[-15.2%..11.7%]
+  [returns] pos:37 zero:126 neg:36
+  [outputs] dir:-0.03:0.61 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:-0.13:0.51 lv:0.08:0.46 prt:0.00:0.00 tre:-0.10:0.56 trd:0.00:0.00 tp:0.00:0.11 sl:0.02:0.33
+  [closes] total:117 | dirFlip:67 exit:0 cfgSL:45 brainSL:0 TP:0 trail:2 partial:0 kill:0 eos:3
+1843    1.4376  -0.3939  -0.1000     2.78     4.18    11.6%   45%     141   9.4% -0.0023  26    65%  -0.0006 1002.4s
+  [WARNING] Worst fitness -4.6353 — severe underperformance in population
+  [active] best:1.4376 ret:11.6% trd:141 wr:45% dd:9.4% ddDur:56.4% | pos:32 neg:37 retRange:[-15.0%..11.6%]
+  [returns] pos:31 zero:131 neg:37
+  [outputs] dir:-0.03:0.61 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:-0.13:0.51 lv:0.08:0.46 prt:0.00:0.00 tre:-0.10:0.56 trd:0.00:0.00 tp:0.00:0.11 sl:0.02:0.33
+  [closes] total:117 | dirFlip:67 exit:0 cfgSL:45 brainSL:0 TP:0 trail:2 partial:0 kill:0 eos:3
+1844    1.4379  -0.4058  -0.1000     2.78     4.18    11.6%   45%     141   9.4% -0.0023  26    58%  +0.0003 1004.3s
+  [WARNING] Worst fitness -4.6351 — severe underperformance in population
+  [active] best:1.4379 ret:11.6% trd:141 wr:45% dd:9.4% ddDur:56.4% | pos:46 neg:38 retRange:[-15.2%..12.1%]
+  [returns] pos:45 zero:116 neg:38
+  [outputs] dir:-0.03:0.61 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:-0.13:0.51 lv:0.08:0.46 prt:0.00:0.00 tre:-0.10:0.56 trd:0.00:0.00 tp:0.00:0.11 sl:0.02:0.33
+  [closes] total:117 | dirFlip:67 exit:0 cfgSL:45 brainSL:0 TP:0 trail:2 partial:0 kill:0 eos:3
+  [detail] DDDur:56.4%  PopTrd:35997  MedTrd:0  ActAg:84  MaxTrd:3107  MaxStag:25/25  CtAdj:10.00  Arch:26  Edges:16132/16132  Sat:0%  Innov:+53  Shrk:0.98
+  [checkpoint saved: gen 1845]
+1845    1.4379  -0.4828  -0.1000     2.78     4.18    11.6%   45%     141   9.4% -0.0023  26    58%  -+0.0000 995.8s
+  [WARNING] Worst fitness -4.6408 — severe underperformance in population
+  [active] best:1.4379 ret:11.6% trd:141 wr:45% dd:9.4% ddDur:56.4% | pos:38 neg:45 retRange:[-15.1%..12.3%]
+  [returns] pos:38 zero:116 neg:45
+  [outputs] dir:-0.03:0.61 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:-0.13:0.51 lv:0.08:0.46 prt:0.00:0.00 tre:-0.10:0.56 trd:0.00:0.00 tp:0.00:0.11 sl:0.02:0.33
+  [closes] total:117 | dirFlip:67 exit:0 cfgSL:45 brainSL:0 TP:0 trail:2 partial:0 kill:0 eos:3
+1846    1.4379  -0.3885  -0.1000     2.78     4.18    11.6%   45%     141   9.4% -0.0023  26    66%  +0.0000 1094.0s
+  [WARNING] Worst fitness -4.6485 — severe underperformance in population
+  [active] best:1.4379 ret:11.6% trd:141 wr:45% dd:9.4% ddDur:56.4% | pos:33 neg:34 retRange:[-15.0%..11.6%]
+  [returns] pos:32 zero:133 neg:34
+  [outputs] dir:-0.03:0.61 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:-0.13:0.51 lv:0.08:0.46 prt:0.00:0.00 tre:-0.10:0.56 trd:0.00:0.00 tp:0.00:0.11 sl:0.02:0.33
+  [closes] total:117 | dirFlip:67 exit:0 cfgSL:45 brainSL:0 TP:0 trail:2 partial:0 kill:0 eos:3
+1847    1.4377  -0.4294  -0.1000     2.78     4.18    11.6%   45%     141   9.4% -0.0023  26    59%  -0.0002 1080.1s
+  [WARNING] Worst fitness -4.6508 — severe underperformance in population
+  [active] best:1.4377 ret:11.6% trd:141 wr:45% dd:9.4% ddDur:56.4% | pos:42 neg:39 retRange:[-15.4%..11.6%]
+  [returns] pos:42 zero:118 neg:39
+  [outputs] dir:-0.03:0.61 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:-0.13:0.51 lv:0.08:0.46 prt:0.00:0.00 tre:-0.10:0.56 trd:0.00:0.00 tp:0.00:0.11 sl:0.02:0.33
+  [closes] total:117 | dirFlip:67 exit:0 cfgSL:45 brainSL:0 TP:0 trail:2 partial:0 kill:0 eos:3
+1848    1.4378  -0.4618  -0.1000     2.78     4.18    11.6%   45%     141   9.4% -0.0023  26    58%  +0.0002 1018.1s
+  [WARNING] Worst fitness -4.6473 — severe underperformance in population
+  [active] best:1.4378 ret:11.6% trd:141 wr:45% dd:9.4% ddDur:56.4% | pos:41 neg:43 retRange:[-15.0%..12.3%]
+  [returns] pos:41 zero:115 neg:43
+  [outputs] dir:-0.03:0.61 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:-0.13:0.51 lv:0.08:0.46 prt:0.00:0.00 tre:-0.10:0.56 trd:0.00:0.00 tp:0.00:0.11 sl:0.02:0.33
+  [closes] total:117 | dirFlip:67 exit:0 cfgSL:45 brainSL:0 TP:0 trail:2 partial:0 kill:0 eos:3
+1849    1.4880  -0.3594  -0.1000     2.87     4.67     1.2%   56%     131   3.6% -0.0003  26    55%  +0.0502 969.5s
+  [WARNING] Worst fitness -4.6496 — severe underperformance in population
+  [active] best:1.4880 ret:1.2% trd:131 wr:56% dd:3.6% ddDur:88.9% | pos:47 neg:42 retRange:[-15.0%..11.6%]
+  [returns] pos:47 zero:110 neg:42
+  [outputs] dir:0.00:0.03 sz:-0.02:0.52 urg:0.19:0.32 ex:0.00:0.01 pr:0.00:0.00 lv:0.03:0.29 prt:0.04:0.50 tre:-0.05:0.52 trd:-0.03:0.25 tp:0.04:0.64 sl:-0.31:0.37
+  [closes] total:165 | dirFlip:13 exit:0 cfgSL:10 brainSL:0 TP:1 trail:0 partial:140 kill:0 eos:1
+  [detail] DDDur:88.9%  PopTrd:39004  MedTrd:0  ActAg:89  MaxTrd:3842  MaxStag:23/25  CtAdj:10.00  Arch:26  Edges:862/862  Sat:0%  Innov:+49  Shrk:0.98
+  [checkpoint saved: gen 1850]
+  [WF-TOPN] Evaluated 5: [0.944 -0.317 -0.581 0.022 -1.025] → best ValFit 0.9443
+  [OVERFIT] Validation declining for 5 checks while training improves
+  [WALK-FWD] Passed (0.9443), advanced to 38304 bars
+1850    1.4069  -0.6839  -0.1000     2.61     4.56     8.1%   55%      52   8.6% -0.0015  26    58%   0.9443 -0.0812 1083.8s
+  [WARNING] Worst fitness -4.6360 — severe underperformance in population
+  [active] best:1.4069 ret:8.1% trd:52 wr:55% dd:8.6% ddDur:99.0% | pos:32 neg:51 retRange:[-15.1%..8.1%]
+  [returns] pos:32 zero:116 neg:51
+  [outputs] dir:-0.01:0.26 sz:-0.06:0.52 urg:0.00:0.00 ex:-0.45:0.42 pr:0.12:0.46 lv:-0.02:0.47 prt:0.05:0.37 tre:0.00:0.00 trd:0.13:0.56 tp:0.10:0.54 sl:0.02:0.43
+  [closes] total:35 | dirFlip:6 exit:0 cfgSL:21 brainSL:0 TP:3 trail:0 partial:2 kill:0 eos:3
+1851    1.6614  -0.5803  -0.1000     2.86     4.85     9.2%   62%     115   4.6% -0.0013  26    62%  +0.2545 962.5s
+  [WARNING] Worst fitness -4.6369 — severe underperformance in population
+  [active] best:1.6614 ret:9.2% trd:115 wr:62% dd:4.6% ddDur:43.8% | pos:32 neg:43 retRange:[-15.1%..10.5%]
+  [returns] pos:32 zero:124 neg:43
+  [outputs] dir:0.01:0.27 sz:-0.07:0.53 urg:0.00:0.00 ex:-0.47:0.43 pr:0.13:0.46 lv:-0.02:0.50 prt:0.05:0.38 tre:0.00:0.00 trd:0.11:0.58 tp:0.02:0.56 sl:-0.00:0.44
+  [closes] total:121 | dirFlip:2 exit:0 cfgSL:21 brainSL:1 TP:2 trail:0 partial:92 kill:0 eos:3
+1852    1.6599  -0.4344  -0.1000     2.86     4.85     9.2%   62%     115   4.6% -0.0013  26    60%  -0.0015 973.8s
+  [WARNING] Worst fitness -4.6840 — severe underperformance in population
+  [active] best:1.6599 ret:9.2% trd:115 wr:62% dd:4.6% ddDur:43.8% | pos:36 neg:43 retRange:[-15.0%..9.2%]
+  [returns] pos:36 zero:120 neg:43
+  [outputs] dir:0.01:0.27 sz:-0.07:0.53 urg:0.00:0.00 ex:-0.47:0.43 pr:0.13:0.46 lv:-0.02:0.50 prt:0.05:0.38 tre:0.00:0.00 trd:0.11:0.58 tp:0.02:0.56 sl:-0.00:0.44
+  [closes] total:121 | dirFlip:2 exit:0 cfgSL:21 brainSL:1 TP:2 trail:0 partial:92 kill:0 eos:3
+1853    1.6601  -0.3840  -0.1000     2.86     4.85     9.2%   62%     115   4.6% -0.0013  26    66%  +0.0002 995.8s
+  [WARNING] Worst fitness -4.6504 — severe underperformance in population
+  [active] best:1.6601 ret:9.2% trd:115 wr:62% dd:4.6% ddDur:43.8% | pos:32 neg:35 retRange:[-15.0%..9.2%]
+  [returns] pos:32 zero:132 neg:35
+  [outputs] dir:0.01:0.27 sz:-0.07:0.53 urg:0.00:0.00 ex:-0.47:0.43 pr:0.13:0.46 lv:-0.02:0.50 prt:0.05:0.38 tre:0.00:0.00 trd:0.11:0.58 tp:0.02:0.56 sl:-0.00:0.44
+  [closes] total:121 | dirFlip:2 exit:0 cfgSL:21 brainSL:1 TP:2 trail:0 partial:92 kill:0 eos:3
+1854    1.6600  -0.5303  -0.1000     2.86     4.85     9.2%   62%     115   4.6% -0.0013  26    61%  -0.0002 1256.7s
+  [WARNING] Worst fitness -4.6369 — severe underperformance in population
+  [active] best:1.6600 ret:9.2% trd:115 wr:62% dd:4.6% ddDur:43.8% | pos:32 neg:45 retRange:[-15.1%..9.2%]
+  [returns] pos:32 zero:122 neg:45
+  [outputs] dir:0.01:0.27 sz:-0.07:0.53 urg:0.00:0.00 ex:-0.47:0.43 pr:0.13:0.46 lv:-0.02:0.50 prt:0.05:0.38 tre:0.00:0.00 trd:0.11:0.58 tp:0.02:0.56 sl:-0.00:0.44
+  [closes] total:121 | dirFlip:2 exit:0 cfgSL:21 brainSL:1 TP:2 trail:0 partial:92 kill:0 eos:3
+  [detail] DDDur:43.8%  PopTrd:41162  MedTrd:0  ActAg:77  MaxTrd:2731  MaxStag:25/25  CtAdj:10.00  Arch:26  Edges:8384/8384  Sat:0%  Innov:+38  Shrk:0.97
+  [checkpoint saved: gen 1855]
+1855    1.6600  -0.4441  -0.1000     2.86     4.85     9.2%   62%     115   4.6% -0.0013  26    62%  +0.0000 960.9s
+  [WARNING] Worst fitness -4.5442 — severe underperformance in population
+  [active] best:1.6600 ret:9.2% trd:115 wr:62% dd:4.6% ddDur:43.8% | pos:35 neg:40 retRange:[-14.2%..9.2%]
+  [returns] pos:35 zero:125 neg:39
+  [outputs] dir:0.01:0.27 sz:-0.07:0.53 urg:0.00:0.00 ex:-0.47:0.43 pr:0.13:0.46 lv:-0.02:0.50 prt:0.05:0.38 tre:0.00:0.00 trd:0.11:0.58 tp:0.02:0.56 sl:-0.00:0.44
+  [closes] total:121 | dirFlip:2 exit:0 cfgSL:21 brainSL:1 TP:2 trail:0 partial:92 kill:0 eos:3
+1856    1.6602  -0.6074  -0.1000     2.86     4.85     9.2%   62%     115   4.6% -0.0013  26    58%  +0.0002 870.0s
+  [WARNING] Worst fitness -4.6522 — severe underperformance in population
+  [active] best:1.6602 ret:9.2% trd:115 wr:62% dd:4.6% ddDur:43.8% | pos:35 neg:49 retRange:[-15.0%..12.1%]
+  [returns] pos:35 zero:115 neg:49
+  [outputs] dir:0.01:0.27 sz:-0.07:0.53 urg:0.00:0.00 ex:-0.47:0.43 pr:0.13:0.46 lv:-0.02:0.50 prt:0.05:0.38 tre:0.00:0.00 trd:0.11:0.58 tp:0.02:0.56 sl:-0.00:0.44
+  [closes] total:121 | dirFlip:2 exit:0 cfgSL:21 brainSL:1 TP:2 trail:0 partial:92 kill:0 eos:3
+1857    1.6600  -0.5246  -0.1000     2.86     4.85     9.2%   62%     115   4.6% -0.0013  26    63%  -0.0002 891.5s
+  [WARNING] Worst fitness -4.6364 — severe underperformance in population
+  [active] best:1.6600 ret:9.2% trd:115 wr:62% dd:4.6% ddDur:43.8% | pos:35 neg:38 retRange:[-15.3%..12.1%]
+  [returns] pos:35 zero:126 neg:38
+  [outputs] dir:0.01:0.27 sz:-0.07:0.53 urg:0.00:0.00 ex:-0.47:0.43 pr:0.13:0.46 lv:-0.02:0.50 prt:0.05:0.38 tre:0.00:0.00 trd:0.11:0.58 tp:0.02:0.56 sl:-0.00:0.44
+  [closes] total:121 | dirFlip:2 exit:0 cfgSL:21 brainSL:1 TP:2 trail:0 partial:92 kill:0 eos:3
+1858    1.6600  -0.5775  -0.1000     2.86     4.85     9.2%   62%     115   4.6% -0.0013  26    58%  -+0.0000 833.6s
+  [WARNING] Worst fitness -4.6374 — severe underperformance in population
+  [active] best:1.6600 ret:9.2% trd:115 wr:62% dd:4.6% ddDur:43.8% | pos:35 neg:49 retRange:[-15.0%..12.1%]
+  [returns] pos:35 zero:115 neg:49
+  [outputs] dir:0.01:0.27 sz:-0.07:0.53 urg:0.00:0.00 ex:-0.47:0.43 pr:0.13:0.46 lv:-0.02:0.50 prt:0.05:0.38 tre:0.00:0.00 trd:0.11:0.58 tp:0.02:0.56 sl:-0.00:0.44
+  [closes] total:121 | dirFlip:2 exit:0 cfgSL:21 brainSL:1 TP:2 trail:0 partial:92 kill:0 eos:3
+1859    1.6600  -0.3413  -0.1000     2.86     4.85     9.2%   62%     115   4.6% -0.0013  26    61%  +0.0000 749.0s
+  [WARNING] Worst fitness -4.5738 — severe underperformance in population
+  [active] best:1.6600 ret:9.2% trd:115 wr:62% dd:4.6% ddDur:43.8% | pos:35 neg:42 retRange:[-14.7%..12.1%]
+  [returns] pos:35 zero:122 neg:42
+  [outputs] dir:0.01:0.27 sz:-0.07:0.53 urg:0.00:0.00 ex:-0.47:0.43 pr:0.13:0.46 lv:-0.02:0.50 prt:0.05:0.38 tre:0.00:0.00 trd:0.11:0.58 tp:0.02:0.56 sl:-0.00:0.44
+  [closes] total:121 | dirFlip:2 exit:0 cfgSL:21 brainSL:1 TP:2 trail:0 partial:92 kill:0 eos:3
+  [detail] DDDur:43.8%  PopTrd:24726  MedTrd:0  ActAg:77  MaxTrd:3673  MaxStag:25/25  CtAdj:10.00  Arch:26  Edges:8384/8384  Sat:0%  Innov:+50  Shrk:0.97
+  [checkpoint saved: gen 1860]
+  [WF-TOPN] Evaluated 5: [0.944 -0.329 -0.047 0.462 0.222] → best ValFit 0.9443
+  [OVERFIT] Validation declining for 6 checks while training improves
+  [WALK-FWD] Passed (0.9443), advanced to 38976 bars
+1860    1.6035  -0.5116  -0.1000     3.04     5.50    12.3%   66%      51   8.5% -0.0018  26    60%   0.9443 -0.0565 832.4s
+  [WARNING] Worst fitness -4.6801 — severe underperformance in population
+  [active] best:1.6035 ret:12.3% trd:51 wr:66% dd:8.5% ddDur:48.1% | pos:29 neg:51 retRange:[-14.6%..12.3%]
+  [returns] pos:29 zero:119 neg:51
+  [outputs] dir:0.05:0.24 sz:-0.06:0.53 urg:0.00:0.00 ex:-0.48:0.41 pr:0.09:0.51 lv:-0.02:0.47 prt:0.05:0.39 tre:0.00:0.00 trd:0.04:0.55 tp:0.21:0.54 sl:0.07:0.44
+  [closes] total:94 | dirFlip:3 exit:0 cfgSL:8 brainSL:0 TP:5 trail:0 partial:75 kill:0 eos:3
+1861    0.7776  -0.6684  -0.1000     1.51     2.48     3.5%   52%      63  12.3% -0.0014  26    62%  -0.8259 796.0s
+  [WARNING] Worst fitness -4.5267 — severe underperformance in population
+  [active] best:0.7776 ret:3.5% trd:63 wr:52% dd:12.3% ddDur:67.6% | pos:21 neg:56 retRange:[-15.2%..3.5%]
+  [returns] pos:21 zero:123 neg:55
+  [outputs] dir:0.05:0.25 sz:-0.04:0.54 urg:0.00:0.00 ex:-0.45:0.43 pr:0.09:0.50 lv:-0.03:0.48 prt:0.04:0.40 tre:0.00:0.00 trd:0.05:0.57 tp:0.14:0.58 sl:0.05:0.46
+  [closes] total:91 | dirFlip:3 exit:1 cfgSL:3 brainSL:0 TP:3 trail:0 partial:80 kill:0 eos:1
+1862    0.7731  -0.4654  -0.1000     1.51     2.48     3.5%   52%      63  12.3% -0.0014  26    72%  -0.0045 780.3s
+  [WARNING] Worst fitness -4.5226 — severe underperformance in population
+  [active] best:0.7731 ret:3.5% trd:63 wr:52% dd:12.3% ddDur:67.6% | pos:21 neg:34 retRange:[-15.1%..3.5%]
+  [returns] pos:21 zero:144 neg:34
+  [outputs] dir:0.05:0.25 sz:-0.04:0.54 urg:0.00:0.00 ex:-0.45:0.43 pr:0.09:0.50 lv:-0.03:0.48 prt:0.04:0.40 tre:0.00:0.00 trd:0.05:0.57 tp:0.14:0.58 sl:0.05:0.46
+  [closes] total:91 | dirFlip:3 exit:1 cfgSL:3 brainSL:0 TP:3 trail:0 partial:80 kill:0 eos:1
+1863    0.7728  -0.5400  -0.1000     1.51     2.48     3.5%   52%      63  12.3% -0.0014  26    62%  -0.0002 773.5s
+  [WARNING] Worst fitness -4.5267 — severe underperformance in population
+  [active] best:0.7728 ret:3.5% trd:63 wr:52% dd:12.3% ddDur:67.6% | pos:20 neg:55 retRange:[-15.0%..3.5%]
+  [returns] pos:20 zero:124 neg:55
+  [outputs] dir:0.05:0.25 sz:-0.04:0.54 urg:0.00:0.00 ex:-0.45:0.43 pr:0.09:0.50 lv:-0.03:0.48 prt:0.04:0.40 tre:0.00:0.00 trd:0.05:0.57 tp:0.14:0.58 sl:0.05:0.46
+  [closes] total:91 | dirFlip:3 exit:1 cfgSL:3 brainSL:0 TP:3 trail:0 partial:80 kill:0 eos:1
+1864    0.7729  -0.5128  -0.1000     1.51     2.48     3.5%   52%      63  12.3% -0.0014  26    67%  +0.0001 869.5s
+  [WARNING] Worst fitness -4.5191 — severe underperformance in population
+  [active] best:0.7729 ret:3.5% trd:63 wr:52% dd:12.3% ddDur:67.6% | pos:22 neg:43 retRange:[-15.1%..3.5%]
+  [returns] pos:22 zero:134 neg:43
+  [outputs] dir:0.05:0.25 sz:-0.04:0.54 urg:0.00:0.00 ex:-0.45:0.43 pr:0.09:0.50 lv:-0.03:0.48 prt:0.04:0.40 tre:0.00:0.00 trd:0.05:0.57 tp:0.14:0.58 sl:0.05:0.46
+  [closes] total:91 | dirFlip:3 exit:1 cfgSL:3 brainSL:0 TP:3 trail:0 partial:80 kill:0 eos:1
+  [detail] DDDur:67.6%  PopTrd:36571  MedTrd:0  ActAg:65  MaxTrd:4839  MaxStag:25/25  CtAdj:10.00  Arch:26  Edges:8384/8384  Sat:0%  Innov:+36  Shrk:0.95
+  [checkpoint saved: gen 1865]
+1865    1.0846  -0.3842  -0.1000     2.08     3.82     5.3%   75%     174   5.2% -0.0007  26    72%  +0.3117 824.0s
+  [WARNING] Worst fitness -4.5043 — severe underperformance in population
+  [active] best:1.0846 ret:5.3% trd:174 wr:75% dd:5.2% ddDur:84.7% | pos:27 neg:30 retRange:[-15.1%..7.4%]
+  [returns] pos:26 zero:143 neg:30
+  [outputs] dir:0.05:0.25 sz:-0.04:0.48 urg:0.00:0.00 ex:-0.36:0.36 pr:0.07:0.40 lv:0.00:0.42 prt:0.01:0.34 tre:0.00:0.00 trd:0.07:0.44 tp:0.16:0.46 sl:0.04:0.43
+  [closes] total:144 | dirFlip:3 exit:0 cfgSL:13 brainSL:0 TP:1 trail:0 partial:126 kill:0 eos:1
+1866    1.0849  -0.6160  -0.1000     2.08     3.82     5.3%   75%     174   5.2% -0.0007  26    61%  +0.0003 834.1s
+  [WARNING] Worst fitness -4.5733 — severe underperformance in population
+  [active] best:1.0849 ret:5.3% trd:174 wr:75% dd:5.2% ddDur:84.7% | pos:28 neg:49 retRange:[-15.2%..7.9%]
+  [returns] pos:28 zero:122 neg:49
+  [outputs] dir:0.05:0.25 sz:-0.04:0.48 urg:0.00:0.00 ex:-0.36:0.36 pr:0.07:0.40 lv:0.00:0.42 prt:0.01:0.34 tre:0.00:0.00 trd:0.07:0.44 tp:0.16:0.46 sl:0.04:0.43
+  [closes] total:144 | dirFlip:3 exit:0 cfgSL:13 brainSL:0 TP:1 trail:0 partial:126 kill:0 eos:1
+1867    1.0847  -0.5026  -0.1000     2.08     3.82     5.3%   75%     174   5.2% -0.0007  26    66%  -0.0001 838.3s
+  [WARNING] Worst fitness -4.5259 — severe underperformance in population
+  [active] best:1.0847 ret:5.3% trd:174 wr:75% dd:5.2% ddDur:84.7% | pos:26 neg:42 retRange:[-15.1%..5.3%]
+  [returns] pos:26 zero:131 neg:42
+  [outputs] dir:0.05:0.25 sz:-0.04:0.48 urg:0.00:0.00 ex:-0.36:0.36 pr:0.07:0.40 lv:0.00:0.42 prt:0.01:0.34 tre:0.00:0.00 trd:0.07:0.44 tp:0.16:0.46 sl:0.04:0.43
+  [closes] total:144 | dirFlip:3 exit:0 cfgSL:13 brainSL:0 TP:1 trail:0 partial:126 kill:0 eos:1
+1868    1.0845  -0.4202  -0.1000     2.08     3.82     5.3%   75%     174   5.2% -0.0007  26    67%  -0.0003 955.8s
+  [WARNING] Worst fitness -4.5894 — severe underperformance in population
+  [active] best:1.0845 ret:5.3% trd:174 wr:75% dd:5.2% ddDur:84.7% | pos:26 neg:39 retRange:[-15.0%..5.3%]
+  [returns] pos:26 zero:135 neg:38
+  [outputs] dir:0.05:0.25 sz:-0.04:0.48 urg:0.00:0.00 ex:-0.36:0.36 pr:0.07:0.40 lv:0.00:0.42 prt:0.01:0.34 tre:0.00:0.00 trd:0.07:0.44 tp:0.16:0.46 sl:0.04:0.43
+  [closes] total:144 | dirFlip:3 exit:0 cfgSL:13 brainSL:0 TP:1 trail:0 partial:126 kill:0 eos:1
+1869    1.0848  -0.5876  -0.1000     2.08     3.82     5.3%   75%     174   5.2% -0.0007  26    62%  +0.0003 958.3s
+  [WARNING] Worst fitness -4.5914 — severe underperformance in population
+  [active] best:1.0848 ret:5.3% trd:174 wr:75% dd:5.2% ddDur:84.7% | pos:26 neg:49 retRange:[-15.0%..5.3%]
+  [returns] pos:26 zero:124 neg:49
+  [outputs] dir:0.05:0.25 sz:-0.04:0.48 urg:0.00:0.00 ex:-0.36:0.36 pr:0.07:0.40 lv:0.00:0.42 prt:0.01:0.34 tre:0.00:0.00 trd:0.07:0.44 tp:0.16:0.46 sl:0.04:0.43
+  [closes] total:144 | dirFlip:3 exit:0 cfgSL:13 brainSL:0 TP:1 trail:0 partial:126 kill:0 eos:1
+  [detail] DDDur:84.7%  PopTrd:44391  MedTrd:0  ActAg:75  MaxTrd:3478  MaxStag:24/25  CtAdj:10.00  Arch:26  Edges:5216/5216  Sat:0%  Innov:+38  Shrk:0.98
+  [checkpoint saved: gen 1870]
+  [WF-TOPN] Evaluated 5: [-0.051 -0.643 1.078 -0.423 -1.256] → best ValFit 1.0775
+  [WALK-FWD] Passed (1.0775), advanced to 39648 bars
+1870    1.5655  -0.4844  -0.1000     3.15     4.90    11.8%   43%     160  13.0% -0.0020  26    59%   1.0775 +0.4807 932.5s
+  [WARNING] Worst fitness -4.6490 — severe underperformance in population
+  [active] best:1.5655 ret:11.8% trd:160 wr:43% dd:13.0% ddDur:49.0% | pos:39 neg:42 retRange:[-15.1%..11.8%]
+  [returns] pos:38 zero:119 neg:42
+  [outputs] dir:-0.01:0.48 sz:-0.06:0.40 urg:-0.00:0.15 ex:0.00:0.00 pr:-0.00:0.15 lv:-0.06:0.40 prt:-0.39:0.32 tre:-0.39:0.32 trd:0.00:0.00 tp:0.00:0.00 sl:-0.39:0.32
+  [closes] total:188 | dirFlip:88 exit:0 cfgSL:97 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1871    1.2371  -0.6055  -0.1000     2.42     3.62     0.7%   53%     105   0.5% -0.0002  26    59%  -0.3284 976.8s
+  [WARNING] Worst fitness -4.5055 — severe underperformance in population
+  [active] best:1.2371 ret:0.7% trd:105 wr:53% dd:0.5% ddDur:44.7% | pos:27 neg:54 retRange:[-15.0%..8.2%]
+  [returns] pos:26 zero:119 neg:54
+  [outputs] dir:0.09:0.59 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:0.00:0.00 lv:0.00:0.00 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:110 | dirFlip:62 exit:0 cfgSL:47 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:1
+1872    1.4009  -0.4468  -0.1000     2.68     4.03     0.7%   49%     105   0.4% -0.0002  26    60%  +0.1638 1061.3s
+  [WARNING] Worst fitness -4.5206 — severe underperformance in population
+  [active] best:1.4009 ret:0.7% trd:105 wr:49% dd:0.4% ddDur:37.8% | pos:40 neg:41 retRange:[-15.1%..8.6%]
+  [returns] pos:39 zero:119 neg:41
+  [outputs] dir:0.08:0.56 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:-0.17:0.53 lv:0.00:0.00 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:114 | dirFlip:63 exit:0 cfgSL:51 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:0
+1873    1.6378  -0.4623  -0.1000     3.31     5.33     9.0%   43%     148   7.1% -0.0020  26    56%  +0.2370 923.6s
+  [WARNING] Worst fitness -4.5434 — severe underperformance in population
+  [active] best:1.6378 ret:9.0% trd:148 wr:43% dd:7.1% ddDur:58.5% | pos:36 neg:52 retRange:[-15.1%..13.9%]
+  [returns] pos:36 zero:111 neg:52
+  [outputs] dir:0.07:0.51 sz:-0.05:0.39 urg:0.00:0.15 ex:-0.41:0.32 pr:-0.41:0.32 lv:-0.05:0.39 prt:-0.41:0.32 tre:-0.41:0.32 trd:0.00:0.00 tp:0.00:0.00 sl:-0.41:0.32
+  [closes] total:158 | dirFlip:57 exit:0 cfgSL:98 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1874    1.6373  -0.5554  -0.1000     3.31     5.33     9.0%   43%     148   7.1% -0.0020  26    56%  -0.0006 1526.6s
+  [WARNING] Worst fitness -4.5833 — severe underperformance in population
+  [active] best:1.6373 ret:9.0% trd:148 wr:43% dd:7.1% ddDur:58.5% | pos:39 neg:48 retRange:[-15.1%..13.9%]
+  [returns] pos:39 zero:113 neg:47
+  [outputs] dir:0.07:0.51 sz:-0.05:0.39 urg:0.00:0.15 ex:-0.41:0.32 pr:-0.41:0.32 lv:-0.05:0.39 prt:-0.41:0.32 tre:-0.41:0.32 trd:0.00:0.00 tp:0.00:0.00 sl:-0.41:0.32
+  [closes] total:158 | dirFlip:57 exit:0 cfgSL:98 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+  [detail] DDDur:58.5%  PopTrd:65479  MedTrd:0  ActAg:87  MaxTrd:6176  MaxStag:25/25  CtAdj:10.00  Arch:26  Edges:168/168  Sat:0%  Innov:+56  Shrk:0.98
+  [checkpoint saved: gen 1875]
+1875    1.7095  -0.3302  -0.1000     2.89     4.33    19.1%   52%     118  15.2% -0.0020  26    54%  +0.0722 1040.8s
+  [WARNING] Worst fitness -4.5214 — severe underperformance in population
+  [active] best:1.7095 ret:19.1% trd:118 wr:52% dd:15.2% ddDur:37.8% | pos:49 neg:41 retRange:[-15.0%..19.1%]
+  [returns] pos:48 zero:111 neg:40
+  [outputs] dir:0.07:0.54 sz:0.99:0.06 urg:0.00:0.00 ex:0.00:0.00 pr:-0.15:0.51 lv:-0.94:0.07 prt:0.00:0.00 tre:-0.92:0.04 trd:0.00:0.00 tp:1.00:0.04 sl:-0.74:0.04
+  [closes] total:156 | dirFlip:55 exit:0 cfgSL:71 brainSL:0 TP:29 trail:0 partial:0 kill:0 eos:1
+1876    1.6935  -0.3980  -0.1000     2.89     4.33    19.1%   52%     118  15.2% -0.0020  26    62%  -0.0160 1147.3s
+  [WARNING] Worst fitness -4.5027 — severe underperformance in population
+  [active] best:1.6935 ret:19.1% trd:118 wr:52% dd:15.2% ddDur:37.8% | pos:36 neg:40 retRange:[-15.2%..19.5%]
+  [returns] pos:36 zero:123 neg:40
+  [outputs] dir:0.07:0.54 sz:0.99:0.06 urg:0.00:0.00 ex:0.00:0.00 pr:-0.15:0.51 lv:-0.94:0.07 prt:0.00:0.00 tre:-0.92:0.04 trd:0.00:0.00 tp:1.00:0.04 sl:-0.74:0.04
+  [closes] total:156 | dirFlip:55 exit:0 cfgSL:71 brainSL:0 TP:29 trail:0 partial:0 kill:0 eos:1
+1877    1.7054  -0.5900  -0.1000     2.89     4.33    19.1%   52%     118  15.2% -0.0020  26    52%  +0.0118 1223.5s
+  [WARNING] Worst fitness -4.5097 — severe underperformance in population
+  [active] best:1.7054 ret:19.1% trd:118 wr:52% dd:15.2% ddDur:37.8% | pos:35 neg:61 retRange:[-15.2%..19.1%]
+  [returns] pos:35 zero:103 neg:61
+  [outputs] dir:0.07:0.54 sz:0.99:0.06 urg:0.00:0.00 ex:0.00:0.00 pr:-0.15:0.51 lv:-0.94:0.07 prt:0.00:0.00 tre:-0.92:0.04 trd:0.00:0.00 tp:1.00:0.04 sl:-0.74:0.04
+  [closes] total:156 | dirFlip:55 exit:0 cfgSL:71 brainSL:0 TP:29 trail:0 partial:0 kill:0 eos:1
+1878    1.7215  -0.5111  -0.1000     3.18     5.15     9.3%   45%     153   7.8% -0.0022  26    52%  +0.0161 969.5s
+  [WARNING] Worst fitness -4.5398 — severe underperformance in population
+  [active] best:1.7215 ret:9.3% trd:153 wr:45% dd:7.8% ddDur:33.1% | pos:38 neg:57 retRange:[-15.6%..19.1%]
+  [returns] pos:38 zero:104 neg:57
+  [outputs] dir:0.09:0.51 sz:-0.04:0.40 urg:0.00:0.15 ex:-0.40:0.33 pr:-0.40:0.33 lv:-0.04:0.40 prt:-0.40:0.33 tre:-0.40:0.33 trd:-0.40:0.33 tp:-0.40:0.33 sl:0.00:0.00
+  [closes] total:182 | dirFlip:82 exit:0 cfgSL:97 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1879    1.7210  -0.5239  -0.1000     3.18     5.15     9.3%   45%     153   7.8% -0.0022  26    50%  -0.0005 1181.3s
+  [WARNING] Worst fitness -4.5861 — severe underperformance in population
+  [active] best:1.7210 ret:9.3% trd:153 wr:45% dd:7.8% ddDur:33.1% | pos:43 neg:57 retRange:[-15.0%..19.1%]
+  [returns] pos:42 zero:100 neg:57
+  [outputs] dir:0.09:0.51 sz:-0.04:0.40 urg:0.00:0.15 ex:-0.40:0.33 pr:-0.40:0.33 lv:-0.04:0.40 prt:-0.40:0.33 tre:-0.40:0.33 trd:-0.40:0.33 tp:-0.40:0.33 sl:0.00:0.00
+  [closes] total:182 | dirFlip:82 exit:0 cfgSL:97 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+  [detail] DDDur:33.1%  PopTrd:52584  MedTrd:15  ActAg:100  MaxTrd:4533  MaxStag:24/25  CtAdj:10.00  Arch:26  Edges:153/153  Sat:0%  Innov:+44  Shrk:0.98
+  [checkpoint saved: gen 1880]
+  [WF-TOPN] Evaluated 5: [-0.945 1.390 -1.835 -0.655 0.040] → best ValFit 1.3900
+  [PROTECT] Best-val genome cloned (new id dec5f780…) into population
+  [WALK-FWD] Passed (1.3900), advanced to 40320 bars
+1880    0.6846  -0.6237  -0.1000     1.23     2.10    10.0%   50%     143  16.1% -0.0036  26    55%   1.3900 -1.0364 1142.8s
+  [WARNING] Worst fitness -4.6430 — severe underperformance in population
+  [active] best:0.6846 ret:10.0% trd:143 wr:50% dd:16.1% ddDur:99.5% | pos:28 neg:61 retRange:[-15.0%..10.0%]
+  [returns] pos:25 zero:115 neg:59
+  [outputs] dir:0.06:0.69 sz:-0.08:0.62 urg:0.00:0.00 ex:0.00:0.00 pr:0.00:0.00 lv:-0.08:0.62 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:-0.07:0.56 sl:0.00:0.00
+  [closes] total:208 | dirFlip:91 exit:0 cfgSL:109 brainSL:0 TP:5 trail:0 partial:0 kill:0 eos:3
+1881    0.9775  -0.4337  -0.1000     1.92     2.87     6.3%   45%     166   6.4% -0.0017  26    63%  +0.2928 1076.6s
+  [WARNING] Worst fitness -4.6425 — severe underperformance in population
+  [active] best:0.9775 ret:6.3% trd:166 wr:45% dd:6.4% ddDur:53.2% | pos:21 neg:53 retRange:[-15.2%..11.9%]
+  [returns] pos:20 zero:127 neg:52
+  [outputs] dir:0.12:0.50 sz:0.01:0.37 urg:-0.00:0.13 ex:0.00:0.00 pr:0.00:0.00 lv:0.01:0.37 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:166 | dirFlip:79 exit:0 cfgSL:84 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1882    1.1675  -0.4865  -0.1000     2.09     3.42     7.0%   42%     153   7.5% -0.0013  26    62%  +0.1900 1054.0s
+  [WARNING] Worst fitness -4.6640 — severe underperformance in population
+  [active] best:1.1675 ret:7.0% trd:153 wr:42% dd:7.5% ddDur:37.0% | pos:30 neg:46 retRange:[-15.0%..11.9%]
+  [returns] pos:28 zero:128 neg:43
+  [outputs] dir:-0.11:0.33 sz:0.05:0.65 urg:0.05:0.53 ex:-0.44:0.46 pr:0.10:0.40 lv:0.04:0.50 prt:0.03:0.33 tre:0.00:0.00 trd:0.03:0.43 tp:0.12:0.48 sl:-0.08:0.52
+  [closes] total:172 | dirFlip:68 exit:31 cfgSL:67 brainSL:0 TP:3 trail:0 partial:0 kill:0 eos:3
+1883    1.1675  -0.7273  -0.1000     2.09     3.42     7.0%   42%     153   7.5% -0.0013  26    58%  -+0.0000 1389.3s
+  [WARNING] Worst fitness -4.6292 — severe underperformance in population
+  [active] best:1.1675 ret:7.0% trd:153 wr:42% dd:7.5% ddDur:37.0% | pos:24 neg:59 retRange:[-15.0%..11.9%]
+  [returns] pos:22 zero:119 neg:58
+  [outputs] dir:-0.11:0.33 sz:0.05:0.65 urg:0.05:0.53 ex:-0.44:0.46 pr:0.10:0.40 lv:0.04:0.50 prt:0.03:0.33 tre:0.00:0.00 trd:0.03:0.43 tp:0.12:0.48 sl:-0.08:0.52
+  [closes] total:172 | dirFlip:68 exit:31 cfgSL:67 brainSL:0 TP:3 trail:0 partial:0 kill:0 eos:3
+1884    1.1674  -0.5982  -0.1000     2.09     3.42     7.0%   42%     153   7.5% -0.0013  26    56%  -+0.0000 1664.1s
+  [WARNING] Worst fitness -4.6358 — severe underperformance in population
+  [active] best:1.1674 ret:7.0% trd:153 wr:42% dd:7.5% ddDur:37.0% | pos:32 neg:54 retRange:[-15.0%..11.9%]
+  [returns] pos:30 zero:116 neg:53
+  [outputs] dir:-0.11:0.33 sz:0.05:0.65 urg:0.05:0.53 ex:-0.44:0.46 pr:0.10:0.40 lv:0.04:0.50 prt:0.03:0.33 tre:0.00:0.00 trd:0.03:0.43 tp:0.12:0.48 sl:-0.08:0.52
+  [closes] total:172 | dirFlip:68 exit:31 cfgSL:67 brainSL:0 TP:3 trail:0 partial:0 kill:0 eos:3
+  [detail] DDDur:37.0%  PopTrd:47472  MedTrd:0  ActAg:86  MaxTrd:4607  MaxStag:24/25  CtAdj:10.00  Arch:26  Edges:7470/7470  Sat:0%  Innov:+28  Shrk:0.98
+  [checkpoint saved: gen 1885]
+1885    1.1675  -0.3957  -0.1000     2.09     3.42     7.0%   42%     153   7.5% -0.0013  26    62%  +0.0001 1020.6s
+  [WARNING] Worst fitness -4.6349 — severe underperformance in population
+  [active] best:1.1675 ret:7.0% trd:153 wr:42% dd:7.5% ddDur:37.0% | pos:34 neg:40 retRange:[-15.1%..11.9%]
+  [returns] pos:34 zero:125 neg:40
+  [outputs] dir:-0.11:0.33 sz:0.05:0.65 urg:0.05:0.53 ex:-0.44:0.46 pr:0.10:0.40 lv:0.04:0.50 prt:0.03:0.33 tre:0.00:0.00 trd:0.03:0.43 tp:0.12:0.48 sl:-0.08:0.52
+  [closes] total:172 | dirFlip:68 exit:31 cfgSL:67 brainSL:0 TP:3 trail:0 partial:0 kill:0 eos:3
+1886    1.1676  -0.5265  -0.1000     2.09     3.42     7.0%   42%     153   7.5% -0.0013  26    57%  +0.0001 1134.2s
+  [WARNING] Worst fitness -4.6329 — severe underperformance in population
+  [active] best:1.1676 ret:7.0% trd:153 wr:42% dd:7.5% ddDur:37.0% | pos:32 neg:53 retRange:[-15.0%..11.9%]
+  [returns] pos:31 zero:117 neg:51
+  [outputs] dir:-0.11:0.33 sz:0.05:0.65 urg:0.05:0.53 ex:-0.44:0.46 pr:0.10:0.40 lv:0.04:0.50 prt:0.03:0.33 tre:0.00:0.00 trd:0.03:0.43 tp:0.12:0.48 sl:-0.08:0.52
+  [closes] total:172 | dirFlip:68 exit:31 cfgSL:67 brainSL:0 TP:3 trail:0 partial:0 kill:0 eos:3
+1887    1.1673  -0.4783  -0.1000     2.09     3.42     7.0%   42%     153   7.5% -0.0013  26    62%  -0.0003 1207.9s
+  [WARNING] Worst fitness -4.6468 — severe underperformance in population
+  [active] best:1.1673 ret:7.0% trd:153 wr:42% dd:7.5% ddDur:37.0% | pos:33 neg:41 retRange:[-14.7%..11.9%]
+  [returns] pos:33 zero:125 neg:41
+  [outputs] dir:-0.11:0.33 sz:0.05:0.65 urg:0.05:0.53 ex:-0.44:0.46 pr:0.10:0.40 lv:0.04:0.50 prt:0.03:0.33 tre:0.00:0.00 trd:0.03:0.43 tp:0.12:0.48 sl:-0.08:0.52
+  [closes] total:172 | dirFlip:68 exit:31 cfgSL:67 brainSL:0 TP:3 trail:0 partial:0 kill:0 eos:3
+1888    1.1672  -0.5639  -0.1000     2.09     3.42     7.0%   42%     153   7.5% -0.0013  26    60%  -+0.0000 1221.0s
+  [WARNING] Worst fitness -4.6358 — severe underperformance in population
+  [active] best:1.1672 ret:7.0% trd:153 wr:42% dd:7.5% ddDur:37.0% | pos:28 neg:52 retRange:[-15.1%..11.9%]
+  [returns] pos:27 zero:121 neg:51
+  [outputs] dir:-0.11:0.33 sz:0.05:0.65 urg:0.05:0.53 ex:-0.44:0.46 pr:0.10:0.40 lv:0.04:0.50 prt:0.03:0.33 tre:0.00:0.00 trd:0.03:0.43 tp:0.12:0.48 sl:-0.08:0.52
+  [closes] total:172 | dirFlip:68 exit:31 cfgSL:67 brainSL:0 TP:3 trail:0 partial:0 kill:0 eos:3
+1889    1.1673  -0.6394  -0.1000     2.09     3.42     7.0%   42%     153   7.5% -0.0013  26    54%  +0.0001 1172.2s
+  [WARNING] Worst fitness -4.6982 — severe underperformance in population
+  [active] best:1.1673 ret:7.0% trd:153 wr:42% dd:7.5% ddDur:37.0% | pos:31 neg:59 retRange:[-15.0%..11.9%]
+  [returns] pos:31 zero:110 neg:58
+  [outputs] dir:-0.11:0.33 sz:0.05:0.65 urg:0.05:0.53 ex:-0.44:0.46 pr:0.10:0.40 lv:0.04:0.50 prt:0.03:0.33 tre:0.00:0.00 trd:0.03:0.43 tp:0.12:0.48 sl:-0.08:0.52
+  [closes] total:172 | dirFlip:68 exit:31 cfgSL:67 brainSL:0 TP:3 trail:0 partial:0 kill:0 eos:3
+  [detail] DDDur:37.0%  PopTrd:67088  MedTrd:0  ActAg:90  MaxTrd:4744  MaxStag:25/25  CtAdj:10.00  Arch:26  Edges:7470/7470  Sat:0%  Innov:+24  Shrk:0.98
+  [checkpoint saved: gen 1890]
+  [WF-TOPN] Evaluated 5: [-0.098 0.067 -1.005 1.403 0.252] → best ValFit 1.4033
+  [PROTECT] Best-val genome cloned (new id d1b0e74d…) into population
+  [WALK-FWD] Passed (1.4033), advanced to 40992 bars
+1890    1.6038  -0.7062  -0.1000     3.24     5.17     8.7%   48%     126   5.9% -0.0011  26    52%   1.4033 +0.4365 1228.6s
+  [WARNING] Worst fitness -4.6307 — severe underperformance in population
+  [active] best:1.6038 ret:8.7% trd:126 wr:48% dd:5.9% ddDur:33.0% | pos:15 neg:79 retRange:[-15.0%..8.7%]
+  [returns] pos:15 zero:105 neg:79
+  [outputs] dir:-0.32:0.37 sz:-0.15:0.66 urg:-0.01:0.48 ex:-0.50:0.46 pr:0.06:0.52 lv:-0.05:0.50 prt:0.03:0.33 tre:0.00:0.00 trd:0.09:0.42 tp:0.02:0.51 sl:0.05:0.54
+  [closes] total:84 | dirFlip:29 exit:35 cfgSL:12 brainSL:5 TP:0 trail:0 partial:0 kill:0 eos:3
+1891    1.0937  -0.5845  -0.1000     2.22     3.43     5.8%   45%     114   6.7% -0.0015  26    62%  -0.5101 1092.3s
+  [WARNING] Worst fitness -4.6374 — severe underperformance in population
+  [active] best:1.0937 ret:5.8% trd:114 wr:45% dd:6.7% ddDur:70.1% | pos:24 neg:51 retRange:[-15.2%..7.2%]
+  [returns] pos:24 zero:124 neg:51
+  [outputs] dir:0.04:0.51 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:-0.06:0.49 lv:-0.08:0.51 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.08 sl:0.05:0.30
+  [closes] total:117 | dirFlip:88 exit:0 cfgSL:26 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1892    1.0930  -0.5007  -0.1000     2.22     3.43     5.8%   45%     114   6.7% -0.0015  26    62%  -0.0007 1412.6s
+  [WARNING] Worst fitness -4.6305 — severe underperformance in population
+  [active] best:1.0930 ret:5.8% trd:114 wr:45% dd:6.7% ddDur:70.1% | pos:26 neg:50 retRange:[-15.1%..6.0%]
+  [returns] pos:26 zero:123 neg:50
+  [outputs] dir:0.04:0.51 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:-0.06:0.49 lv:-0.08:0.51 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.08 sl:0.05:0.30
+  [closes] total:117 | dirFlip:88 exit:0 cfgSL:26 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1893    1.0941  -0.4563  -0.1000     2.22     3.43     5.8%   45%     114   6.7% -0.0015  26    64%  +0.0011 1411.3s
+  [WARNING] Worst fitness -4.6355 — severe underperformance in population
+  [active] best:1.0941 ret:5.8% trd:114 wr:45% dd:6.7% ddDur:70.1% | pos:26 neg:46 retRange:[-15.0%..5.8%]
+  [returns] pos:25 zero:128 neg:46
+  [outputs] dir:0.04:0.51 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:-0.06:0.49 lv:-0.08:0.51 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.08 sl:0.05:0.30
+  [closes] total:117 | dirFlip:88 exit:0 cfgSL:26 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1894    1.0943  -0.3187  -0.1000     2.22     3.43     5.8%   45%     114   6.7% -0.0015  26    68%  +0.0002 1069.2s
+  [WARNING] Worst fitness -4.6338 — severe underperformance in population
+  [active] best:1.0943 ret:5.8% trd:114 wr:45% dd:6.7% ddDur:70.1% | pos:27 neg:36 retRange:[-15.1%..5.8%]
+  [returns] pos:26 zero:137 neg:36
+  [outputs] dir:0.04:0.51 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:-0.06:0.49 lv:-0.08:0.51 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.08 sl:0.05:0.30
+  [closes] total:117 | dirFlip:88 exit:0 cfgSL:26 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+  [detail] DDDur:70.1%  PopTrd:23316  MedTrd:0  ActAg:63  MaxTrd:3773  MaxStag:24/25  CtAdj:10.00  Arch:26  Edges:16084/16084  Sat:0%  Innov:+39  Shrk:0.97
+  [checkpoint saved: gen 1895]
+1895    1.0929  -0.4583  -0.1000     2.22     3.43     5.8%   45%     114   6.7% -0.0015  26    62%  -0.0014 1251.4s
+  [WARNING] Worst fitness -4.6358 — severe underperformance in population
+  [active] best:1.0929 ret:5.8% trd:114 wr:45% dd:6.7% ddDur:70.1% | pos:29 neg:46 retRange:[-15.0%..5.8%]
+  [returns] pos:28 zero:126 neg:45
+  [outputs] dir:0.04:0.51 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:-0.06:0.49 lv:-0.08:0.51 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.08 sl:0.05:0.30
+  [closes] total:117 | dirFlip:88 exit:0 cfgSL:26 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1896    1.0931  -0.5362  -0.1000     2.22     3.43     5.8%   45%     114   6.7% -0.0015  26    56%  +0.0002 1225.9s
+  [WARNING] Worst fitness -4.7474 — severe underperformance in population
+  [active] best:1.0931 ret:5.8% trd:114 wr:45% dd:6.7% ddDur:70.1% | pos:30 neg:57 retRange:[-15.0%..8.1%]
+  [returns] pos:29 zero:113 neg:57
+  [outputs] dir:0.04:0.51 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:-0.06:0.49 lv:-0.08:0.51 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.08 sl:0.05:0.30
+  [closes] total:117 | dirFlip:88 exit:0 cfgSL:26 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1897    1.0929  -0.4599  -0.1000     2.22     3.43     5.8%   45%     114   6.7% -0.0015  26    55%  -0.0002 1145.4s
+  [WARNING] Worst fitness -4.6944 — severe underperformance in population
+  [active] best:1.0929 ret:5.8% trd:114 wr:45% dd:6.7% ddDur:70.1% | pos:38 neg:51 retRange:[-15.1%..7.9%]
+  [returns] pos:38 zero:110 neg:51
+  [outputs] dir:0.04:0.51 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:-0.06:0.49 lv:-0.08:0.51 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.08 sl:0.05:0.30
+  [closes] total:117 | dirFlip:88 exit:0 cfgSL:26 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1898    1.0931  -0.5100  -0.1000     2.22     3.43     5.8%   45%     114   6.7% -0.0015  26    63%  +0.0002 1143.5s
+  [WARNING] Worst fitness -4.6350 — severe underperformance in population
+  [active] best:1.0931 ret:5.8% trd:114 wr:45% dd:6.7% ddDur:70.1% | pos:31 neg:42 retRange:[-15.3%..5.8%]
+  [returns] pos:31 zero:126 neg:42
+  [outputs] dir:0.04:0.51 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:-0.06:0.49 lv:-0.08:0.51 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.08 sl:0.05:0.30
+  [closes] total:117 | dirFlip:88 exit:0 cfgSL:26 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1899    1.0929  -0.5093  -0.1000     2.22     3.43     5.8%   45%     114   6.7% -0.0015  26    58%  -0.0002 1216.0s
+  [WARNING] Worst fitness -4.6190 — severe underperformance in population
+  [active] best:1.0929 ret:5.8% trd:114 wr:45% dd:6.7% ddDur:70.1% | pos:31 neg:52 retRange:[-15.0%..12.4%]
+  [returns] pos:31 zero:116 neg:52
+  [outputs] dir:0.04:0.51 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:-0.06:0.49 lv:-0.08:0.51 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.08 sl:0.05:0.30
+  [closes] total:117 | dirFlip:88 exit:0 cfgSL:26 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+  [detail] DDDur:70.1%  PopTrd:48944  MedTrd:0  ActAg:83  MaxTrd:5429  MaxStag:24/25  CtAdj:10.00  Arch:26  Edges:16084/16084  Sat:0%  Innov:+42  Shrk:0.97
+  [checkpoint saved: gen 1900]
+  [WF-TOPN] Evaluated 5: [-0.339 -0.041 -1.536 -0.963 -0.290] → best ValFit -0.0411
+  [WALK-FWD] Failed (-0.0411), stalled 1/30
+1900    1.1402  -0.5845  -0.1000     2.20     3.99     0.9%   49%      18   0.7% -0.0001  26    62%  -0.0411 +0.0473 1323.5s
+  [WARNING] Worst fitness -4.6812 — severe underperformance in population
+  [active] best:1.1402 ret:0.9% trd:18 wr:49% dd:0.7% ddDur:89.1% | pos:18 neg:57 retRange:[-15.0%..6.0%]
+  [returns] pos:18 zero:124 neg:57
+  [outputs] dir:0.00:0.03 sz:-0.04:0.46 urg:0.10:0.31 ex:0.00:0.01 pr:0.00:0.00 lv:0.01:0.26 prt:0.16:0.48 tre:0.05:0.51 trd:0.22:0.29 tp:-0.09:0.57 sl:-0.43:0.42
+  [closes] total:34 | dirFlip:0 exit:0 cfgSL:5 brainSL:0 TP:0 trail:2 partial:27 kill:0 eos:0
+1901    1.1399  -0.5527  -0.1000     2.20     3.99     0.9%   49%      18   0.7% -0.0001  26    62%  -0.0003 1933.1s
+  [WARNING] Worst fitness -4.6367 — severe underperformance in population
+  [active] best:1.1399 ret:0.9% trd:18 wr:49% dd:0.7% ddDur:89.1% | pos:26 neg:49 retRange:[-15.1%..6.0%]
+  [returns] pos:26 zero:125 neg:48
+  [outputs] dir:0.00:0.03 sz:-0.04:0.46 urg:0.10:0.31 ex:0.00:0.01 pr:0.00:0.00 lv:0.01:0.26 prt:0.16:0.48 tre:0.05:0.51 trd:0.22:0.29 tp:-0.09:0.57 sl:-0.43:0.42
+  [closes] total:34 | dirFlip:0 exit:0 cfgSL:5 brainSL:0 TP:0 trail:2 partial:27 kill:0 eos:0
+1902    1.1399  -0.4354  -0.1000     2.20     3.99     0.9%   49%      18   0.7% -0.0001  26    63%  +0.0000 1335.7s
+  [WARNING] Worst fitness -4.6474 — severe underperformance in population
+  [active] best:1.1399 ret:0.9% trd:18 wr:49% dd:0.7% ddDur:89.1% | pos:32 neg:41 retRange:[-15.0%..6.0%]
+  [returns] pos:32 zero:126 neg:41
+  [outputs] dir:0.00:0.03 sz:-0.04:0.46 urg:0.10:0.31 ex:0.00:0.01 pr:0.00:0.00 lv:0.01:0.26 prt:0.16:0.48 tre:0.05:0.51 trd:0.22:0.29 tp:-0.09:0.57 sl:-0.43:0.42
+  [closes] total:34 | dirFlip:0 exit:0 cfgSL:5 brainSL:0 TP:0 trail:2 partial:27 kill:0 eos:0
+1903    1.6465  -0.4367  -0.1000     3.17     5.21     1.6%   66%      89   0.8% -0.0002  26    64%  +0.5067 1042.1s
+  [WARNING] Worst fitness -4.6459 — severe underperformance in population
+  [active] best:1.6465 ret:1.6% trd:89 wr:66% dd:0.8% ddDur:69.9% | pos:34 neg:39 retRange:[-15.0%..6.0%]
+  [returns] pos:34 zero:126 neg:39
+  [outputs] dir:0.00:0.03 sz:-0.05:0.43 urg:0.08:0.28 ex:0.00:0.01 pr:0.00:0.00 lv:0.01:0.27 prt:0.02:0.46 tre:-0.02:0.47 trd:0.12:0.21 tp:-0.01:0.61 sl:0.12:0.35
+  [closes] total:93 | dirFlip:11 exit:0 cfgSL:17 brainSL:0 TP:0 trail:0 partial:65 kill:0 eos:0
+1904    1.6458  -0.6487  -0.1000     3.17     5.21     1.6%   66%      89   0.8% -0.0002  26    56%  -0.0008 1027.1s
+  [WARNING] Worst fitness -4.6547 — severe underperformance in population
+  [active] best:1.6458 ret:1.6% trd:89 wr:66% dd:0.8% ddDur:69.9% | pos:35 neg:53 retRange:[-15.1%..14.1%]
+  [returns] pos:34 zero:112 neg:53
+  [outputs] dir:0.00:0.03 sz:-0.05:0.43 urg:0.08:0.28 ex:0.00:0.01 pr:0.00:0.00 lv:0.01:0.27 prt:0.02:0.46 tre:-0.02:0.47 trd:0.12:0.21 tp:-0.01:0.61 sl:0.12:0.35
+  [closes] total:93 | dirFlip:11 exit:0 cfgSL:17 brainSL:0 TP:0 trail:0 partial:65 kill:0 eos:0
+  [detail] DDDur:69.9%  PopTrd:52217  MedTrd:0  ActAg:88  MaxTrd:3831  MaxStag:25/25  CtAdj:10.00  Arch:26  Edges:806/806  Sat:0%  Innov:+41  Shrk:0.97
+  [checkpoint saved: gen 1905]
+1905    1.6455  -0.6063  -0.1000     3.17     5.21     1.6%   66%      89   0.8% -0.0002  26    55%  -0.0003 869.9s
+  [WARNING] Worst fitness -4.6728 — severe underperformance in population
+  [active] best:1.6455 ret:1.6% trd:89 wr:66% dd:0.8% ddDur:69.9% | pos:35 neg:54 retRange:[-15.1%..8.6%]
+  [returns] pos:35 zero:110 neg:54
+  [outputs] dir:0.00:0.03 sz:-0.05:0.43 urg:0.08:0.28 ex:0.00:0.01 pr:0.00:0.00 lv:0.01:0.27 prt:0.02:0.46 tre:-0.02:0.47 trd:0.12:0.21 tp:-0.01:0.61 sl:0.12:0.35
+  [closes] total:93 | dirFlip:11 exit:0 cfgSL:17 brainSL:0 TP:0 trail:0 partial:65 kill:0 eos:0
+1906    1.6454  -0.4683  -0.1000     3.17     5.21     1.6%   66%      89   0.8% -0.0002  26    58%  -0.0001 933.7s
+  [WARNING] Worst fitness -4.6328 — severe underperformance in population
+  [active] best:1.6454 ret:1.6% trd:89 wr:66% dd:0.8% ddDur:69.9% | pos:34 neg:48 retRange:[-15.2%..6.0%]
+  [returns] pos:34 zero:117 neg:48
+  [outputs] dir:0.00:0.03 sz:-0.05:0.43 urg:0.08:0.28 ex:0.00:0.01 pr:0.00:0.00 lv:0.01:0.27 prt:0.02:0.46 tre:-0.02:0.47 trd:0.12:0.21 tp:-0.01:0.61 sl:0.12:0.35
+  [closes] total:93 | dirFlip:11 exit:0 cfgSL:17 brainSL:0 TP:0 trail:0 partial:65 kill:0 eos:0
+1907    1.6451  -0.4474  -0.1000     3.17     5.21     1.6%   66%      89   0.8% -0.0002  26    56%  -0.0002 850.4s
+  [WARNING] Worst fitness -4.6379 — severe underperformance in population
+  [active] best:1.6451 ret:1.6% trd:89 wr:66% dd:0.8% ddDur:69.9% | pos:41 neg:47 retRange:[-15.1%..6.0%]
+  [returns] pos:40 zero:112 neg:47
+  [outputs] dir:0.00:0.03 sz:-0.05:0.43 urg:0.08:0.28 ex:0.00:0.01 pr:0.00:0.00 lv:0.01:0.27 prt:0.02:0.46 tre:-0.02:0.47 trd:0.12:0.21 tp:-0.01:0.61 sl:0.12:0.35
+  [closes] total:93 | dirFlip:11 exit:0 cfgSL:17 brainSL:0 TP:0 trail:0 partial:65 kill:0 eos:0
+1908    1.6452  -0.4970  -0.1000     3.17     5.21     1.6%   66%      89   0.8% -0.0002  26    56%  +0.0001 941.7s
+  [WARNING] Worst fitness -4.6861 — severe underperformance in population
+  [active] best:1.6452 ret:1.6% trd:89 wr:66% dd:0.8% ddDur:69.9% | pos:37 neg:50 retRange:[-15.1%..6.0%]
+  [returns] pos:37 zero:112 neg:50
+  [outputs] dir:0.00:0.03 sz:-0.05:0.43 urg:0.08:0.28 ex:0.00:0.01 pr:0.00:0.00 lv:0.01:0.27 prt:0.02:0.46 tre:-0.02:0.47 trd:0.12:0.21 tp:-0.01:0.61 sl:0.12:0.35
+  [closes] total:93 | dirFlip:11 exit:0 cfgSL:17 brainSL:0 TP:0 trail:0 partial:65 kill:0 eos:0
+1909    1.6454  -0.5130  -0.1000     3.17     5.21     1.6%   66%      89   0.8% -0.0002  26    55%  +0.0001 896.7s
+  [WARNING] Worst fitness -4.6481 — severe underperformance in population
+  [active] best:1.6454 ret:1.6% trd:89 wr:66% dd:0.8% ddDur:69.9% | pos:41 neg:48 retRange:[-15.1%..7.7%]
+  [returns] pos:41 zero:110 neg:48
+  [outputs] dir:0.00:0.03 sz:-0.05:0.43 urg:0.08:0.28 ex:0.00:0.01 pr:0.00:0.00 lv:0.01:0.27 prt:0.02:0.46 tre:-0.02:0.47 trd:0.12:0.21 tp:-0.01:0.61 sl:0.12:0.35
+  [closes] total:93 | dirFlip:11 exit:0 cfgSL:17 brainSL:0 TP:0 trail:0 partial:65 kill:0 eos:0
+  [detail] DDDur:69.9%  PopTrd:40269  MedTrd:0  ActAg:89  MaxTrd:3800  MaxStag:25/25  CtAdj:10.00  Arch:26  Edges:806/806  Sat:0%  Innov:+33  Shrk:0.97
+  [checkpoint saved: gen 1910]
+  [WF-TOPN] Evaluated 5: [-1.337 0.554 -1.559 0.583 -1.121] → best ValFit 0.5831
+  [WALK-FWD] Passed (0.5831), advanced to 41664 bars
+1910    0.8724  -0.8195  -0.1000     2.03     3.10     4.1%   62%     330   8.8% -0.0016  26    48%   0.5831 -0.7730 959.9s
+  [WARNING] Worst fitness -4.7480 — severe underperformance in population
+  [active] best:0.8724 ret:4.1% trd:330 wr:62% dd:8.8% ddDur:73.5% | pos:39 neg:63 retRange:[-15.1%..6.1%]
+  [returns] pos:38 zero:98 neg:63
+  [outputs] dir:0.41:0.32 sz:0.41:0.32 urg:0.41:0.32 ex:0.00:0.00 pr:0.00:0.45 lv:-0.04:0.31 prt:0.08:0.47 tre:-0.19:0.47 trd:-0.32:0.53 tp:0.01:0.53 sl:0.45:0.82
+  [closes] total:559 | dirFlip:0 exit:0 cfgSL:15 brainSL:26 TP:0 trail:6 partial:509 kill:0 eos:3
+1911    0.6273  -0.6493  -0.1000     1.59     2.37     5.0%   48%     167   5.9% -0.0017  26    60%  -0.2451 967.0s
+  [WARNING] Worst fitness -4.6358 — severe underperformance in population
+  [active] best:0.6273 ret:5.0% trd:167 wr:48% dd:5.9% ddDur:61.0% | pos:25 neg:55 retRange:[-15.2%..7.6%]
+  [returns] pos:24 zero:120 neg:55
+  [outputs] dir:-0.16:0.61 sz:-0.01:0.55 urg:-0.05:0.42 ex:0.00:0.00 pr:0.01:0.42 lv:-0.06:0.54 prt:0.00:0.00 tre:-0.03:0.38 trd:-0.11:0.42 tp:0.01:0.41 sl:0.09:0.39
+  [closes] total:131 | dirFlip:83 exit:0 cfgSL:44 brainSL:1 TP:0 trail:0 partial:0 kill:0 eos:3
+1912    0.8652  -0.6128  -0.1000     1.73     2.71     7.5%   44%     146  12.4% -0.0028  26    66%  +0.2379 930.0s
+  [WARNING] Worst fitness -4.6357 — severe underperformance in population
+  [active] best:0.8652 ret:7.5% trd:146 wr:44% dd:12.4% ddDur:75.0% | pos:17 neg:50 retRange:[-15.1%..7.5%]
+  [returns] pos:16 zero:133 neg:50
+  [outputs] dir:-0.10:0.55 sz:0.05:0.40 urg:0.00:0.15 ex:0.00:0.00 pr:0.00:0.00 lv:0.05:0.40 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:110 | dirFlip:56 exit:0 cfgSL:52 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:2
+1913    1.0532  -0.5474  -0.1000     2.01     3.15     8.2%   45%     151   9.9% -0.0027  26    64%  +0.1880 929.8s
+  [WARNING] Worst fitness -4.6492 — severe underperformance in population
+  [active] best:1.0532 ret:8.2% trd:151 wr:45% dd:9.9% ddDur:50.0% | pos:22 neg:48 retRange:[-15.1%..9.0%]
+  [returns] pos:22 zero:129 neg:48
+  [outputs] dir:-0.10:0.55 sz:0.04:0.41 urg:0.00:0.15 ex:0.00:0.00 pr:0.00:0.00 lv:0.04:0.41 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:108 | dirFlip:56 exit:0 cfgSL:50 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:2
+1914    1.0530  -0.4162  -0.1000     2.01     3.15     8.2%   45%     151   9.9% -0.0027  26    62%  -0.0002 943.2s
+  [WARNING] Worst fitness -4.5769 — severe underperformance in population
+  [active] best:1.0530 ret:8.2% trd:151 wr:45% dd:9.9% ddDur:50.0% | pos:35 neg:39 retRange:[-15.0%..9.7%]
+  [returns] pos:35 zero:125 neg:39
+  [outputs] dir:-0.10:0.55 sz:0.04:0.41 urg:0.00:0.15 ex:0.00:0.00 pr:0.00:0.00 lv:0.04:0.41 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:108 | dirFlip:56 exit:0 cfgSL:50 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:2
+  [detail] DDDur:50.0%  PopTrd:31119  MedTrd:0  ActAg:74  MaxTrd:3537  MaxStag:25/25  CtAdj:10.00  Arch:26  Edges:168/168  Sat:0%  Innov:+39  Shrk:0.98
+  [checkpoint saved: gen 1915]
+1915    1.0533  -0.4933  -0.1000     2.01     3.15     8.2%   45%     151   9.9% -0.0027  26    58%  +0.0003 1106.2s
+  [WARNING] Worst fitness -4.6352 — severe underperformance in population
+  [active] best:1.0533 ret:8.2% trd:151 wr:45% dd:9.9% ddDur:50.0% | pos:33 neg:50 retRange:[-15.1%..9.7%]
+  [returns] pos:32 zero:117 neg:50
+  [outputs] dir:-0.10:0.55 sz:0.04:0.41 urg:0.00:0.15 ex:0.00:0.00 pr:0.00:0.00 lv:0.04:0.41 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:108 | dirFlip:56 exit:0 cfgSL:50 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:2
+1916    1.2031  -0.6121  -0.1000     2.18     3.42    13.3%   42%     128  12.9% -0.0035  26    54%  +0.1498 1135.0s
+  [WARNING] Worst fitness -4.6355 — severe underperformance in population
+  [active] best:1.2031 ret:13.3% trd:128 wr:42% dd:12.9% ddDur:55.6% | pos:40 neg:50 retRange:[-15.1%..13.3%]
+  [returns] pos:40 zero:109 neg:50
+  [outputs] dir:-0.09:0.34 sz:-0.02:0.28 urg:0.03:0.14 ex:0.00:0.00 pr:-0.00:0.16 lv:-0.05:0.52 prt:0.00:0.00 tre:-0.04:0.27 trd:-0.09:0.41 tp:-0.00:0.46 sl:-0.00:0.38
+  [closes] total:108 | dirFlip:54 exit:0 cfgSL:51 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1917    1.2031  -0.6371  -0.1000     2.18     3.42    13.3%   42%     128  12.9% -0.0035  26    52%  +0.0000 1187.3s
+  [WARNING] Worst fitness -4.6359 — severe underperformance in population
+  [active] best:1.2031 ret:13.3% trd:128 wr:42% dd:12.9% ddDur:55.6% | pos:37 neg:57 retRange:[-15.0%..13.3%]
+  [returns] pos:37 zero:106 neg:56
+  [outputs] dir:-0.09:0.34 sz:-0.02:0.28 urg:0.03:0.14 ex:0.00:0.00 pr:-0.00:0.16 lv:-0.05:0.52 prt:0.00:0.00 tre:-0.04:0.27 trd:-0.09:0.41 tp:-0.00:0.46 sl:-0.00:0.38
+  [closes] total:108 | dirFlip:54 exit:0 cfgSL:51 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1918    1.2029  -0.5226  -0.1000     2.18     3.42    13.3%   42%     128  12.9% -0.0035  26    60%  -0.0002 927.4s
+  [WARNING] Worst fitness -4.6372 — severe underperformance in population
+  [active] best:1.2029 ret:13.3% trd:128 wr:42% dd:12.9% ddDur:55.6% | pos:35 neg:45 retRange:[-15.0%..13.3%]
+  [returns] pos:35 zero:120 neg:44
+  [outputs] dir:-0.09:0.34 sz:-0.02:0.28 urg:0.03:0.14 ex:0.00:0.00 pr:-0.00:0.16 lv:-0.05:0.52 prt:0.00:0.00 tre:-0.04:0.27 trd:-0.09:0.41 tp:-0.00:0.46 sl:-0.00:0.38
+  [closes] total:108 | dirFlip:54 exit:0 cfgSL:51 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1919    1.2026  -0.4977  -0.1000     2.18     3.42    13.3%   42%     128  12.9% -0.0035  26    60%  -0.0003 924.0s
+  [WARNING] Worst fitness -4.6353 — severe underperformance in population
+  [active] best:1.2026 ret:13.3% trd:128 wr:42% dd:12.9% ddDur:55.6% | pos:31 neg:48 retRange:[-15.0%..13.3%]
+  [returns] pos:31 zero:120 neg:48
+  [outputs] dir:-0.09:0.34 sz:-0.02:0.28 urg:0.03:0.14 ex:0.00:0.00 pr:-0.00:0.16 lv:-0.05:0.52 prt:0.00:0.00 tre:-0.04:0.27 trd:-0.09:0.41 tp:-0.00:0.46 sl:-0.00:0.38
+  [closes] total:108 | dirFlip:54 exit:0 cfgSL:51 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+  [detail] DDDur:55.6%  PopTrd:33741  MedTrd:0  ActAg:79  MaxTrd:3807  MaxStag:23/25  CtAdj:10.00  Arch:26  Edges:14624/14624  Sat:0%  Innov:+33  Shrk:0.98
+  [checkpoint saved: gen 1920]
+  [WF-TOPN] Evaluated 5: [-0.048 1.303 0.516 -1.337 -0.081] → best ValFit 1.3029
+  [WALK-FWD] Passed (1.3029), advanced to 42336 bars
+1920    1.5102  -0.7195  -0.1000     2.82     4.64     8.0%   47%     111   7.3% -0.0015  26    58%   1.3029 +0.3076 1128.6s
+  [WARNING] Worst fitness -4.7812 — severe underperformance in population
+  [active] best:1.5102 ret:8.0% trd:111 wr:47% dd:7.3% ddDur:63.0% | pos:27 neg:56 retRange:[-15.1%..8.1%]
+  [returns] pos:27 zero:116 neg:56
+  [outputs] dir:0.19:0.40 sz:-0.10:0.39 urg:0.00:0.06 ex:0.00:0.00 pr:0.00:0.00 lv:-0.10:0.39 prt:-0.42:0.33 tre:-0.42:0.33 trd:-0.42:0.33 tp:-0.42:0.33 sl:-0.42:0.33
+  [closes] total:104 | dirFlip:59 exit:0 cfgSL:42 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1921    0.5493  -0.3668  -0.1000     1.35     2.17     2.2%   49%     146   3.0% -0.0007  26    68%  -0.9609 858.7s
+  [WARNING] Worst fitness -4.6407 — severe underperformance in population
+  [active] best:0.5493 ret:2.2% trd:146 wr:49% dd:3.0% ddDur:65.1% | pos:26 neg:37 retRange:[-15.1%..5.7%]
+  [returns] pos:26 zero:136 neg:37
+  [outputs] dir:0.13:0.37 sz:-0.07:0.39 urg:-0.03:0.14 ex:-0.04:0.13 pr:0.00:0.44 lv:-0.06:0.37 prt:-0.00:0.01 tre:0.00:0.04 trd:0.09:0.44 tp:0.36:0.35 sl:0.06:0.26
+  [closes] total:152 | dirFlip:72 exit:0 cfgSL:80 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:0
+1922    0.5823  -0.4741  -0.1000     1.40     2.14     0.3%   49%     145   1.0% -0.0002  26    62%  +0.0331 972.2s
+  [WARNING] Worst fitness -4.6439 — severe underperformance in population
+  [active] best:0.5823 ret:0.3% trd:145 wr:49% dd:1.0% ddDur:76.7% | pos:31 neg:44 retRange:[-15.2%..5.7%]
+  [returns] pos:31 zero:124 neg:44
+  [outputs] dir:0.23:0.50 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:0.00:0.00 lv:0.00:0.00 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:180 | dirFlip:112 exit:0 cfgSL:65 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1923    0.5822  -0.5400  -0.1000     1.40     2.14     0.3%   49%     145   1.0% -0.0002  26    61%  -0.0002 997.3s
+  [WARNING] Worst fitness -4.6336 — severe underperformance in population
+  [active] best:0.5822 ret:0.3% trd:145 wr:49% dd:1.0% ddDur:76.7% | pos:27 neg:50 retRange:[-15.0%..5.0%]
+  [returns] pos:27 zero:122 neg:50
+  [outputs] dir:0.23:0.50 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:0.00:0.00 lv:0.00:0.00 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:180 | dirFlip:112 exit:0 cfgSL:65 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1924    0.7659  -0.4277  -0.1000     1.67     2.45     0.4%   51%     144   0.6% -0.0001  26    64%  +0.1837 960.1s
+  [WARNING] Worst fitness -4.4882 — severe underperformance in population
+  [active] best:0.7659 ret:0.4% trd:144 wr:51% dd:0.6% ddDur:69.6% | pos:33 neg:37 retRange:[-14.0%..24.0%]
+  [returns] pos:32 zero:130 neg:37
+  [outputs] dir:-0.01:0.36 sz:-0.10:0.40 urg:-0.42:0.33 ex:-0.42:0.33 pr:-0.42:0.33 lv:-0.42:0.33 prt:-0.42:0.33 tre:-0.42:0.33 trd:-0.42:0.33 tp:-0.42:0.33 sl:0.00:0.00
+  [closes] total:147 | dirFlip:79 exit:0 cfgSL:68 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:0
+  [detail] DDDur:69.6%  PopTrd:34238  MedTrd:0  ActAg:70  MaxTrd:3067  MaxStag:25/25  CtAdj:10.00  Arch:26  Edges:121/121  Sat:0%  Innov:+23  Shrk:0.98
+  [checkpoint saved: gen 1925]
+1925    0.9486  -0.6710  -0.1000     2.01     2.90     6.5%   50%     144  13.9% -0.0024  26    58%  +0.1827 1038.7s
+  [WARNING] Worst fitness -4.6402 — severe underperformance in population
+  [active] best:0.9486 ret:6.5% trd:144 wr:50% dd:13.9% ddDur:79.5% | pos:34 neg:49 retRange:[-15.3%..24.0%]
+  [returns] pos:33 zero:117 neg:49
+  [outputs] dir:0.11:0.37 sz:0.06:0.41 urg:-0.00:0.10 ex:0.00:0.00 pr:-0.01:0.10 lv:-0.10:0.45 prt:0.00:0.00 tre:-0.02:0.46 trd:0.07:0.51 tp:0.01:0.52 sl:0.14:0.53
+  [closes] total:174 | dirFlip:70 exit:0 cfgSL:68 brainSL:21 TP:6 trail:6 partial:0 kill:0 eos:3
+1926    0.9555  -0.5358  -0.1000     2.01     2.90     6.5%   50%     144  13.9% -0.0024  26    58%  +0.0068 914.6s
+  [WARNING] Worst fitness -4.6402 — severe underperformance in population
+  [active] best:0.9555 ret:6.5% trd:144 wr:50% dd:13.9% ddDur:79.5% | pos:30 neg:52 retRange:[-15.1%..6.5%]
+  [returns] pos:30 zero:117 neg:52
+  [outputs] dir:0.11:0.37 sz:0.06:0.41 urg:-0.00:0.10 ex:0.00:0.00 pr:-0.01:0.10 lv:-0.10:0.45 prt:0.00:0.00 tre:-0.02:0.46 trd:0.07:0.51 tp:0.01:0.52 sl:0.14:0.53
+  [closes] total:174 | dirFlip:70 exit:0 cfgSL:68 brainSL:21 TP:6 trail:6 partial:0 kill:0 eos:3
+1927    0.9557  -0.5579  -0.1000     2.01     2.90     6.5%   50%     144  13.9% -0.0024  26    58%  +0.0002 972.9s
+  [WARNING] Worst fitness -4.6358 — severe underperformance in population
+  [active] best:0.9557 ret:6.5% trd:144 wr:50% dd:13.9% ddDur:79.5% | pos:36 neg:47 retRange:[-15.1%..6.5%]
+  [returns] pos:35 zero:117 neg:47
+  [outputs] dir:0.11:0.37 sz:0.06:0.41 urg:-0.00:0.10 ex:0.00:0.00 pr:-0.01:0.10 lv:-0.10:0.45 prt:0.00:0.00 tre:-0.02:0.46 trd:0.07:0.51 tp:0.01:0.52 sl:0.14:0.53
+  [closes] total:174 | dirFlip:70 exit:0 cfgSL:68 brainSL:21 TP:6 trail:6 partial:0 kill:0 eos:3
+1928    0.9470  -0.6330  -0.1000     2.01     2.90     6.5%   50%     144  13.9% -0.0024  26    55%  -0.0087 1018.3s
+  [WARNING] Worst fitness -4.6522 — severe underperformance in population
+  [active] best:0.9470 ret:6.5% trd:144 wr:50% dd:13.9% ddDur:79.5% | pos:35 neg:54 retRange:[-15.2%..6.5%]
+  [returns] pos:35 zero:111 neg:53
+  [outputs] dir:0.11:0.37 sz:0.06:0.41 urg:-0.00:0.10 ex:0.00:0.00 pr:-0.01:0.10 lv:-0.10:0.45 prt:0.00:0.00 tre:-0.02:0.46 trd:0.07:0.51 tp:0.01:0.52 sl:0.14:0.53
+  [closes] total:174 | dirFlip:70 exit:0 cfgSL:68 brainSL:21 TP:6 trail:6 partial:0 kill:0 eos:3
+1929    1.0651  -0.5764  -0.1000     2.01     2.90     6.5%   50%     144  13.9% -0.0024  26    54%  +0.1181 1210.1s
+  [WARNING] Worst fitness -4.6349 — severe underperformance in population
+  [active] best:1.0651 ret:6.5% trd:144 wr:50% dd:13.9% ddDur:79.5% | pos:38 neg:52 retRange:[-15.1%..6.5%]
+  [returns] pos:38 zero:109 neg:52
+  [outputs] dir:0.11:0.37 sz:0.06:0.41 urg:-0.00:0.10 ex:0.00:0.00 pr:-0.01:0.10 lv:-0.10:0.45 prt:0.00:0.00 tre:-0.02:0.46 trd:0.07:0.51 tp:0.01:0.52 sl:0.14:0.53
+  [closes] total:174 | dirFlip:70 exit:0 cfgSL:68 brainSL:21 TP:6 trail:6 partial:0 kill:0 eos:3
+  [detail] DDDur:79.5%  PopTrd:51159  MedTrd:0  ActAg:90  MaxTrd:5461  MaxStag:25/25  CtAdj:10.00  Arch:26  Edges:375/375  Sat:0%  Innov:+46  Shrk:0.98
+  [checkpoint saved: gen 1930]
+  [WF-TOPN] Evaluated 5: [-1.188 -0.857 -0.900 -1.080 -0.804] → best ValFit -0.8042
+  [WALK-FWD] Failed (-0.8042), stalled 1/30
+1930    0.4435  -0.6806  -0.1000     1.07     2.17     9.5%   33%      10  10.5% -0.0032  26    50%  -0.8042 -0.6216 1446.7s
+  [WARNING] Worst fitness -4.6491 — severe underperformance in population
+  [active] best:0.4435 ret:9.5% trd:10 wr:33% dd:10.5% ddDur:36.8% | pos:34 neg:64 retRange:[-15.1%..9.5%]
+  [returns] pos:34 zero:101 neg:64
+  [outputs] dir:0.39:0.32 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:0.00:0.00 lv:0.39:0.32 prt:0.39:0.32 tre:0.39:0.32 trd:0.39:0.32 tp:0.39:0.32 sl:0.39:0.32
+  [closes] total:6 | dirFlip:0 exit:0 cfgSL:3 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1931    1.2217  -0.5836  -0.1000     2.29     3.67     6.5%   41%     128  10.7% -0.0017  26    61%  +0.7782 1243.7s
+  [WARNING] Worst fitness -4.6431 — severe underperformance in population
+  [active] best:1.2217 ret:6.5% trd:128 wr:41% dd:10.7% ddDur:49.3% | pos:31 neg:46 retRange:[-15.5%..9.5%]
+  [returns] pos:31 zero:122 neg:46
+  [outputs] dir:0.09:0.53 sz:-0.03:0.42 urg:-0.00:0.15 ex:0.00:0.00 pr:-0.01:0.14 lv:-0.03:0.42 prt:0.00:0.00 tre:0.00:0.00 trd:0.03:0.42 tp:0.03:0.42 sl:0.00:0.00
+  [closes] total:166 | dirFlip:59 exit:0 cfgSL:104 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1932    1.2132  -0.5494  -0.1000     2.29     3.67     6.5%   41%     128  10.7% -0.0017  26    60%  -0.0085 1104.6s
+  [WARNING] Worst fitness -4.6369 — severe underperformance in population
+  [active] best:1.2132 ret:6.5% trd:128 wr:41% dd:10.7% ddDur:49.3% | pos:30 neg:50 retRange:[-15.0%..9.5%]
+  [returns] pos:28 zero:121 neg:50
+  [outputs] dir:0.09:0.53 sz:-0.03:0.42 urg:-0.00:0.15 ex:0.00:0.00 pr:-0.01:0.14 lv:-0.03:0.42 prt:0.00:0.00 tre:0.00:0.00 trd:0.03:0.42 tp:0.03:0.42 sl:0.00:0.00
+  [closes] total:166 | dirFlip:59 exit:0 cfgSL:104 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1933    1.2090  -0.6664  -0.1000     2.29     3.67     6.5%   41%     128  10.7% -0.0017  26    56%  -0.0043 1511.7s
+  [WARNING] Worst fitness -4.7156 — severe underperformance in population
+  [active] best:1.2090 ret:6.5% trd:128 wr:41% dd:10.7% ddDur:49.3% | pos:34 neg:54 retRange:[-15.1%..16.8%]
+  [returns] pos:34 zero:111 neg:54
+  [outputs] dir:0.09:0.53 sz:-0.03:0.42 urg:-0.00:0.15 ex:0.00:0.00 pr:-0.01:0.14 lv:-0.03:0.42 prt:0.00:0.00 tre:0.00:0.00 trd:0.03:0.42 tp:0.03:0.42 sl:0.00:0.00
+  [closes] total:166 | dirFlip:59 exit:0 cfgSL:104 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1934    1.2084  -0.4796  -0.1000     2.29     3.67     6.5%   41%     128  10.7% -0.0017  26    60%  -0.0006 1391.7s
+  [WARNING] Worst fitness -4.6349 — severe underperformance in population
+  [active] best:1.2084 ret:6.5% trd:128 wr:41% dd:10.7% ddDur:49.3% | pos:32 neg:48 retRange:[-15.1%..22.0%]
+  [returns] pos:32 zero:119 neg:48
+  [outputs] dir:0.09:0.53 sz:-0.03:0.42 urg:-0.00:0.15 ex:0.00:0.00 pr:-0.01:0.14 lv:-0.03:0.42 prt:0.00:0.00 tre:0.00:0.00 trd:0.03:0.42 tp:0.03:0.42 sl:0.00:0.00
+  [closes] total:166 | dirFlip:59 exit:0 cfgSL:104 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+  [detail] DDDur:49.3%  PopTrd:38329  MedTrd:0  ActAg:80  MaxTrd:3463  MaxStag:25/25  CtAdj:10.00  Arch:26  Edges:196/196  Sat:0%  Innov:+34  Shrk:0.98
+  [checkpoint saved: gen 1935]
+1935    1.2085  -0.5043  -0.1000     2.29     3.67     6.5%   41%     128  10.7% -0.0017  26    58%  +0.0001 1292.1s
+  [WARNING] Worst fitness -4.6261 — severe underperformance in population
+  [active] best:1.2085 ret:6.5% trd:128 wr:41% dd:10.7% ddDur:49.3% | pos:37 neg:47 retRange:[-15.0%..22.0%]
+  [returns] pos:37 zero:115 neg:47
+  [outputs] dir:0.09:0.53 sz:-0.03:0.42 urg:-0.00:0.15 ex:0.00:0.00 pr:-0.01:0.14 lv:-0.03:0.42 prt:0.00:0.00 tre:0.00:0.00 trd:0.03:0.42 tp:0.03:0.42 sl:0.00:0.00
+  [closes] total:166 | dirFlip:59 exit:0 cfgSL:104 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1936    1.2085  -0.6965  -0.1000     2.29     3.67     6.5%   41%     128  10.7% -0.0017  26    52%  -+0.0000 1371.5s
+  [WARNING] Worst fitness -4.6361 — severe underperformance in population
+  [active] best:1.2085 ret:6.5% trd:128 wr:41% dd:10.7% ddDur:49.3% | pos:29 neg:67 retRange:[-15.1%..22.0%]
+  [returns] pos:29 zero:103 neg:67
+  [outputs] dir:0.09:0.53 sz:-0.03:0.42 urg:-0.00:0.15 ex:0.00:0.00 pr:-0.01:0.14 lv:-0.03:0.42 prt:0.00:0.00 tre:0.00:0.00 trd:0.03:0.42 tp:0.03:0.42 sl:0.00:0.00
+  [closes] total:166 | dirFlip:59 exit:0 cfgSL:104 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1937    1.2087  -0.6614  -0.1000     2.29     3.67     6.5%   41%     128  10.7% -0.0017  26    49%  +0.0002 1408.8s
+  [WARNING] Worst fitness -4.6366 — severe underperformance in population
+  [active] best:1.2087 ret:6.5% trd:128 wr:41% dd:10.7% ddDur:49.3% | pos:36 neg:65 retRange:[-15.1%..22.0%]
+  [returns] pos:36 zero:98 neg:65
+  [outputs] dir:0.09:0.53 sz:-0.03:0.42 urg:-0.00:0.15 ex:0.00:0.00 pr:-0.01:0.14 lv:-0.03:0.42 prt:0.00:0.00 tre:0.00:0.00 trd:0.03:0.42 tp:0.03:0.42 sl:0.00:0.00
+  [closes] total:166 | dirFlip:59 exit:0 cfgSL:104 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1938    1.2390  -0.5979  -0.1000     2.46     3.83     6.1%   49%     173   6.4% -0.0013  26    54%  +0.0304 1428.3s
+  [WARNING] Worst fitness -4.6393 — severe underperformance in population
+  [active] best:1.2390 ret:6.1% trd:173 wr:49% dd:6.4% ddDur:88.8% | pos:39 neg:51 retRange:[-15.3%..28.9%]
+  [returns] pos:38 zero:110 neg:51
+  [outputs] dir:0.22:0.60 sz:0.04:0.63 urg:0.00:0.42 ex:-0.56:0.42 pr:0.15:0.53 lv:-0.25:0.51 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:201 | dirFlip:130 exit:0 cfgSL:68 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1939    1.2382  -0.6915  -0.1000     2.46     3.83     6.1%   49%     173   6.4% -0.0013  26    53%  -0.0008 1397.7s
+  [WARNING] Worst fitness -4.6353 — severe underperformance in population
+  [active] best:1.2382 ret:6.1% trd:173 wr:49% dd:6.4% ddDur:88.8% | pos:36 neg:57 retRange:[-15.1%..28.9%]
+  [returns] pos:36 zero:106 neg:57
+  [outputs] dir:0.22:0.60 sz:0.04:0.63 urg:0.00:0.42 ex:-0.56:0.42 pr:0.15:0.53 lv:-0.25:0.51 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:201 | dirFlip:130 exit:0 cfgSL:68 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+  [detail] DDDur:88.8%  PopTrd:55339  MedTrd:0  ActAg:93  MaxTrd:6900  MaxStag:24/25  CtAdj:10.00  Arch:26  Edges:482/482  Sat:0%  Innov:+33  Shrk:0.98
+  [checkpoint saved: gen 1940]
+  [WF-TOPN] Evaluated 5: [-0.756 -0.047 0.025 0.931 -1.135] → best ValFit 0.9306
+  [WALK-FWD] Passed (0.9306), advanced to 43008 bars
+1940    0.5366  -0.7597  -0.1000     1.33     1.98     0.5%   41%     102   0.7% -0.0002  26    54%   0.9306 -0.7016 1398.6s
+  [WARNING] Worst fitness -4.6415 — severe underperformance in population
+  [active] best:0.5366 ret:0.5% trd:102 wr:41% dd:0.7% ddDur:78.6% | pos:18 neg:72 retRange:[-15.1%..3.6%]
+  [returns] pos:16 zero:113 neg:70
+  [outputs] dir:0.15:0.72 sz:0.03:0.70 urg:-0.01:0.34 ex:0.00:0.00 pr:0.00:0.00 lv:0.00:0.00 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:93 | dirFlip:38 exit:0 cfgSL:52 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1941    1.0098  -0.5603  -0.1000     2.18     3.23     0.7%   48%      95   0.7% -0.0002  26    64%  +0.4733 1113.4s
+  [WARNING] Worst fitness -4.6691 — severe underperformance in population
+  [active] best:1.0098 ret:0.7% trd:95 wr:48% dd:0.7% ddDur:67.7% | pos:20 neg:52 retRange:[-15.1%..9.5%]
+  [returns] pos:19 zero:128 neg:52
+  [outputs] dir:0.06:0.48 sz:0.01:0.15 urg:0.01:0.29 ex:0.00:0.00 pr:0.00:0.00 lv:0.00:0.00 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:104 | dirFlip:46 exit:0 cfgSL:55 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1942    0.9973  -0.5094  -0.1000     2.18     3.23     0.7%   48%      95   0.7% -0.0002  26    61%  -0.0126 1385.5s
+  [WARNING] Worst fitness -4.6355 — severe underperformance in population
+  [active] best:0.9973 ret:0.7% trd:95 wr:48% dd:0.7% ddDur:67.7% | pos:27 neg:50 retRange:[-15.1%..9.5%]
+  [returns] pos:27 zero:123 neg:49
+  [outputs] dir:0.06:0.48 sz:0.01:0.15 urg:0.01:0.29 ex:0.00:0.00 pr:0.00:0.00 lv:0.00:0.00 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:104 | dirFlip:46 exit:0 cfgSL:55 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1943    0.9967  -0.4577  -0.1000     2.18     3.23     0.7%   48%      95   0.7% -0.0002  26    63%  -0.0006 1331.6s
+  [WARNING] Worst fitness -4.6352 — severe underperformance in population
+  [active] best:0.9967 ret:0.7% trd:95 wr:48% dd:0.7% ddDur:67.7% | pos:24 neg:49 retRange:[-15.0%..9.8%]
+  [returns] pos:23 zero:128 neg:48
+  [outputs] dir:0.06:0.48 sz:0.01:0.15 urg:0.01:0.29 ex:0.00:0.00 pr:0.00:0.00 lv:0.00:0.00 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:104 | dirFlip:46 exit:0 cfgSL:55 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1944    0.9967  -0.5730  -0.1000     2.18     3.23     0.7%   48%      95   0.7% -0.0002  26    64%  +0.0000 1257.0s
+  [WARNING] Worst fitness -4.6357 — severe underperformance in population
+  [active] best:0.9967 ret:0.7% trd:95 wr:48% dd:0.7% ddDur:67.7% | pos:19 neg:52 retRange:[-15.1%..9.5%]
+  [returns] pos:19 zero:128 neg:52
+  [outputs] dir:0.06:0.48 sz:0.01:0.15 urg:0.01:0.29 ex:0.00:0.00 pr:0.00:0.00 lv:0.00:0.00 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:104 | dirFlip:46 exit:0 cfgSL:55 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+  [detail] DDDur:67.7%  PopTrd:36586  MedTrd:0  ActAg:71  MaxTrd:3713  MaxStag:24/25  CtAdj:10.00  Arch:26  Edges:17373/17373  Sat:0%  Innov:+32  Shrk:0.97
+  [checkpoint saved: gen 1945]
+1945    0.9971  -0.4164  -0.1000     2.18     3.23     0.7%   48%      95   0.7% -0.0002  26    62%  +0.0004 1226.7s
+  [WARNING] Worst fitness -4.6452 — severe underperformance in population
+  [active] best:0.9971 ret:0.7% trd:95 wr:48% dd:0.7% ddDur:67.7% | pos:32 neg:43 retRange:[-15.1%..9.5%]
+  [returns] pos:32 zero:124 neg:43
+  [outputs] dir:0.06:0.48 sz:0.01:0.15 urg:0.01:0.29 ex:0.00:0.00 pr:0.00:0.00 lv:0.00:0.00 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:104 | dirFlip:46 exit:0 cfgSL:55 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1946    0.9968  -0.6196  -0.1000     2.18     3.23     0.7%   48%      95   0.7% -0.0002  26    60%  -0.0004 1169.0s
+  [WARNING] Worst fitness -4.6410 — severe underperformance in population
+  [active] best:0.9968 ret:0.7% trd:95 wr:48% dd:0.7% ddDur:67.7% | pos:31 neg:49 retRange:[-15.1%..9.5%]
+  [returns] pos:31 zero:119 neg:49
+  [outputs] dir:0.06:0.48 sz:0.01:0.15 urg:0.01:0.29 ex:0.00:0.00 pr:0.00:0.00 lv:0.00:0.00 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:104 | dirFlip:46 exit:0 cfgSL:55 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1947    1.0890  -0.5934  -0.1000     2.31     3.50     0.8%   44%      73   0.7% -0.0002  26    58%  +0.0923 1179.3s
+  [WARNING] Worst fitness -4.6359 — severe underperformance in population
+  [active] best:1.0890 ret:0.8% trd:73 wr:44% dd:0.7% ddDur:52.3% | pos:30 neg:52 retRange:[-15.1%..9.5%]
+  [returns] pos:30 zero:117 neg:52
+  [outputs] dir:0.29:0.55 sz:0.00:0.00 urg:-0.01:0.28 ex:0.00:0.00 pr:0.00:0.00 lv:0.00:0.00 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:82 | dirFlip:39 exit:0 cfgSL:40 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1948    1.0885  -0.6200  -0.1000     2.31     3.50     0.8%   44%      73   0.7% -0.0002  26    58%  -0.0006 1093.8s
+  [WARNING] Worst fitness -4.6629 — severe underperformance in population
+  [active] best:1.0885 ret:0.8% trd:73 wr:44% dd:0.7% ddDur:52.3% | pos:27 neg:56 retRange:[-15.1%..9.8%]
+  [returns] pos:27 zero:116 neg:56
+  [outputs] dir:0.29:0.55 sz:0.00:0.00 urg:-0.01:0.28 ex:0.00:0.00 pr:0.00:0.00 lv:0.00:0.00 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:82 | dirFlip:39 exit:0 cfgSL:40 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1949    1.0882  -0.5998  -0.1000     2.31     3.50     0.8%   44%      73   0.7% -0.0002  26    58%  -0.0003 1036.0s
+  [WARNING] Worst fitness -4.6361 — severe underperformance in population
+  [active] best:1.0882 ret:0.8% trd:73 wr:44% dd:0.7% ddDur:52.3% | pos:32 neg:51 retRange:[-15.0%..14.9%]
+  [returns] pos:32 zero:116 neg:51
+  [outputs] dir:0.29:0.55 sz:0.00:0.00 urg:-0.01:0.28 ex:0.00:0.00 pr:0.00:0.00 lv:0.00:0.00 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:82 | dirFlip:39 exit:0 cfgSL:40 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+  [detail] DDDur:52.3%  PopTrd:45788  MedTrd:0  ActAg:83  MaxTrd:4287  MaxStag:24/25  CtAdj:10.00  Arch:26  Edges:2186/2186  Sat:0%  Innov:+29  Shrk:0.96
+  [checkpoint saved: gen 1950]
+  [WF-TOPN] Evaluated 5: [-0.476 -1.015 -0.724 -0.473 -0.779] → best ValFit -0.4733
+  [WALK-FWD] Failed (-0.4733), stalled 1/30
+1950    0.5295  -0.6110  -0.1000     1.23     1.87     0.4%   45%     148   0.8% -0.0002  26    57%  -0.4733 -0.5587 1388.6s
+  [WARNING] Worst fitness -4.6345 — severe underperformance in population
+  [active] best:0.5295 ret:0.4% trd:148 wr:45% dd:0.8% ddDur:57.8% | pos:24 neg:61 retRange:[-15.1%..6.7%]
+  [returns] pos:24 zero:115 neg:60
+  [outputs] dir:0.24:0.50 sz:0.03:0.39 urg:-0.01:0.14 ex:-0.42:0.31 pr:-0.42:0.31 lv:-0.42:0.31 prt:-0.42:0.31 tre:-0.42:0.31 trd:-0.42:0.31 tp:-0.42:0.31 sl:-0.42:0.31
+  [closes] total:159 | dirFlip:78 exit:0 cfgSL:78 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1951    0.7982  -0.5434  -0.1000     1.76     2.72     4.1%   43%     154  11.4% -0.0013  26    60%  +0.2687 1382.5s
+  [WARNING] Worst fitness -4.6362 — severe underperformance in population
+  [active] best:0.7982 ret:4.1% trd:154 wr:43% dd:11.4% ddDur:47.4% | pos:27 neg:52 retRange:[-15.0%..9.0%]
+  [returns] pos:27 zero:120 neg:52
+  [outputs] dir:0.24:0.49 sz:0.00:0.50 urg:0.01:0.32 ex:0.00:0.00 pr:0.00:0.00 lv:0.02:0.38 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:182 | dirFlip:97 exit:0 cfgSL:82 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1952    1.0891  -0.5061  -0.1000     2.31     3.54    15.8%   46%     156  14.7% -0.0028  26    66%  +0.2909 1624.0s
+  [WARNING] Worst fitness -4.5374 — severe underperformance in population
+  [active] best:1.0891 ret:15.8% trd:156 wr:46% dd:14.7% ddDur:41.8% | pos:25 neg:43 retRange:[-14.4%..15.8%]
+  [returns] pos:25 zero:131 neg:43
+  [outputs] dir:0.25:0.50 sz:-0.00:0.54 urg:0.02:0.31 ex:0.00:0.00 pr:-0.01:0.14 lv:0.19:0.44 prt:0.00:0.00 tre:-0.02:0.47 trd:0.04:0.48 tp:0.03:0.39 sl:-0.06:0.25
+  [closes] total:173 | dirFlip:88 exit:0 cfgSL:76 brainSL:0 TP:0 trail:6 partial:0 kill:0 eos:3
+1953    1.6058  -0.4486  -0.1000     2.99     4.68    18.4%   47%     161  13.7% -0.0031  26    64%  +0.5167 1217.6s
+  [WARNING] Worst fitness -4.6400 — severe underperformance in population
+  [active] best:1.6058 ret:18.4% trd:161 wr:47% dd:13.7% ddDur:41.5% | pos:30 neg:40 retRange:[-15.0%..18.4%]
+  [returns] pos:30 zero:129 neg:40
+  [outputs] dir:0.26:0.53 sz:0.00:0.54 urg:0.07:0.44 ex:0.00:0.00 pr:-0.01:0.14 lv:0.18:0.44 prt:0.00:0.00 tre:-0.02:0.47 trd:0.03:0.48 tp:0.03:0.39 sl:0.02:0.46
+  [closes] total:181 | dirFlip:91 exit:0 cfgSL:78 brainSL:3 TP:0 trail:6 partial:0 kill:0 eos:3
+1954    1.5734  -0.7425  -0.1000     2.99     4.68    18.4%   47%     161  13.7% -0.0031  26    56%  -0.0324 1257.3s
+  [WARNING] Worst fitness -4.6528 — severe underperformance in population
+  [active] best:1.5734 ret:18.4% trd:161 wr:47% dd:13.7% ddDur:41.5% | pos:37 neg:51 retRange:[-15.0%..18.4%]
+  [returns] pos:37 zero:111 neg:51
+  [outputs] dir:0.26:0.53 sz:0.00:0.54 urg:0.07:0.44 ex:0.00:0.00 pr:-0.01:0.14 lv:0.18:0.44 prt:0.00:0.00 tre:-0.02:0.47 trd:0.03:0.48 tp:0.03:0.39 sl:0.02:0.46
+  [closes] total:181 | dirFlip:91 exit:0 cfgSL:78 brainSL:3 TP:0 trail:6 partial:0 kill:0 eos:3
+  [detail] DDDur:41.5%  PopTrd:72832  MedTrd:0  ActAg:88  MaxTrd:6786  MaxStag:24/25  CtAdj:10.00  Arch:26  Edges:446/446  Sat:0%  Innov:+38  Shrk:0.98
+  [checkpoint saved: gen 1955]
+1955    1.5693  -0.7014  -0.1000     2.99     4.68    18.4%   47%     161  13.7% -0.0031  26    54%  -0.0041 1313.7s
+  [WARNING] Worst fitness -4.6370 — severe underperformance in population
+  [active] best:1.5693 ret:18.4% trd:161 wr:47% dd:13.7% ddDur:41.5% | pos:32 neg:60 retRange:[-15.3%..18.4%]
+  [returns] pos:32 zero:107 neg:60
+  [outputs] dir:0.26:0.53 sz:0.00:0.54 urg:0.07:0.44 ex:0.00:0.00 pr:-0.01:0.14 lv:0.18:0.44 prt:0.00:0.00 tre:-0.02:0.47 trd:0.03:0.48 tp:0.03:0.39 sl:0.02:0.46
+  [closes] total:181 | dirFlip:91 exit:0 cfgSL:78 brainSL:3 TP:0 trail:6 partial:0 kill:0 eos:3
+1956    1.5694  -0.6197  -0.1000     2.99     4.68    18.4%   47%     161  13.7% -0.0031  26    51%  +0.0001 1396.3s
+  [WARNING] Worst fitness -4.6854 — severe underperformance in population
+  [active] best:1.5694 ret:18.4% trd:161 wr:47% dd:13.7% ddDur:41.5% | pos:41 neg:56 retRange:[-15.1%..18.4%]
+  [returns] pos:41 zero:103 neg:55
+  [outputs] dir:0.26:0.53 sz:0.00:0.54 urg:0.07:0.44 ex:0.00:0.00 pr:-0.01:0.14 lv:0.18:0.44 prt:0.00:0.00 tre:-0.02:0.47 trd:0.03:0.48 tp:0.03:0.39 sl:0.02:0.46
+  [closes] total:181 | dirFlip:91 exit:0 cfgSL:78 brainSL:3 TP:0 trail:6 partial:0 kill:0 eos:3
+1957    1.5688  -0.5994  -0.1000     2.99     4.68    18.4%   47%     161  13.7% -0.0031  26    51%  -0.0006 1027.0s
+  [WARNING] Worst fitness -4.6358 — severe underperformance in population
+  [active] best:1.5688 ret:18.4% trd:161 wr:47% dd:13.7% ddDur:41.5% | pos:47 neg:50 retRange:[-15.2%..18.4%]
+  [returns] pos:47 zero:102 neg:50
+  [outputs] dir:0.26:0.53 sz:0.00:0.54 urg:0.07:0.44 ex:0.00:0.00 pr:-0.01:0.14 lv:0.18:0.44 prt:0.00:0.00 tre:-0.02:0.47 trd:0.03:0.48 tp:0.03:0.39 sl:0.02:0.46
+  [closes] total:181 | dirFlip:91 exit:0 cfgSL:78 brainSL:3 TP:0 trail:6 partial:0 kill:0 eos:3
+1958    1.5688  -0.6883  -0.1000     2.99     4.68    18.4%   47%     161  13.7% -0.0031  26    49%  -+0.0000 1162.0s
+  [WARNING] Worst fitness -4.6356 — severe underperformance in population
+  [active] best:1.5688 ret:18.4% trd:161 wr:47% dd:13.7% ddDur:41.5% | pos:49 neg:52 retRange:[-15.0%..18.4%]
+  [returns] pos:48 zero:99 neg:52
+  [outputs] dir:0.26:0.53 sz:0.00:0.54 urg:0.07:0.44 ex:0.00:0.00 pr:-0.01:0.14 lv:0.18:0.44 prt:0.00:0.00 tre:-0.02:0.47 trd:0.03:0.48 tp:0.03:0.39 sl:0.02:0.46
+  [closes] total:181 | dirFlip:91 exit:0 cfgSL:78 brainSL:3 TP:0 trail:6 partial:0 kill:0 eos:3
+1959    1.5690  -0.5708  -0.1000     2.99     4.68    18.4%   47%     161  13.7% -0.0031  26    54%  +0.0002 1080.9s
+  [WARNING] Worst fitness -4.6355 — severe underperformance in population
+  [active] best:1.5690 ret:18.4% trd:161 wr:47% dd:13.7% ddDur:41.5% | pos:43 neg:48 retRange:[-15.1%..18.4%]
+  [returns] pos:42 zero:109 neg:48
+  [outputs] dir:0.26:0.53 sz:0.00:0.54 urg:0.07:0.44 ex:0.00:0.00 pr:-0.01:0.14 lv:0.18:0.44 prt:0.00:0.00 tre:-0.02:0.47 trd:0.03:0.48 tp:0.03:0.39 sl:0.02:0.46
+  [closes] total:181 | dirFlip:91 exit:0 cfgSL:78 brainSL:3 TP:0 trail:6 partial:0 kill:0 eos:3
+  [detail] DDDur:41.5%  PopTrd:51470  MedTrd:0  ActAg:91  MaxTrd:4793  MaxStag:24/25  CtAdj:10.00  Arch:26  Edges:446/446  Sat:0%  Innov:+30  Shrk:0.98
+  [checkpoint saved: gen 1960]
+  [WF-TOPN] Evaluated 5: [0.105 -1.251 -0.984 0.866 0.371] → best ValFit 0.8655
+  [WALK-FWD] Passed (0.8655), advanced to 43680 bars
+1960    1.0626  -0.7150  -0.1000     2.15     3.33    10.3%   40%     126   6.1% -0.0016  26    50%   0.8655 -0.5064 1111.9s
+  [WARNING] Worst fitness -4.6339 — severe underperformance in population
+  [active] best:1.0626 ret:10.3% trd:126 wr:40% dd:6.1% ddDur:90.8% | pos:31 neg:67 retRange:[-15.0%..10.3%]
+  [returns] pos:31 zero:103 neg:65
+  [outputs] dir:0.20:0.47 sz:0.00:0.00 urg:0.00:0.00 ex:0.01:0.02 pr:-0.05:0.40 lv:-0.06:0.38 prt:0.00:0.00 tre:-0.08:0.31 trd:0.00:0.00 tp:0.00:0.08 sl:0.03:0.20
+  [closes] total:143 | dirFlip:81 exit:0 cfgSL:59 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1961    0.9075  -0.4739  -0.1000     1.99     3.53     6.7%   43%     120   6.7% -0.0015  26    63%  -0.1551 1073.1s
+  [WARNING] Worst fitness -4.6335 — severe underperformance in population
+  [active] best:0.9075 ret:6.7% trd:120 wr:43% dd:6.7% ddDur:74.4% | pos:29 neg:44 retRange:[-14.9%..8.1%]
+  [returns] pos:28 zero:127 neg:44
+  [outputs] dir:0.21:0.48 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:-0.06:0.47 lv:-0.08:0.44 prt:0.00:0.00 tre:-0.14:0.51 trd:0.00:0.00 tp:0.01:0.09 sl:0.07:0.31
+  [closes] total:149 | dirFlip:90 exit:0 cfgSL:51 brainSL:0 TP:0 trail:5 partial:0 kill:0 eos:3
+1962    0.9074  -0.5308  -0.1000     1.99     3.53     6.7%   43%     120   6.7% -0.0015  26    54%  -0.0002 1253.5s
+  [WARNING] Worst fitness -4.6355 — severe underperformance in population
+  [active] best:0.9074 ret:6.7% trd:120 wr:43% dd:6.7% ddDur:74.4% | pos:36 neg:54 retRange:[-15.1%..8.1%]
+  [returns] pos:36 zero:109 neg:54
+  [outputs] dir:0.21:0.48 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:-0.06:0.47 lv:-0.08:0.44 prt:0.00:0.00 tre:-0.14:0.51 trd:0.00:0.00 tp:0.01:0.09 sl:0.07:0.31
+  [closes] total:149 | dirFlip:90 exit:0 cfgSL:51 brainSL:0 TP:0 trail:5 partial:0 kill:0 eos:3
+1963    0.9413  -0.4970  -0.1000     1.63     3.10     0.4%   48%      55   0.4% -0.0001  26    56%  +0.0340 1207.4s
+  [WARNING] Worst fitness -4.6352 — severe underperformance in population
+  [active] best:0.9413 ret:0.4% trd:55 wr:48% dd:0.4% ddDur:38.4% | pos:40 neg:47 retRange:[-15.0%..8.1%]
+  [returns] pos:40 zero:112 neg:47
+  [outputs] dir:-0.00:0.03 sz:0.22:0.53 urg:0.11:0.47 ex:-0.02:0.54 pr:-0.27:0.41 lv:0.04:0.28 prt:0.09:0.43 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:43 | dirFlip:0 exit:23 cfgSL:1 brainSL:0 TP:0 trail:0 partial:19 kill:0 eos:0
+1964    0.9411  -0.5896  -0.1000     1.63     3.10     0.4%   48%      55   0.4% -0.0001  26    50%  -0.0002 1190.7s
+  [WARNING] Worst fitness -4.6860 — severe underperformance in population
+  [active] best:0.9411 ret:0.4% trd:55 wr:48% dd:0.4% ddDur:38.4% | pos:45 neg:53 retRange:[-15.4%..8.1%]
+  [returns] pos:45 zero:101 neg:53
+  [outputs] dir:-0.00:0.03 sz:0.22:0.53 urg:0.11:0.47 ex:-0.02:0.54 pr:-0.27:0.41 lv:0.04:0.28 prt:0.09:0.43 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:43 | dirFlip:0 exit:23 cfgSL:1 brainSL:0 TP:0 trail:0 partial:19 kill:0 eos:0
+  [detail] DDDur:38.4%  PopTrd:55644  MedTrd:0  ActAg:98  MaxTrd:5181  MaxStag:25/25  CtAdj:10.00  Arch:26  Edges:500/500  Sat:0%  Innov:+40  Shrk:0.94
+  [checkpoint saved: gen 1965]
+1965    1.1421  -0.5662  -0.1000     1.90     3.90     0.4%   52%      36   0.3% -0.0001  26    52%  +0.2010 1160.1s
+  [WARNING] Worst fitness -4.6337 — severe underperformance in population
+  [active] best:1.1421 ret:0.4% trd:36 wr:52% dd:0.3% ddDur:38.2% | pos:46 neg:49 retRange:[-15.1%..8.1%]
+  [returns] pos:46 zero:104 neg:49
+  [outputs] dir:-0.00:0.03 sz:0.25:0.53 urg:0.14:0.46 ex:-0.01:0.54 pr:0.28:0.41 lv:0.04:0.29 prt:0.07:0.35 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:31 | dirFlip:0 exit:31 cfgSL:0 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:0
+1966    1.4286  -0.5774  -0.1000     2.76     4.58     0.4%   46%      33   0.2% -0.0001  26    50%  +0.2864 1235.8s
+  [WARNING] Worst fitness -4.6366 — severe underperformance in population
+  [active] best:1.4286 ret:0.4% trd:33 wr:46% dd:0.2% ddDur:77.8% | pos:46 neg:52 retRange:[-15.0%..14.0%]
+  [returns] pos:44 zero:103 neg:52
+  [outputs] dir:-0.00:0.03 sz:0.13:0.52 urg:0.01:0.30 ex:0.11:0.51 pr:0.00:0.03 lv:0.01:0.17 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:21 | dirFlip:0 exit:21 cfgSL:0 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:0
+1967    1.4287  -0.6850  -0.1000     2.76     4.58     0.4%   46%      33   0.2% -0.0001  26    46%  +0.0002 1184.9s
+  [WARNING] Worst fitness -4.6675 — severe underperformance in population
+  [active] best:1.4287 ret:0.4% trd:33 wr:46% dd:0.2% ddDur:77.8% | pos:49 neg:59 retRange:[-15.1%..14.0%]
+  [returns] pos:49 zero:91 neg:59
+  [outputs] dir:-0.00:0.03 sz:0.13:0.52 urg:0.01:0.30 ex:0.11:0.51 pr:0.00:0.03 lv:0.01:0.17 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:21 | dirFlip:0 exit:21 cfgSL:0 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:0
+1968    1.4285  -0.6371  -0.1000     2.76     4.58     0.4%   46%      33   0.2% -0.0001  26    48%  -0.0002 1112.1s
+  [WARNING] Worst fitness -4.6538 — severe underperformance in population
+  [active] best:1.4285 ret:0.4% trd:33 wr:46% dd:0.2% ddDur:77.8% | pos:46 neg:59 retRange:[-15.1%..14.0%]
+  [returns] pos:46 zero:96 neg:57
+  [outputs] dir:-0.00:0.03 sz:0.13:0.52 urg:0.01:0.30 ex:0.11:0.51 pr:0.00:0.03 lv:0.01:0.17 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:21 | dirFlip:0 exit:21 cfgSL:0 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:0
+1969    1.4287  -0.5065  -0.1000     2.76     4.58     0.4%   46%      33   0.2% -0.0001  26    45%  +0.0002 1051.7s
+  [WARNING] Worst fitness -4.6343 — severe underperformance in population
+  [active] best:1.4287 ret:0.4% trd:33 wr:46% dd:0.2% ddDur:77.8% | pos:47 neg:62 retRange:[-15.0%..14.0%]
+  [returns] pos:46 zero:91 neg:62
+  [outputs] dir:-0.00:0.03 sz:0.13:0.52 urg:0.01:0.30 ex:0.11:0.51 pr:0.00:0.03 lv:0.01:0.17 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:21 | dirFlip:0 exit:21 cfgSL:0 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:0
+  [detail] DDDur:77.8%  PopTrd:48027  MedTrd:14  ActAg:109  MaxTrd:4776  MaxStag:22/25  CtAdj:10.00  Arch:26  Edges:328/328  Sat:0%  Innov:+24  Shrk:0.90
+  [checkpoint saved: gen 1970]
+  [WF-TOPN] Evaluated 5: [-0.247 0.606 -0.893 -0.036 -0.805] → best ValFit 0.6061
+  [OVERFIT] Validation declining for 8 checks while training improves
+  [WALK-FWD] Passed (0.6061), advanced to 44352 bars
+1970    1.1227  -0.6341  -0.1000     1.89     4.18     2.1%   44%      34   1.4% -0.0002  26    44%   0.6061 -0.3060 1158.1s
+  [WARNING] Worst fitness -4.5090 — severe underperformance in population
+  [active] best:1.1227 ret:2.1% trd:34 wr:44% dd:1.4% ddDur:90.6% | pos:49 neg:63 retRange:[-15.1%..7.0%]
+  [returns] pos:48 zero:88 neg:63
+  [outputs] dir:-0.00:0.03 sz:0.16:0.55 urg:0.19:0.44 ex:0.13:0.49 pr:0.14:0.37 lv:0.05:0.28 prt:-0.36:0.47 tre:0.20:0.49 trd:0.17:0.25 tp:-0.12:0.54 sl:0.01:0.28
+  [closes] total:27 | dirFlip:0 exit:24 cfgSL:3 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:0
+1971    0.7484  -0.7039  -0.1000     1.58     2.47     5.1%   48%     147  11.7% -0.0028  26    50%  -0.3743 1097.4s
+  [WARNING] Worst fitness -4.5278 — severe underperformance in population
+  [active] best:0.7484 ret:5.1% trd:147 wr:48% dd:11.7% ddDur:75.6% | pos:24 neg:75 retRange:[-15.2%..5.1%]
+  [returns] pos:24 zero:101 neg:74
+  [outputs] dir:0.13:0.53 sz:0.07:0.39 urg:0.00:0.15 ex:-0.40:0.32 pr:-0.40:0.32 lv:0.07:0.39 prt:-0.40:0.32 tre:-0.40:0.32 trd:-0.40:0.32 tp:-0.40:0.32 sl:-0.40:0.32
+  [closes] total:166 | dirFlip:81 exit:0 cfgSL:82 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1972    0.7957  -0.5083  -0.1000     1.58     2.47     4.9%   47%     144  11.2% -0.0028  26    62%  +0.0472 1204.9s
+  [WARNING] Worst fitness -4.5320 — severe underperformance in population
+  [active] best:0.7957 ret:4.9% trd:144 wr:47% dd:11.2% ddDur:55.6% | pos:27 neg:47 retRange:[-15.1%..5.1%]
+  [returns] pos:27 zero:125 neg:47
+  [outputs] dir:0.13:0.52 sz:0.07:0.39 urg:0.00:0.15 ex:-0.39:0.32 pr:-0.39:0.32 lv:0.07:0.39 prt:-0.39:0.32 tre:-0.39:0.32 trd:-0.39:0.32 tp:-0.39:0.32 sl:-0.39:0.32
+  [closes] total:166 | dirFlip:80 exit:0 cfgSL:83 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1973    0.7958  -0.6674  -0.1000     1.58     2.47     4.9%   47%     144  11.2% -0.0028  26    60%  +0.0001 1177.7s
+  [WARNING] Worst fitness -4.5411 — severe underperformance in population
+  [active] best:0.7958 ret:4.9% trd:144 wr:47% dd:11.2% ddDur:55.6% | pos:23 neg:57 retRange:[-15.1%..4.9%]
+  [returns] pos:22 zero:121 neg:56
+  [outputs] dir:0.13:0.52 sz:0.07:0.39 urg:0.00:0.15 ex:-0.39:0.32 pr:-0.39:0.32 lv:0.07:0.39 prt:-0.39:0.32 tre:-0.39:0.32 trd:-0.39:0.32 tp:-0.39:0.32 sl:-0.39:0.32
+  [closes] total:166 | dirFlip:80 exit:0 cfgSL:83 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1974    0.7953  -0.3466  -0.1000     1.58     2.47     4.9%   47%     144  11.2% -0.0028  26    68%  -0.0006 1132.6s
+  [WARNING] Worst fitness -4.5210 — severe underperformance in population
+  [active] best:0.7953 ret:4.9% trd:144 wr:47% dd:11.2% ddDur:55.6% | pos:27 neg:37 retRange:[-15.1%..4.9%]
+  [returns] pos:27 zero:136 neg:36
+  [outputs] dir:0.13:0.52 sz:0.07:0.39 urg:0.00:0.15 ex:-0.39:0.32 pr:-0.39:0.32 lv:0.07:0.39 prt:-0.39:0.32 tre:-0.39:0.32 trd:-0.39:0.32 tp:-0.39:0.32 sl:-0.39:0.32
+  [closes] total:166 | dirFlip:80 exit:0 cfgSL:83 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+  [detail] DDDur:55.6%  PopTrd:30834  MedTrd:0  ActAg:64  MaxTrd:5688  MaxStag:21/25  CtAdj:10.00  Arch:26  Edges:162/162  Sat:0%  Innov:+35  Shrk:0.98
+  [checkpoint saved: gen 1975]
+1975    0.7984  -0.5548  -0.1000     1.58     2.48     4.9%   46%     145  11.2% -0.0028  26    63%  +0.0032 1369.7s
+  [WARNING] Worst fitness -4.5378 — severe underperformance in population
+  [active] best:0.7984 ret:4.9% trd:145 wr:46% dd:11.2% ddDur:55.6% | pos:29 neg:45 retRange:[-15.1%..4.9%]
+  [returns] pos:28 zero:126 neg:45
+  [outputs] dir:0.13:0.52 sz:0.07:0.39 urg:0.00:0.15 ex:-0.39:0.32 pr:-0.39:0.32 lv:0.07:0.39 prt:-0.39:0.32 tre:-0.39:0.32 trd:-0.39:0.32 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:166 | dirFlip:80 exit:0 cfgSL:83 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1976    0.7990  -0.6967  -0.1000     1.58     2.48     4.9%   46%     145  11.2% -0.0028  26    63%  +0.0006 1164.2s
+  [WARNING] Worst fitness -4.5409 — severe underperformance in population
+  [active] best:0.7990 ret:4.9% trd:145 wr:46% dd:11.2% ddDur:55.6% | pos:23 neg:50 retRange:[-15.1%..4.9%]
+  [returns] pos:22 zero:127 neg:50
+  [outputs] dir:0.13:0.52 sz:0.07:0.39 urg:0.00:0.15 ex:-0.39:0.32 pr:-0.39:0.32 lv:0.07:0.39 prt:-0.39:0.32 tre:-0.39:0.32 trd:-0.39:0.32 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:166 | dirFlip:80 exit:0 cfgSL:83 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1977    1.5060  -0.6942  -0.1000     2.41     5.06     0.6%   58%      69   0.6% -0.0001  26    61%  +0.7070 1220.0s
+  [WARNING] Worst fitness -4.5407 — severe underperformance in population
+  [active] best:1.5060 ret:0.6% trd:69 wr:58% dd:0.6% ddDur:46.7% | pos:26 neg:51 retRange:[-15.2%..4.9%]
+  [returns] pos:26 zero:123 neg:50
+  [outputs] dir:-0.00:0.03 sz:-0.05:0.53 urg:0.23:0.41 ex:-0.01:0.53 pr:0.16:0.24 lv:-0.00:0.28 prt:0.02:0.40 tre:0.04:0.45 trd:0.00:0.00 tp:0.13:0.46 sl:-0.04:0.28
+  [closes] total:37 | dirFlip:1 exit:33 cfgSL:3 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:0
+1978    1.5014  -0.5034  -0.1000     2.41     5.06     0.6%   58%      69   0.6% -0.0001  26    62%  -0.0046 1307.1s
+  [WARNING] Worst fitness -4.5623 — severe underperformance in population
+  [active] best:1.5014 ret:0.6% trd:69 wr:58% dd:0.6% ddDur:46.7% | pos:33 neg:41 retRange:[-15.1%..5.1%]
+  [returns] pos:32 zero:126 neg:41
+  [outputs] dir:-0.00:0.03 sz:-0.05:0.53 urg:0.23:0.41 ex:-0.01:0.53 pr:0.16:0.24 lv:-0.00:0.28 prt:0.02:0.40 tre:0.04:0.45 trd:0.00:0.00 tp:0.13:0.46 sl:-0.04:0.28
+  [closes] total:37 | dirFlip:1 exit:33 cfgSL:3 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:0
+1979    1.5014  -0.4546  -0.1000     2.41     5.06     0.6%   58%      69   0.6% -0.0001  26    62%  -+0.0000 1242.6s
+  [WARNING] Worst fitness -4.5055 — severe underperformance in population
+  [active] best:1.5014 ret:0.6% trd:69 wr:58% dd:0.6% ddDur:46.7% | pos:31 neg:45 retRange:[-15.1%..5.1%]
+  [returns] pos:31 zero:123 neg:45
+  [outputs] dir:-0.00:0.03 sz:-0.05:0.53 urg:0.23:0.41 ex:-0.01:0.53 pr:0.16:0.24 lv:-0.00:0.28 prt:0.02:0.40 tre:0.04:0.45 trd:0.00:0.00 tp:0.13:0.46 sl:-0.04:0.28
+  [closes] total:37 | dirFlip:1 exit:33 cfgSL:3 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:0
+  [detail] DDDur:46.7%  PopTrd:37613  MedTrd:0  ActAg:76  MaxTrd:4509  MaxStag:23/25  CtAdj:10.00  Arch:26  Edges:542/542  Sat:0%  Innov:+28  Shrk:0.95
+  [checkpoint saved: gen 1980]
+  [WF-TOPN] Evaluated 5: [-0.876 -0.307 -1.748 -0.981 -1.204] → best ValFit -0.3071
+  [OVERFIT] Validation declining for 9 checks while training improves
+  [WALK-FWD] Failed (-0.3071), stalled 1/30
+1980    1.2961  -0.4474  -0.1000     2.58     4.27     5.8%   54%     135   5.6% -0.0012  26    60%  -0.3071 -0.2053 1346.1s
+  [WARNING] Worst fitness -4.6312 — severe underperformance in population
+  [active] best:1.2961 ret:5.8% trd:135 wr:54% dd:5.6% ddDur:45.2% | pos:32 neg:48 retRange:[-15.0%..13.5%]
+  [returns] pos:32 zero:119 neg:48
+  [outputs] dir:-0.04:0.35 sz:-0.11:0.34 urg:0.01:0.12 ex:-0.42:0.32 pr:-0.42:0.32 lv:-0.11:0.34 prt:-0.42:0.32 tre:-0.42:0.32 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:138 | dirFlip:71 exit:0 cfgSL:64 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1981    1.2965  -0.3776  -0.1000     2.58     4.27     5.8%   54%     135   5.6% -0.0012  26    58%  +0.0004 1416.0s
+  [WARNING] Worst fitness -4.6353 — severe underperformance in population
+  [active] best:1.2965 ret:5.8% trd:135 wr:54% dd:5.6% ddDur:45.2% | pos:41 neg:42 retRange:[-15.0%..10.4%]
+  [returns] pos:39 zero:118 neg:42
+  [outputs] dir:-0.04:0.35 sz:-0.11:0.34 urg:0.01:0.12 ex:-0.42:0.32 pr:-0.42:0.32 lv:-0.11:0.34 prt:-0.42:0.32 tre:-0.42:0.32 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:138 | dirFlip:71 exit:0 cfgSL:64 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1982    1.3130  -0.4104  -0.1000     2.61     4.31     6.0%   53%     140   5.7% -0.0012  26    57%  +0.0164 1377.9s
+  [WARNING] Worst fitness -4.6482 — severe underperformance in population
+  [active] best:1.3130 ret:6.0% trd:140 wr:53% dd:5.7% ddDur:45.4% | pos:40 neg:45 retRange:[-15.0%..11.5%]
+  [returns] pos:40 zero:114 neg:45
+  [outputs] dir:-0.04:0.35 sz:-0.11:0.34 urg:0.01:0.12 ex:-0.42:0.32 pr:-0.42:0.32 lv:-0.11:0.34 prt:-0.42:0.32 tre:-0.42:0.32 trd:0.11:0.34 tp:0.11:0.34 sl:-0.15:0.24
+  [closes] total:145 | dirFlip:73 exit:0 cfgSL:69 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1983    1.3133  -0.3464  -0.1000     2.61     4.31     6.0%   53%     140   5.7% -0.0012  26    56%  +0.0003 1431.5s
+  [WARNING] Worst fitness -4.7132 — severe underperformance in population
+  [active] best:1.3133 ret:6.0% trd:140 wr:53% dd:5.7% ddDur:45.4% | pos:49 neg:38 retRange:[-15.0%..11.0%]
+  [returns] pos:48 zero:113 neg:38
+  [outputs] dir:-0.04:0.35 sz:-0.11:0.34 urg:0.01:0.12 ex:-0.42:0.32 pr:-0.42:0.32 lv:-0.11:0.34 prt:-0.42:0.32 tre:-0.42:0.32 trd:0.11:0.34 tp:0.11:0.34 sl:-0.15:0.24
+  [closes] total:145 | dirFlip:73 exit:0 cfgSL:69 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1984    1.3133  -0.3996  -0.1000     2.61     4.31     6.0%   53%     140   5.7% -0.0012  26    53%  -+0.0000 1190.2s
+  [WARNING] Worst fitness -4.6359 — severe underperformance in population
+  [active] best:1.3133 ret:6.0% trd:140 wr:53% dd:5.7% ddDur:45.4% | pos:46 neg:47 retRange:[-15.0%..10.4%]
+  [returns] pos:45 zero:107 neg:47
+  [outputs] dir:-0.04:0.35 sz:-0.11:0.34 urg:0.01:0.12 ex:-0.42:0.32 pr:-0.42:0.32 lv:-0.11:0.34 prt:-0.42:0.32 tre:-0.42:0.32 trd:0.11:0.34 tp:0.11:0.34 sl:-0.15:0.24
+  [closes] total:145 | dirFlip:73 exit:0 cfgSL:69 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+  [detail] DDDur:45.4%  PopTrd:41210  MedTrd:0  ActAg:93  MaxTrd:3667  MaxStag:23/25  CtAdj:10.00  Arch:26  Edges:167/167  Sat:0%  Innov:+23  Shrk:0.98
+  [checkpoint saved: gen 1985]
+1985    1.3128  -0.3666  -0.1000     2.61     4.31     6.0%   53%     140   5.7% -0.0012  26    56%  -0.0005 1111.1s
+  [WARNING] Worst fitness -4.7120 — severe underperformance in population
+  [active] best:1.3128 ret:6.0% trd:140 wr:53% dd:5.7% ddDur:45.4% | pos:42 neg:44 retRange:[-14.9%..10.4%]
+  [returns] pos:42 zero:114 neg:43
+  [outputs] dir:-0.04:0.35 sz:-0.11:0.34 urg:0.01:0.12 ex:-0.42:0.32 pr:-0.42:0.32 lv:-0.11:0.34 prt:-0.42:0.32 tre:-0.42:0.32 trd:0.11:0.34 tp:0.11:0.34 sl:-0.15:0.24
+  [closes] total:145 | dirFlip:73 exit:0 cfgSL:69 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1986    1.3129  -0.4733  -0.1000     2.61     4.31     6.0%   53%     140   5.7% -0.0012  26    52%  +0.0001 1420.8s
+  [WARNING] Worst fitness -4.6560 — severe underperformance in population
+  [active] best:1.3129 ret:6.0% trd:140 wr:53% dd:5.7% ddDur:45.4% | pos:47 neg:47 retRange:[-15.2%..12.0%]
+  [returns] pos:47 zero:105 neg:47
+  [outputs] dir:-0.04:0.35 sz:-0.11:0.34 urg:0.01:0.12 ex:-0.42:0.32 pr:-0.42:0.32 lv:-0.11:0.34 prt:-0.42:0.32 tre:-0.42:0.32 trd:0.11:0.34 tp:0.11:0.34 sl:-0.15:0.24
+  [closes] total:145 | dirFlip:73 exit:0 cfgSL:69 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1987    1.3131  -0.5030  -0.1000     2.61     4.31     6.0%   53%     140   5.7% -0.0012  26    50%  +0.0002 1397.0s
+  [WARNING] Worst fitness -4.6358 — severe underperformance in population
+  [active] best:1.3131 ret:6.0% trd:140 wr:53% dd:5.7% ddDur:45.4% | pos:45 neg:55 retRange:[-14.9%..11.1%]
+  [returns] pos:45 zero:100 neg:54
+  [outputs] dir:-0.04:0.35 sz:-0.11:0.34 urg:0.01:0.12 ex:-0.42:0.32 pr:-0.42:0.32 lv:-0.11:0.34 prt:-0.42:0.32 tre:-0.42:0.32 trd:0.11:0.34 tp:0.11:0.34 sl:-0.15:0.24
+  [closes] total:145 | dirFlip:73 exit:0 cfgSL:69 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1988    1.3127  -0.4460  -0.1000     2.61     4.31     6.0%   53%     140   5.7% -0.0012  26    56%  -0.0004 1438.1s
+  [WARNING] Worst fitness -4.6359 — severe underperformance in population
+  [active] best:1.3127 ret:6.0% trd:140 wr:53% dd:5.7% ddDur:45.4% | pos:41 neg:46 retRange:[-15.1%..10.4%]
+  [returns] pos:41 zero:112 neg:46
+  [outputs] dir:-0.04:0.35 sz:-0.11:0.34 urg:0.01:0.12 ex:-0.42:0.32 pr:-0.42:0.32 lv:-0.11:0.34 prt:-0.42:0.32 tre:-0.42:0.32 trd:0.11:0.34 tp:0.11:0.34 sl:-0.15:0.24
+  [closes] total:145 | dirFlip:73 exit:0 cfgSL:69 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1989    1.3807  -0.2813  -0.1000     2.67     4.13    17.7%   51%     185  12.5% -0.0038  26    58%  +0.0680 1181.2s
+  [WARNING] Worst fitness -4.6356 — severe underperformance in population
+  [active] best:1.3807 ret:17.7% trd:185 wr:51% dd:12.5% ddDur:90.6% | pos:51 neg:33 retRange:[-15.0%..17.7%]
+  [returns] pos:51 zero:115 neg:33
+  [outputs] dir:0.06:0.70 sz:-0.20:0.58 urg:0.00:0.00 ex:0.00:0.00 pr:0.00:0.00 lv:-0.19:0.56 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:211 | dirFlip:143 exit:0 cfgSL:65 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+  [detail] DDDur:90.6%  PopTrd:27059  MedTrd:0  ActAg:84  MaxTrd:2342  MaxStag:24/25  CtAdj:10.00  Arch:26  Edges:14159/14159  Sat:0%  Innov:+26  Shrk:0.98
+  [checkpoint saved: gen 1990]
+  [WF-TOPN] Evaluated 5: [0.442 -0.800 -1.243 1.050 -1.085] → best ValFit 1.0497
+  [OVERFIT] Validation declining for 10 checks while training improves
+  [WALK-FWD] Passed (1.0497), advanced to 45024 bars
+1990    0.9801  -0.6438  -0.1000     1.95     3.25     6.9%   45%    1035   8.5% -0.0016  26    54%   1.0497 -0.4006 1568.1s
+  [WARNING] Worst fitness -4.6359 — severe underperformance in population
+  [active] best:0.9801 ret:6.9% trd:1035 wr:45% dd:8.5% ddDur:73.9% | pos:34 neg:58 retRange:[-15.1%..6.9%]
+  [returns] pos:33 zero:109 neg:57
+  [outputs] dir:0.16:0.46 sz:0.01:0.12 urg:0.06:0.40 ex:0.00:0.00 pr:0.16:0.46 lv:0.24:0.42 prt:-0.45:0.13 tre:-0.09:0.28 trd:-0.08:0.25 tp:0.03:0.52 sl:0.96:0.12
+  [closes] total:127 | dirFlip:86 exit:0 cfgSL:1 brainSL:36 TP:4 trail:0 partial:0 kill:0 eos:0
+1991    0.7053  -0.6710  -0.1000     0.84     1.33     0.4%   18%      18   0.7% -0.0002  26    58%  -0.2748 1169.0s
+  [WARNING] Worst fitness -4.6569 — severe underperformance in population
+  [active] best:0.7053 ret:0.4% trd:18 wr:18% dd:0.7% ddDur:53.9% | pos:26 neg:58 retRange:[-15.1%..3.9%]
+  [returns] pos:26 zero:115 neg:58
+  [outputs] dir:0.75:0.05 sz:0.00:0.00 urg:0.00:0.00 ex:0.00:0.00 pr:0.00:0.00 lv:0.00:0.00 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:25 | dirFlip:0 exit:0 cfgSL:22 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1992    1.2026  -0.4906  -0.1000     2.42     3.72     0.9%   44%      73   0.4% -0.0002  26    64%  +0.4973 2165.2s
+  [WARNING] Worst fitness -4.6346 — severe underperformance in population
+  [active] best:1.2026 ret:0.9% trd:73 wr:44% dd:0.4% ddDur:39.3% | pos:26 neg:45 retRange:[-15.1%..3.8%]
+  [returns] pos:26 zero:128 neg:45
+  [outputs] dir:-0.02:0.62 sz:0.10:0.62 urg:0.00:0.00 ex:0.00:0.00 pr:0.00:0.00 lv:0.00:0.00 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:68 | dirFlip:38 exit:0 cfgSL:27 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1993    1.3506  -0.4714  -0.1000     2.64     4.07     1.0%   45%      77   0.4% -0.0002  26    60%  +0.1480 1493.1s
+  [WARNING] Worst fitness -4.6350 — severe underperformance in population
+  [active] best:1.3506 ret:1.0% trd:77 wr:45% dd:0.4% ddDur:31.2% | pos:33 neg:47 retRange:[-15.1%..4.4%]
+  [returns] pos:33 zero:119 neg:47
+  [outputs] dir:-0.04:0.61 sz:0.10:0.62 urg:0.18:0.54 ex:0.00:0.00 pr:0.00:0.00 lv:0.00:0.00 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:68 | dirFlip:39 exit:0 cfgSL:26 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1994    1.3505  -0.5682  -0.1000     2.64     4.07     1.0%   45%      77   0.4% -0.0002  26    58%  -0.0002 1408.0s
+  [WARNING] Worst fitness -4.6417 — severe underperformance in population
+  [active] best:1.3505 ret:1.0% trd:77 wr:45% dd:0.4% ddDur:31.2% | pos:30 neg:53 retRange:[-15.1%..4.6%]
+  [returns] pos:30 zero:116 neg:53
+  [outputs] dir:-0.04:0.61 sz:0.10:0.62 urg:0.18:0.54 ex:0.00:0.00 pr:0.00:0.00 lv:0.00:0.00 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:68 | dirFlip:39 exit:0 cfgSL:26 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+  [detail] DDDur:31.2%  PopTrd:41803  MedTrd:0  ActAg:83  MaxTrd:3775  MaxStag:25/25  CtAdj:10.00  Arch:26  Edges:1376/1376  Sat:0%  Innov:+31  Shrk:0.96
+  [checkpoint saved: gen 1995]
+1995    1.3543  -0.4180  -0.1000     2.64     4.07     1.0%   45%      77   0.4% -0.0002  26    64%  +0.0039 998.9s
+  [WARNING] Worst fitness -4.6354 — severe underperformance in population
+  [active] best:1.3543 ret:1.0% trd:77 wr:45% dd:0.4% ddDur:31.2% | pos:28 neg:43 retRange:[-15.1%..8.8%]
+  [returns] pos:28 zero:128 neg:43
+  [outputs] dir:-0.04:0.61 sz:0.10:0.62 urg:0.18:0.54 ex:0.00:0.00 pr:0.00:0.00 lv:0.00:0.00 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:68 | dirFlip:39 exit:0 cfgSL:26 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1996    1.3585  -0.4902  -0.1000     2.64     4.07     1.0%   45%      77   0.4% -0.0002  26    58%  +0.0042 1325.1s
+  [WARNING] Worst fitness -4.6516 — severe underperformance in population
+  [active] best:1.3585 ret:1.0% trd:77 wr:45% dd:0.4% ddDur:31.2% | pos:33 neg:50 retRange:[-15.1%..8.8%]
+  [returns] pos:33 zero:116 neg:50
+  [outputs] dir:-0.04:0.61 sz:0.10:0.62 urg:0.18:0.54 ex:0.00:0.00 pr:0.00:0.00 lv:0.00:0.00 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:68 | dirFlip:39 exit:0 cfgSL:26 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1997    1.3584  -0.4945  -0.1000     2.64     4.07     1.0%   45%      77   0.4% -0.0002  26    61%  -+0.0000 1330.3s
+  [WARNING] Worst fitness -4.6504 — severe underperformance in population
+  [active] best:1.3584 ret:1.0% trd:77 wr:45% dd:0.4% ddDur:31.2% | pos:32 neg:45 retRange:[-15.1%..8.8%]
+  [returns] pos:32 zero:122 neg:45
+  [outputs] dir:-0.04:0.61 sz:0.10:0.62 urg:0.18:0.54 ex:0.00:0.00 pr:0.00:0.00 lv:0.00:0.00 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:68 | dirFlip:39 exit:0 cfgSL:26 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1998    1.3503  -0.6684  -0.1000     2.64     4.07     1.0%   45%      77   0.4% -0.0002  26    54%  -0.0081 1450.9s
+  [WARNING] Worst fitness -4.6495 — severe underperformance in population
+  [active] best:1.3503 ret:1.0% trd:77 wr:45% dd:0.4% ddDur:31.2% | pos:35 neg:55 retRange:[-15.1%..8.8%]
+  [returns] pos:35 zero:109 neg:55
+  [outputs] dir:-0.04:0.61 sz:0.10:0.62 urg:0.18:0.54 ex:0.00:0.00 pr:0.00:0.00 lv:0.00:0.00 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:68 | dirFlip:39 exit:0 cfgSL:26 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+1999    1.3503  -0.5190  -0.1000     2.64     4.07     1.0%   45%      77   0.4% -0.0002  26    56%  -+0.0000 1194.8s
+  [WARNING] Worst fitness -4.6674 — severe underperformance in population
+  [active] best:1.3503 ret:1.0% trd:77 wr:45% dd:0.4% ddDur:31.2% | pos:36 neg:50 retRange:[-15.0%..8.8%]
+  [returns] pos:36 zero:113 neg:50
+  [outputs] dir:-0.04:0.61 sz:0.10:0.62 urg:0.18:0.54 ex:0.00:0.00 pr:0.00:0.00 lv:0.00:0.00 prt:0.00:0.00 tre:0.00:0.00 trd:0.00:0.00 tp:0.00:0.00 sl:0.00:0.00
+  [closes] total:68 | dirFlip:39 exit:0 cfgSL:26 brainSL:0 TP:0 trail:0 partial:0 kill:0 eos:3
+  [detail] DDDur:31.2%  PopTrd:43124  MedTrd:0  ActAg:86  MaxTrd:4368  MaxStag:24/25  CtAdj:10.00  Arch:26  Edges:1376/1376  Sat:0%  Innov:+39  Shrk:0.96
+  [checkpoint saved: gen 2000]
+
+═══ VALIDATION ═══                                                        
+  Best validation fitness: 0.6714
+  Sharpe (adjusted): 0.94
+  Return: 15.39%
+  Trades: 39, Win rate: 36%
+  Max drawdown: 15.13%
+
+═══ ENSEMBLE ═══                                                          
+  Species champions: 26
+  Ensemble fitness: 0.7031
+  Ensemble return: 1.03%
+  Ensemble Sharpe: 1.33
+  Ensemble trades: 553
+  Ensemble champions saved to: output_phase4_minimal\ensemble_champions.json
+
+  Best genome (by validation, full-pop) saved to: output_phase4_minimal\best_market_genome.json
+
+[BACKTEST] Complete.
+
+  Phase 4 complete in 63.0h.
+
+[PIPELINE] All 4 phases complete.

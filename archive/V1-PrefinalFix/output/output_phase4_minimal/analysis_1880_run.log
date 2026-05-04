@@ -1,0 +1,52 @@
+[INFO] Using detected pipeline_shared_cache at: C:\Users\ederg\source\repos\THE-SEED\pipeline_shared_cache
+=== Seed Checkpoint Analyzer ===
+Checkpoint: output_phase4_minimal/checkpoints/checkpoint_1880.json
+Config:     market-config.phase4-minimal.json
+Output:     output_phase4_minimal/analysis_1880
+End date:   2026-04-20 21:36:00Z
+
+[ANALYZER] Loading checkpoint: output_phase4_minimal/checkpoints/checkpoint_1880.json
+[ANALYZER] Checkpoint gen=1880, bestFit=2.7767, pop=200, archive=26
+[ANALYZER] Loading historical data + enrichment (cache-first)...
+[ENRICH] Downloading ETH candles...
+[ENRICH] ETH + multi-asset: 12 slots
+[ENRICH] Downloading macro data...
+[ENRICH] +Macro: 23 slots
+[ENRICH] Downloading on-chain data...
+[ENRICH] +On-chain: 31 slots
+[ENRICH] Downloading Fear & Greed...
+[ENRICH] +Fear/Greed: 34 slots
+[ENRICH] Downloading stablecoin/market data...
+[ENRICH] +Stablecoin: 40 slots
+[ENRICH] Downloading funding rates...
+[ENRICH] +Funding: 42 slots
+[ENRICH] Downloading derivatives data...
+[ENRICH] +Derivatives: 48 slots
+[ENRICH] Downloading futures klines for FuturesPremium...
+[ENRICH] +FuturesPremium: 1 slots
+[ENRICH] Downloading Deribit DVOL (IV index)...
+[ENRICH] +Deribit IV: 1 slots
+[ENRICH] Downloading Coinglass liquidation + exchange balance...
+[ENRICH] +Coinglass: 4 slots
+[ENRICH] Complete: 54 enrichment slots populated
+[ANALYZER] Loaded 121015 bars; validation window = 17520 bars (4380h)
+[ANALYZER] Evaluating 220 unique genomes against validation window...
+[ANALYZER] 25/220 evaluated (33s elapsed)
+[ANALYZER] 50/220 evaluated (83s elapsed)
+[ANALYZER] 75/220 evaluated (152s elapsed)
+[ANALYZER] 100/220 evaluated (204s elapsed)
+[ANALYZER] 125/220 evaluated (286s elapsed)
+[ANALYZER] 150/220 evaluated (368s elapsed)
+[ANALYZER] 175/220 evaluated (573s elapsed)
+[ANALYZER] 200/220 evaluated (763s elapsed)
+[ANALYZER] Complete: 220 genomes in 1670.8s
+[ANALYZER] Outputs saved to: output_phase4_minimal/analysis_1880
+  - best_market_genome.json
+  - top10_val_genomes.json
+  - ensemble_champions.json
+  - archive_val_scores.json
+  - population_val_scores.json
+  - analysis_summary.txt
+
+=== DONE ===
+Best ValFit: 1.3550 (GenomeId: 78664b12-86d0-40d5-b5a1-d824f4dddd6c)
