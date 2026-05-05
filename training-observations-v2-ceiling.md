@@ -83,7 +83,22 @@ Curriculum logic: return-tolerant start → gradually emphasize risk-adjusted re
 
 ---
 
+## Run state
+
+| Field | Value |
+|---|---|
+| Launched | 2026-05-05 |
+| PID (initial) | 82056 |
+| Cron monitor | job `5f33da83`, hourly at `:47` local time, session-only (auto-expires 7d — re-arm needed) |
+| Output | `output_ceiling/` |
+| Training log | `training-v11e-ceiling.log` |
+| Foreground monitor | tail-f Bash filter watching for [WF / [BEHAVIOR-WARN / [OVERFIT-ACT / [WF-FULL-POP / Gen lines |
+
 ## Live monitor events
 
 (Cron monitor populates this section as training progresses. Each entry: `gen N | event-type | summary`.)
+
+### Launch
+
+- **2026-05-05** — data loaded cleanly from archived cache. 121016 candles (2022-11-09 → 2026-04-28). Training: 103496 bars (25874h). Validation: 17520 bars (4380h). 50/54 enrichment slots populated (Coinglass empty due to no API key; same config as the archived V1 runs, harmless). Gen 0 evaluation in progress.
 
