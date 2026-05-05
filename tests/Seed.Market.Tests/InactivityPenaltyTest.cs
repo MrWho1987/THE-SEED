@@ -30,7 +30,7 @@ public class InactivityPenaltyTest
         var portfolio = new PortfolioState { Balance = 10_000m, InitialBalance = 10_000m };
         for (int i = 0; i < 50; i++) portfolio.RecordEquity(50_000m);
 
-        var result = fn.ComputeDetailed(portfolio, finalPrice: 50_000m);
+        var result = fn.ComputeDetailed(portfolio, finalPrice: 50_000m, generation: 0);
 
         Assert.Equal(-0.20f, result.Fitness, 5);
         Assert.False(result.IsActive);
@@ -53,7 +53,7 @@ public class InactivityPenaltyTest
         // Synthesize a portfolio with 4 trades and a positive realized return.
         var portfolio = SyntheticPortfolioWithTrades(numTrades: 4, finalEquity: 11_000m);
         var fn = new DefaultFitnessFunction(config);
-        var result = fn.ComputeDetailed(portfolio, finalPrice: 50_000m);
+        var result = fn.ComputeDetailed(portfolio, finalPrice: 50_000m, generation: 0);
 
         Assert.Equal(4, result.TotalTrades);
         Assert.False(result.IsActive);  // tradeCount < minTradesForActive
@@ -70,7 +70,7 @@ public class InactivityPenaltyTest
         var config = MarketConfig.Default;
         var portfolio = SyntheticPortfolioWithTrades(numTrades: 5, finalEquity: 11_000m);
         var fn = new DefaultFitnessFunction(config);
-        var result = fn.ComputeDetailed(portfolio, finalPrice: 50_000m);
+        var result = fn.ComputeDetailed(portfolio, finalPrice: 50_000m, generation: 0);
 
         Assert.Equal(5, result.TotalTrades);
         Assert.True(result.IsActive);

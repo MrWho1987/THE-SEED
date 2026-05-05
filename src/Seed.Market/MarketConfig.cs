@@ -61,15 +61,56 @@ public sealed record MarketConfig
 
     // ── Fitness ──
     public float ShrinkageK { get; init; } = 10f;
-    public float FitnessSharpeWeight { get; init; } = 0.22f;
-    public float FitnessSortinoWeight { get; init; } = 0.13f;
-    public float FitnessReturnWeight { get; init; } = 0.20f;
-    public float FitnessDrawdownDurationWeight { get; init; } = 0.13f;
-    public float FitnessCVaRWeight { get; init; } = 0.17f;
-    public float FitnessCalmarWeight { get; init; } = 0.05f;
-    public float FitnessInfoRatioWeight { get; init; } = 0.05f;
-    public float FitnessFeeDragWeight { get; init; } = 0.03f;
-    public float FitnessDiversificationWeight { get; init; } = 0.02f;
+
+    // T1 — Continuous fitness annealing replaces the legacy 9 scalar fitness weight fields.
+    // Multi-phase pipeline is gone; selection criteria now interpolate smoothly across
+    // generations via this schedule instead of jumping at phase boundaries. Per-waypoint
+    // 9-weight sum must equal 1.0 (validated). At least 2 waypoints required, first at gen=0,
+    // sorted ascending. <see cref="GetWeightsAt"/> linearly interpolates between waypoints.
+    //
+    // T3/T4/L3-S5 will extend WeightWaypoint with BehavioralDiversity, DirFlipDominance, and
+    // Stability columns respectively, raising the per-waypoint sum to 12 weights.
+    public List<WeightWaypoint> WeightSchedule { get; init; } = DefaultSchedule();
+
+    private static List<WeightWaypoint> DefaultSchedule() =>
+    [
+        // Default schedule: constant weights from gen 0 to 1_000_000. Interpolation reduces
+        // to a no-op (both endpoints identical) so behavior matches the legacy scalar defaults
+        // for any caller that doesn't override the schedule.
+        new WeightWaypoint(Gen: 0,
+            Sharpe: 0.22f, Sortino: 0.13f, Return: 0.20f, DrawdownDuration: 0.13f,
+            CVaR: 0.17f, Calmar: 0.05f, InfoRatio: 0.05f, FeeDrag: 0.03f,
+            Diversification: 0.02f),
+        new WeightWaypoint(Gen: 1_000_000,
+            Sharpe: 0.22f, Sortino: 0.13f, Return: 0.20f, DrawdownDuration: 0.13f,
+            CVaR: 0.17f, Calmar: 0.05f, InfoRatio: 0.05f, FeeDrag: 0.03f,
+            Diversification: 0.02f),
+    ];
+
+    /// <summary>
+    /// Linearly interpolates the fitness weights at a given generation. Clamps to first
+    /// and last waypoints outside the schedule range. Bit-equivalent to a linear segment
+    /// lookup; pure function (no state).
+    /// </summary>
+    public WeightWaypoint GetWeightsAt(int generation)
+    {
+        var s = WeightSchedule;
+        if (s.Count == 0)
+            throw new InvalidOperationException("WeightSchedule is empty");
+        if (generation <= s[0].Gen) return s[0];
+        if (generation >= s[^1].Gen) return s[^1];
+        for (int i = 0; i < s.Count - 1; i++)
+        {
+            if (generation >= s[i].Gen && generation <= s[i + 1].Gen)
+            {
+                int span = s[i + 1].Gen - s[i].Gen;
+                if (span <= 0) return s[i + 1];
+                float t = (float)(generation - s[i].Gen) / span;
+                return WeightWaypoint.Lerp(s[i], s[i + 1], t, generation);
+            }
+        }
+        return s[^1];  // unreachable given the bounds above, but keeps the compiler happy
+    }
     // S2 Phase A — tightened defaults to push selection pressure off the inactive plateau.
     // Phase 4 minimal observed ~60% of the population scoring exactly at the inactivity
     // penalty for the entire run; doubling the penalty + raising the active-threshold to 5
@@ -211,16 +252,31 @@ public sealed record MarketConfig
 
     public void Validate()
     {
-        float sum = FitnessSharpeWeight + FitnessSortinoWeight + FitnessReturnWeight
-                  + FitnessDrawdownDurationWeight + FitnessCVaRWeight
-                  + FitnessCalmarWeight + FitnessInfoRatioWeight
-                  + FitnessFeeDragWeight + FitnessDiversificationWeight;
-        if (MathF.Abs(sum - 1.0f) > 0.01f)
+        // T1 — WeightSchedule invariants:
+        //   1. ≥ 2 waypoints (interpolation needs both endpoints)
+        //   2. First waypoint Gen must be 0 (interpolator clamps to first below this)
+        //   3. Waypoints sorted strictly ascending by Gen (no duplicate generations)
+        //   4. Each waypoint's 9 weights sum to 1.0 ± 0.01
+        if (WeightSchedule == null || WeightSchedule.Count < 2)
             throw new InvalidOperationException(
-                $"Fitness weights must sum to 1.0 across 9 components, got {sum:F3} " +
-                $"(Sharpe={FitnessSharpeWeight}, Sortino={FitnessSortinoWeight}, Return={FitnessReturnWeight}, " +
-                $"DD={FitnessDrawdownDurationWeight}, CVaR={FitnessCVaRWeight}, Calmar={FitnessCalmarWeight}, " +
-                $"InfoRatio={FitnessInfoRatioWeight}, FeeDrag={FitnessFeeDragWeight}, Diversification={FitnessDiversificationWeight})");
+                $"WeightSchedule must have ≥ 2 waypoints (got {WeightSchedule?.Count ?? 0}). T1 hard cutover: scalar weights are removed.");
+        if (WeightSchedule[0].Gen != 0)
+            throw new InvalidOperationException(
+                $"WeightSchedule[0].Gen must be 0 (got {WeightSchedule[0].Gen}). The first waypoint anchors the schedule.");
+        for (int i = 1; i < WeightSchedule.Count; i++)
+        {
+            if (WeightSchedule[i].Gen <= WeightSchedule[i - 1].Gen)
+                throw new InvalidOperationException(
+                    $"WeightSchedule waypoints must be strictly ascending by Gen. " +
+                    $"Index {i - 1} has Gen={WeightSchedule[i - 1].Gen}, index {i} has Gen={WeightSchedule[i].Gen}.");
+        }
+        foreach (var wp in WeightSchedule)
+        {
+            float sum = wp.Sum();
+            if (MathF.Abs(sum - 1.0f) > 0.01f)
+                throw new InvalidOperationException(
+                    $"WeightSchedule waypoint at Gen={wp.Gen}: 9 weights sum to {sum:F4}, must equal 1.0 ± 0.01.");
+        }
 
         if (BarsPerHour <= 0)
             throw new InvalidOperationException(
@@ -262,4 +318,68 @@ public enum ExecutionMode
     MonteCarlo,
     Ensemble,
     NeuroAblation
+}
+
+/// <summary>
+/// T1 — A single anchor in the fitness <see cref="MarketConfig.WeightSchedule"/>. Replaces
+/// the legacy 9 scalar fitness weight fields. <see cref="MarketConfig.GetWeightsAt"/>
+/// linearly interpolates between consecutive waypoints by generation; the per-waypoint
+/// 9-weight sum is validated to equal 1.0 ± 0.01.
+///
+/// Future extensions (per plan):
+///   T3 adds <c>BehavioralDiversity</c> column → 10-weight sum.
+///   T4 adds <c>DirFlipDominance</c> column → 11-weight sum.
+///   L3-S5 adds <c>Stability</c> column → 12-weight sum.
+/// </summary>
+public sealed record WeightWaypoint(
+    int Gen,
+    float Sharpe = 0f,
+    float Sortino = 0f,
+    float Return = 0f,
+    float DrawdownDuration = 0f,
+    float CVaR = 0f,
+    float Calmar = 0f,
+    float InfoRatio = 0f,
+    float FeeDrag = 0f,
+    float Diversification = 0f)
+{
+    /// <summary>Sum of all 9 weights at this waypoint. Validated to equal 1.0 ± 0.01.</summary>
+    public float Sum() =>
+        Sharpe + Sortino + Return + DrawdownDuration + CVaR
+        + Calmar + InfoRatio + FeeDrag + Diversification;
+
+    /// <summary>
+    /// Linear interpolation between two waypoints. <paramref name="t"/> ∈ [0, 1] selects
+    /// <paramref name="a"/> at 0 and <paramref name="b"/> at 1. Pure function.
+    /// </summary>
+    public static WeightWaypoint Lerp(WeightWaypoint a, WeightWaypoint b, float t, int gen) => new(
+        Gen: gen,
+        Sharpe:           a.Sharpe           + t * (b.Sharpe           - a.Sharpe),
+        Sortino:          a.Sortino          + t * (b.Sortino          - a.Sortino),
+        Return:           a.Return           + t * (b.Return           - a.Return),
+        DrawdownDuration: a.DrawdownDuration + t * (b.DrawdownDuration - a.DrawdownDuration),
+        CVaR:             a.CVaR             + t * (b.CVaR             - a.CVaR),
+        Calmar:           a.Calmar           + t * (b.Calmar           - a.Calmar),
+        InfoRatio:        a.InfoRatio        + t * (b.InfoRatio        - a.InfoRatio),
+        FeeDrag:          a.FeeDrag          + t * (b.FeeDrag          - a.FeeDrag),
+        Diversification:  a.Diversification  + t * (b.Diversification  - a.Diversification));
+
+    /// <summary>
+    /// Builds a 2-waypoint <see cref="MarketConfig.WeightSchedule"/> with constant weights
+    /// across all generations. Test/code helper for the common "no annealing, just fixed
+    /// weights" case. Validation still requires the 9 weights to sum to 1.0 ± 0.01.
+    /// </summary>
+    public static List<WeightWaypoint> ConstantSchedule(
+        float sharpe, float sortino, float returnWeight, float ddDuration, float cvar,
+        float calmar, float infoRatio, float feeDrag, float diversification) =>
+    [
+        new WeightWaypoint(Gen: 0,
+            Sharpe: sharpe, Sortino: sortino, Return: returnWeight, DrawdownDuration: ddDuration,
+            CVaR: cvar, Calmar: calmar, InfoRatio: infoRatio, FeeDrag: feeDrag,
+            Diversification: diversification),
+        new WeightWaypoint(Gen: 1_000_000,
+            Sharpe: sharpe, Sortino: sortino, Return: returnWeight, DrawdownDuration: ddDuration,
+            CVaR: cvar, Calmar: calmar, InfoRatio: infoRatio, FeeDrag: feeDrag,
+            Diversification: diversification),
+    ];
 }

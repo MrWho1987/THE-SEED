@@ -66,13 +66,12 @@ public class PreTrainingTests
     {
         Assert.Throws<InvalidOperationException>(() =>
         {
+            // T1 — Construct an invalid schedule (sum = 1.5, > 1.0 ± 0.01).
             var badConfig = new MarketConfig
             {
-                FitnessSharpeWeight = 0.5f,
-                FitnessSortinoWeight = 0.5f,
-                FitnessReturnWeight = 0.5f,
-                FitnessDrawdownDurationWeight = 0f,
-                FitnessCVaRWeight = 0f
+                WeightSchedule = WeightWaypoint.ConstantSchedule(
+                    sharpe: 0.5f, sortino: 0.5f, returnWeight: 0.5f, ddDuration: 0f, cvar: 0f,
+                    calmar: 0f, infoRatio: 0f, feeDrag: 0f, diversification: 0f)
             };
             badConfig.Validate(); // Sum = 1.5, should throw
         });

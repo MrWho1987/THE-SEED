@@ -95,7 +95,7 @@ public sealed class MarketEvaluator
             new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount },
             i =>
             {
-                results[i] = RunAgent(entries[i], history, rawPrices, rawVolumes, rawFundingRates);
+                results[i] = RunAgent(entries[i], history, rawPrices, rawVolumes, rawFundingRates, generationIndex);
             });
 
         var dict = new Dictionary<Guid, MarketEvalResult>();
@@ -120,7 +120,7 @@ public sealed class MarketEvaluator
             HiddenLayers = sg.Dev.SubstrateLayers
         };
         var graph = _developer.CompileGraph(sg, genomeBudget, devCtx, SignalCategoryMap, RegimeStart, RegimeEnd);
-        return RunAgent((sg, graph), history, rawPrices, rawVolumes, rawFundingRates);
+        return RunAgent((sg, graph), history, rawPrices, rawVolumes, rawFundingRates, generationIndex);
     }
 
     private MarketEvalResult RunAgent(
@@ -128,7 +128,8 @@ public sealed class MarketEvaluator
         SignalSnapshot[] history,
         float[] rawPrices,
         float[] rawVolumes,
-        float[] rawFundingRates)
+        float[] rawFundingRates,
+        int generationIndex)
     {
         var sg = (SeedGenome)entry.Genome;
         var brain = new BrainRuntime(entry.Graph, sg.Learn, sg.Stable, 1);
@@ -162,7 +163,7 @@ public sealed class MarketEvaluator
         float hodlReturn = (firstP > 0f && !float.IsNaN(firstP) && !float.IsInfinity(firstP))
             ? (lastP - firstP) / firstP : 0f;
 
-        var breakdown = _fitnessFunction.ComputeDetailed(agent.Portfolio, finalPrice, hodlReturn);
+        var breakdown = _fitnessFunction.ComputeDetailed(agent.Portfolio, finalPrice, generationIndex, hodlReturn);
 
         if (openAtEnd > 0)
         {
@@ -210,7 +211,7 @@ public sealed class MarketEvaluator
                 HiddenLayers = sg.Dev.SubstrateLayers
             };
             var graph = _developer.CompileGraph(sg, genomeBudget, devCtx, SignalCategoryMap, RegimeStart, RegimeEnd);
-            var result = RunAgent((sg, graph), history, rawPrices, rawVolumes, rawFundingRates);
+            var result = RunAgent((sg, graph), history, rawPrices, rawVolumes, rawFundingRates, generationIndex);
             championScores.Add((genome, result.Fitness.Fitness));
         }
 
@@ -306,7 +307,7 @@ public sealed class MarketEvaluator
         float hodlReturn = (firstEP > 0f && !float.IsNaN(firstEP) && !float.IsInfinity(firstEP))
             ? (lastEP - firstEP) / firstEP : 0f;
 
-        return _fitnessFunction.ComputeDetailed(ensemblePortfolio, finalPrice, hodlReturn);
+        return _fitnessFunction.ComputeDetailed(ensemblePortfolio, finalPrice, generationIndex, hodlReturn);
     }
 }
 

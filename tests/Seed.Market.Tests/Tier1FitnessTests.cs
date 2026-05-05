@@ -150,7 +150,13 @@ public class Tier1FitnessTests
     [Fact]
     public void MarketConfig_InvalidWeights_ThrowsOnValidate()
     {
-        var cfg = MarketConfig.Default with { FitnessSharpeWeight = 0.99f };  // sum no longer 1.0
+        // T1 — Schedule sum != 1.0 (only Sharpe = 0.5; sum = 0.5, well outside ±0.01) → reject.
+        var cfg = MarketConfig.Default with
+        {
+            WeightSchedule = WeightWaypoint.ConstantSchedule(
+                sharpe: 0.5f, sortino: 0f, returnWeight: 0f, ddDuration: 0f, cvar: 0f,
+                calmar: 0f, infoRatio: 0f, feeDrag: 0f, diversification: 0f)
+        };
         Assert.Throws<InvalidOperationException>(() => cfg.Validate());
     }
 
@@ -159,15 +165,10 @@ public class Tier1FitnessTests
     {
         var cfg = MarketConfig.Default with
         {
-            FitnessSharpeWeight = 0.22f,
-            FitnessSortinoWeight = 0.13f,
-            FitnessReturnWeight = 0.20f,
-            FitnessDrawdownDurationWeight = 0.13f,
-            FitnessCVaRWeight = 0.17f,
-            FitnessCalmarWeight = 0.05f,
-            FitnessInfoRatioWeight = 0.05f,
-            FitnessFeeDragWeight = 0.03f,
-            FitnessDiversificationWeight = 0.02f,
+            WeightSchedule = WeightWaypoint.ConstantSchedule(
+                sharpe: 0.22f, sortino: 0.13f, returnWeight: 0.20f, ddDuration: 0.13f,
+                cvar: 0.17f, calmar: 0.05f, infoRatio: 0.05f, feeDrag: 0.03f,
+                diversification: 0.02f),
         };
         cfg.Validate();  // should not throw
     }

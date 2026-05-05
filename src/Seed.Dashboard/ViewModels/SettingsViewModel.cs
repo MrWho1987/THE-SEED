@@ -164,11 +164,14 @@ public partial class SettingsViewModel : ObservableObject
         RunSeedText = c.RunSeed.ToString(CultureInfo.InvariantCulture);
 
         ShrinkageK = c.ShrinkageK;
-        FitnessSharpeWeight = c.FitnessSharpeWeight;
-        FitnessSortinoWeight = c.FitnessSortinoWeight;
-        FitnessReturnWeight = c.FitnessReturnWeight;
-        FitnessDrawdownDurationWeight = c.FitnessDrawdownDurationWeight;
-        FitnessCVaRWeight = c.FitnessCVaRWeight;
+        // T1 — Dashboard reads gen-0 weights from the schedule (ceiling-test schedules anneal
+        // these over training; the dashboard exposes the entry-point values for visibility).
+        var w0 = c.WeightSchedule[0];
+        FitnessSharpeWeight = w0.Sharpe;
+        FitnessSortinoWeight = w0.Sortino;
+        FitnessReturnWeight = w0.Return;
+        FitnessDrawdownDurationWeight = w0.DrawdownDuration;
+        FitnessCVaRWeight = w0.CVaR;
 
         TargetSpeciesMin = c.TargetSpeciesMin;
         TargetSpeciesMax = c.TargetSpeciesMax;
@@ -242,11 +245,17 @@ public partial class SettingsViewModel : ObservableObject
             RollingStepHours = RollingStepHours,
             RunSeed = seed,
             ShrinkageK = ShrinkageK,
-            FitnessSharpeWeight = FitnessSharpeWeight,
-            FitnessSortinoWeight = FitnessSortinoWeight,
-            FitnessReturnWeight = FitnessReturnWeight,
-            FitnessDrawdownDurationWeight = FitnessDrawdownDurationWeight,
-            FitnessCVaRWeight = FitnessCVaRWeight,
+            // T1 — Dashboard-edited weights become a constant 2-waypoint schedule (no annealing).
+            // Other 4 weights (Calmar, InfoRatio, FeeDrag, Diversification) keep their previous
+            // production defaults so the 9-weight sum still equals 1.0. Edit
+            // market-config.json directly to author non-constant schedules.
+            WeightSchedule = WeightWaypoint.ConstantSchedule(
+                sharpe: FitnessSharpeWeight,
+                sortino: FitnessSortinoWeight,
+                returnWeight: FitnessReturnWeight,
+                ddDuration: FitnessDrawdownDurationWeight,
+                cvar: FitnessCVaRWeight,
+                calmar: 0.05f, infoRatio: 0.05f, feeDrag: 0.03f, diversification: 0.02f),
             TargetSpeciesMin = TargetSpeciesMin,
             TargetSpeciesMax = TargetSpeciesMax,
             CompatibilityAdjustRate = CompatibilityAdjustRate,

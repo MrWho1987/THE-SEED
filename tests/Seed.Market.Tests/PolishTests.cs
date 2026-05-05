@@ -29,7 +29,7 @@ public class PolishTests
             portfolio.EquityCurve.Add(10000f + i * 10f);
         }
 
-        var result = alwaysOne.ComputeDetailed(portfolio, 50000m);
+        var result = alwaysOne.ComputeDetailed(portfolio, 50000m, generation: 0);
         Assert.Equal(1.0f, result.Fitness);
     }
 
@@ -67,8 +67,18 @@ public class PolishTests
             portfolio.EquityCurve.Add(10000f + i * 100f);
         }
 
+        // T1 — DefaultFitnessFunction now reads weights from a MarketConfig.WeightSchedule
+        // instead of accepting raw scalars. To match MarketFitness.ComputeDetailed's parameter
+        // defaults, override the S2-tightened MinTradesForActive (5 → 3) and InactivityPenalty
+        // (-0.20 → -0.1) — those defaults moved in L2 but the static method still uses the
+        // legacy defaults internally, so we mirror them here.
         var staticResult = MarketFitness.ComputeDetailed(portfolio, 50000m, 10f);
-        var interfaceResult = new DefaultFitnessFunction(10f).ComputeDetailed(portfolio, 50000m);
+        var interfaceResult = new DefaultFitnessFunction(MarketConfig.Default with
+        {
+            ShrinkageK = 10f,
+            MinTradesForActive = 3,
+            InactivityPenalty = -0.1f,
+        }).ComputeDetailed(portfolio, 50000m, generation: 0);
 
         Assert.Equal(staticResult.Fitness, interfaceResult.Fitness, 4);
     }
@@ -223,7 +233,7 @@ public class PolishTests
     {
         private readonly float _value;
         public ConstantFitness(float value) => _value = value;
-        public FitnessBreakdown ComputeDetailed(PortfolioState portfolio, decimal finalPrice, float hodlReturn = 0f)
+        public FitnessBreakdown ComputeDetailed(PortfolioState portfolio, decimal finalPrice, int generation, float hodlReturn = 0f)
         {
             return new FitnessBreakdown(
                 Fitness: _value, ReturnPct: 0, MaxDrawdown: 0,

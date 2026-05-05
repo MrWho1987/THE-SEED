@@ -69,11 +69,10 @@ public class EnsembleTests
             MinTradesForActive = 1,
             MaxLeverage = 1.0f,
             ExplicitExitBonus = 0f,  // disable exit bonus to keep test deterministic
-            FitnessSharpeWeight = 0.45f,
-            FitnessSortinoWeight = 0.15f,
-            FitnessReturnWeight = 0.20f,
-            FitnessDrawdownDurationWeight = 0.10f,
-            FitnessCVaRWeight = 0.10f,
+            // T1 — Constant 5-weight schedule (sums to 1.0). Other 4 weights default to 0.
+            WeightSchedule = WeightWaypoint.ConstantSchedule(
+                sharpe: 0.45f, sortino: 0.15f, returnWeight: 0.20f, ddDuration: 0.10f,
+                cvar: 0.10f, calmar: 0f, infoRatio: 0f, feeDrag: 0f, diversification: 0f),
         };
         var evaluator = new MarketEvaluator(config);
 
