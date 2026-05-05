@@ -52,10 +52,12 @@ $RECYCLE.BIN/
 .LSOverride
 
 # User-specific config overrides (local configs with real API keys).
-# Broad rule: ignore ALL market-config.*.json except the placeholder default.
+# Broad rule: ignore ALL market-config.*.json except the placeholder default
+# and the V1 ceiling-test research recipe (no API keys; reproducible by collaborators).
 config.json
 market-config.*.json
 !market-config.default.json
+!market-config.ceiling.json
 
 # Pipeline shared cache (downloaded market data)
 pipeline_shared_cache/

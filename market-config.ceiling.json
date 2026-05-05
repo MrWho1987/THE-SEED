@@ -1,0 +1,104 @@
+{
+  "_comment": "V1 Ceiling-Test config. Single-pipeline run replacing the legacy 4-phase setup. WeightSchedule provides continuous fitness annealing across 6000 generations. Opts in to all L0-L3 fixes (S1-S11 + T1-T5). Used by: dotnet run --project src/Seed.Market.App -- --config market-config.ceiling.json --end-date 2026-04-28T00:00:00Z",
+
+  "initialCapital": 10000,
+  "makerFee": 0.0004,
+  "takerFee": 0.0006,
+  "slippageBps": 5,
+  "symbols": ["BTCUSDT"],
+  "candleInterval": "15m",
+
+  "maxPositionPct": 0.02,
+  "maxDailyLossPct": 0.05,
+  "killSwitchDrawdownPct": 0.15,
+  "maxConcurrentPositions": 3,
+  "maxEquityMultiplier": 50,
+  "stopLossPct": 0.02,
+  "maxLeverage": 125.0,
+  "explicitExitBonus": 0.02,
+  "peakExitBonus": 0.1,
+
+  "populationSize": 200,
+  "generations": 6000,
+  "trainingWindowHours": 26000,
+  "validationWindowHours": 4380,
+  "evalWindowHours": 6000,
+  "evalWindowCount": 3,
+  "rollingStepHours": 168,
+  "runSeed": 42,
+
+  "shrinkageK": 10.0,
+  "weightSchedule": [
+    { "gen": 0,    "sharpe": 0.10, "sortino": 0.05, "return": 0.40, "drawdownDuration": 0.15, "cVaR": 0.17, "calmar": 0.05, "infoRatio": 0.03, "feeDrag": 0.03, "diversification": 0.02, "stability": 0.00, "behavioralDiversity": 0.00, "dirFlipDominance": 0.00 },
+    { "gen": 1500, "sharpe": 0.20, "sortino": 0.12, "return": 0.25, "drawdownDuration": 0.13, "cVaR": 0.15, "calmar": 0.05, "infoRatio": 0.04, "feeDrag": 0.02, "diversification": 0.02, "stability": 0.00, "behavioralDiversity": 0.02, "dirFlipDominance": 0.00 },
+    { "gen": 3000, "sharpe": 0.25, "sortino": 0.13, "return": 0.18, "drawdownDuration": 0.13, "cVaR": 0.15, "calmar": 0.05, "infoRatio": 0.03, "feeDrag": 0.02, "diversification": 0.02, "stability": 0.02, "behavioralDiversity": 0.02, "dirFlipDominance": 0.00 },
+    { "gen": 4500, "sharpe": 0.25, "sortino": 0.13, "return": 0.13, "drawdownDuration": 0.12, "cVaR": 0.13, "calmar": 0.05, "infoRatio": 0.03, "feeDrag": 0.05, "diversification": 0.02, "stability": 0.04, "behavioralDiversity": 0.04, "dirFlipDominance": 0.01 },
+    { "gen": 6000, "sharpe": 0.23, "sortino": 0.13, "return": 0.12, "drawdownDuration": 0.12, "cVaR": 0.12, "calmar": 0.04, "infoRatio": 0.03, "feeDrag": 0.05, "diversification": 0.02, "stability": 0.05, "behavioralDiversity": 0.05, "dirFlipDominance": 0.04 }
+  ],
+
+  "_S2_inactivity": "S2 Phase A — tightened defaults",
+  "inactivityPenalty": -0.20,
+  "minTradesForActive": 5,
+  "windowConsistencyWeight": 0.05,
+  "activityBonusScale": 0.0,
+  "ratioClampMax": 10.0,
+  "returnFloor": -0.50,
+  "openPositionPenalty": 0.05,
+
+  "_S4_speciation": "S4 — config-driven max threshold + tighter target species + stronger stagnation gate",
+  "targetSpeciesMin": 10,
+  "targetSpeciesMax": 20,
+  "compatibilityAdjustRate": 0.1,
+  "compatibilityThresholdMax": 30.0,
+  "minOffspringPerSpecies": 1,
+  "minSpeciesSizeForElitism": 2,
+  "stagnationLimit": 25,
+  "minStagnationImprovement": 0.02,
+  "diversityBonusScale": 0.02,
+  "diversityKNeighbors": 5,
+
+  "maxBrainNodes": 200,
+  "maxBrainEdges": 2000,
+
+  "spotPollMs": 5000,
+  "futuresPollMs": 15000,
+  "sentimentPollMs": 300000,
+  "onChainPollMs": 3600000,
+  "macroPollMs": 3600000,
+
+  "mode": "Backtest",
+  "confirmLive": false,
+  "outputDirectory": "output_ceiling",
+
+  "validationIntervalGens": 10,
+  "earlyStopPatience": 5,
+  "earlyStopEnabled": false,
+
+  "_S3_overfit_action": "S3 — advance walk-forward window when overfit detected (rather than just logging)",
+  "overfitAction": "AdvanceWindow",
+
+  "walkForwardEnabled": true,
+  "walkForwardMinValFitness": -0.05,
+  "walkForwardMaxStallGens": 50,
+  "windowStabilityGens": 1,
+
+  "_B4_B5_protection": "B4/B5 — protect best-val genome in population + evaluate top-5 on val",
+  "protectBestValInPop": true,
+  "walkForwardTopN": 5,
+
+  "_S1_full_pop_wf": "S1 — every 50 gens, evaluate entire population on val window (catches generalizers outside top-N)",
+  "walkForwardFullPopGens": 50,
+
+  "_S6_auto_analyzer": "S6 — fire-and-forget analyzer subprocess on every checkpoint",
+  "autoAnalyzeOnCheckpoint": true,
+
+  "_S8_stale_position": "S8 — stale-position penalty pressuring population toward learning explicit-exit signals",
+  "staleThresholdTicks": 50,
+  "stalePenaltyPerTick": 0.005,
+
+  "_S9_deploy_gate": "S9 — flag genomes with dead V11 outputs as DEPLOY-BLOCKED in analyzer reports",
+  "deployOutputStdMin": 0.01,
+
+  "displayIntervalMs": 10000,
+  "checkpointIntervalGens": 10
+}
