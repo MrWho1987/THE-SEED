@@ -271,12 +271,25 @@ static async Task RunBacktest(MarketConfig config, string configPath, DateTimeOf
 
         if (isValGen)
         {
+            // S1 — Full-population walk-forward gate. Every WalkForwardFullPopGens gens
+            // (when > 0), evaluate the ENTIRE population on val (not just top-N by training
+            // fit). Catches generalizers that the top-N path misses because they don't
+            // dominate the training fitness leaderboard. Default 0 = feature off; B5 top-N
+            // path is the only WF check unless this is configured.
+            bool isFullPopGen = config.WalkForwardFullPopGens > 0 &&
+                                gen % config.WalkForwardFullPopGens == 0;
+
             // B5 — Evaluate top-N training-best genomes on validation; pick the one with highest ValFit.
             // Old behavior preserved when WalkForwardTopN <= 1.
             int wfTopN = Math.Max(1, config.WalkForwardTopN);
-            List<IGenome> topCandidates = wfTopN > 1
-                ? evolution.GetTopNByTrainingFitness(wfTopN)
-                : (evolution.GetBestGenome() is { } only ? new List<IGenome> { only } : new List<IGenome>());
+            List<IGenome> topCandidates = isFullPopGen
+                ? evolution.Population.ToList()
+                : wfTopN > 1
+                    ? evolution.GetTopNByTrainingFitness(wfTopN)
+                    : (evolution.GetBestGenome() is { } only ? new List<IGenome> { only } : new List<IGenome>());
+
+            if (isFullPopGen)
+                Console.WriteLine($"  [WF-FULL-POP gen {gen}] Evaluating entire population ({topCandidates.Count}) on val window");
 
             if (topCandidates.Count > 0)
             {
@@ -344,11 +357,36 @@ static async Task RunBacktest(MarketConfig config, string configPath, DateTimeOf
                     if (trainImproving)
                     {
                         Console.WriteLine($"  [OVERFIT] Validation declining for {consecutiveValDeclines} checks while training improves");
-                        if (config.EarlyStopEnabled)
+                        // S3 — OverfitAction routing. Default None preserves the legacy
+                        // log-only behavior. Halt mirrors the legacy EarlyStopEnabled path.
+                        // AdvanceWindow steps the walk-forward offset forward, giving
+                        // training a fresh data window to redirect away from the overfit.
+                        bool shouldHalt = false;
+                        switch (config.OverfitAction)
                         {
-                            Console.WriteLine("  [EARLY STOP] Halting training due to overfitting");
-                            break;
+                            case OverfitAction.Halt:
+                                Console.WriteLine("  [EARLY STOP] Halting training due to overfitting (OverfitAction=Halt)");
+                                shouldHalt = true;
+                                break;
+                            case OverfitAction.AdvanceWindow:
+                                int s3MaxWfOffset = Math.Max(0, trainLen - evalWindow);
+                                int s3StepBars = config.RollingStepHours * bph;
+                                int s3PrevOffset = walkForwardOffset;
+                                walkForwardOffset = Math.Min(walkForwardOffset + 2 * s3StepBars, s3MaxWfOffset);
+                                stallCount = 0;
+                                consecutiveValDeclines = 0;
+                                Console.WriteLine($"  [OVERFIT-ACT] Advanced WF offset {s3PrevOffset} → {walkForwardOffset} (OverfitAction=AdvanceWindow)");
+                                break;
+                            case OverfitAction.None:
+                            default:
+                                if (config.EarlyStopEnabled)
+                                {
+                                    Console.WriteLine("  [EARLY STOP] Halting training due to overfitting (legacy EarlyStopEnabled)");
+                                    shouldHalt = true;
+                                }
+                                break;
                         }
+                        if (shouldHalt) break;
                     }
                 }
 

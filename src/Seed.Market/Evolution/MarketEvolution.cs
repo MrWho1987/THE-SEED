@@ -142,9 +142,19 @@ public sealed class MarketEvolution
             }
 
             _evaluations = new Dictionary<Guid, MarketEvalResult>();
+            // L3-S5 — Compute interpolated Stability weight for this generation. When > 0,
+            // each genome gets a fitness penalty proportional to its cross-sub-window
+            // AdjustedSharpe dispersion (std / |mean|). Discourages strategies that profit
+            // strongly on one regime but lose on others.
+            float wStability = _config.GetWeightsAt(Generation).Stability;
             foreach (var (id, breakdowns) in accumulated)
             {
                 var avg = AverageBreakdowns(breakdowns, _config.WindowConsistencyWeight);
+                if (wStability > 0f && breakdowns.Count > 1)
+                {
+                    float dispersion = ComputeCrossWindowDispersion(breakdowns);
+                    avg = avg with { Fitness = avg.Fitness - wStability * dispersion };
+                }
                 var last = lastWindowResults[id];
                 _evaluations[id] = new MarketEvalResult(id, avg, last.OutputObs, last.CloseReasonCounts);
             }
@@ -547,6 +557,30 @@ public sealed class MarketEvolution
                 _evaluations[id] = new MarketEvalResult(id, boosted, eval.OutputObs, eval.CloseReasonCounts);
             }
         }
+    }
+
+    /// <summary>
+    /// L3-S5 — Cross-window dispersion of AdjustedSharpe across per-window fitness breakdowns.
+    /// Computed as <c>stddev(per-window AdjustedSharpe) / max(|mean|, 1e-3)</c>. Saturates
+    /// to 0 when fewer than 2 windows are provided. Pure function — public so tests can
+    /// verify the math.
+    /// </summary>
+    public static float ComputeCrossWindowDispersion(IReadOnlyList<FitnessBreakdown> breakdowns)
+    {
+        int n = breakdowns?.Count ?? 0;
+        if (n < 2) return 0f;
+        float sum = 0f;
+        for (int i = 0; i < n; i++) sum += breakdowns![i].AdjustedSharpe;
+        float mean = sum / n;
+        float sumSq = 0f;
+        for (int i = 0; i < n; i++)
+        {
+            float d = breakdowns![i].AdjustedSharpe - mean;
+            sumSq += d * d;
+        }
+        float std = MathF.Sqrt(sumSq / n);
+        float denom = MathF.Max(MathF.Abs(mean), 1e-3f);
+        return std / denom;
     }
 
     /// <summary>

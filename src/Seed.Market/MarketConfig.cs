@@ -205,6 +205,12 @@ public sealed record MarketConfig
     // behavior). Setting to 5 gives the population a much broader chance to show generalization.
     public int WalkForwardTopN { get; init; } = 1;
 
+    // S1 — When > 0, every WalkForwardFullPopGens generations the WF check evaluates the
+    // ENTIRE population on the val window (not just the top-N by training fitness). Catches
+    // generalizers that the B5 top-N path misses because they don't dominate the training-
+    // fitness leaderboard. Default 0 = disabled. Recommended for ceiling-test runs: 50.
+    public int WalkForwardFullPopGens { get; init; } = 0;
+
     // S9 — Deploy gate: minimum stddev of the V11 action outputs (indices 5..10:
     // leverage/partialClose/trailEnable/trailDist/tpOffset/slOverride) across the eval window.
     // A genome with one or more dead V11 outputs (stddev < this) is flagged DEPLOY-BLOCKED by
@@ -223,6 +229,15 @@ public sealed record MarketConfig
     // S6 — Output root for the auto-analyzer subprocess. Per-checkpoint subdirectories named
     // `analysis_NNNN/` are written here. Defaults to `<OutputDirectory>/auto_analyses/` when null.
     public string? AutoAnalyzeOutputDir { get; init; }
+
+    // S3 — How the OVERFIT detection block in Program.cs reacts when validation declines for
+    // EarlyStopPatience checks while training fitness keeps improving. Default None preserves
+    // the legacy log-only behavior (still respects EarlyStopEnabled for halt). Halt halts
+    // training. AdvanceWindow steps the walk-forward offset forward by 2 × RollingStepHours,
+    // resets the stall + decline counters, and continues — giving training a fresh data
+    // window to redirect away from the overfit.
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public OverfitAction OverfitAction { get; init; } = OverfitAction.None;
 
     // ── Paper Trading ──
     public string? GenomePath { get; init; }
@@ -321,6 +336,21 @@ public enum ExecutionMode
 }
 
 /// <summary>
+/// S3 — Action taken when training Program.cs detects sustained validation decline while
+/// training fitness keeps improving (OVERFIT condition). See <see cref="MarketConfig.OverfitAction"/>.
+/// </summary>
+public enum OverfitAction
+{
+    /// <summary>Log only — preserves legacy behavior (still halts if EarlyStopEnabled is true).</summary>
+    None,
+    /// <summary>Halt training immediately on OVERFIT detection.</summary>
+    Halt,
+    /// <summary>Step the walk-forward offset forward by 2 × RollingStepHours and reset
+    /// stall/decline counters. Lets evolution redirect to fresh data instead of halting.</summary>
+    AdvanceWindow
+}
+
+/// <summary>
 /// T1 — A single anchor in the fitness <see cref="MarketConfig.WeightSchedule"/>. Replaces
 /// the legacy 9 scalar fitness weight fields. <see cref="MarketConfig.GetWeightsAt"/>
 /// linearly interpolates between consecutive waypoints by generation; the per-waypoint
@@ -348,13 +378,19 @@ public sealed record WeightWaypoint(
     // T4 — DirFlip dominance penalty. Applied when a genome's close-reason histogram is
     // > 70% DirectionFlip. Penalty = DirFlipDominance × normalized excess. Defaults to 0
     // so existing schedules remain valid; per-waypoint sum becomes 11-weight.
-    float DirFlipDominance = 0f)
+    float DirFlipDominance = 0f,
+    // L3-S5 — Cross-window stability penalty. In multi-window evaluation (EvalWindowCount > 1)
+    // the per-genome dispersion of AdjustedSharpe across sub-windows is computed; this weight
+    // applies a fitness penalty proportional to that dispersion. Single-window mode produces
+    // 0 dispersion → no penalty regardless of weight. Defaults to 0; per-waypoint sum becomes
+    // 12-weight when set.
+    float Stability = 0f)
 {
-    /// <summary>Sum of all 11 weights at this waypoint. Validated to equal 1.0 ± 0.01.</summary>
+    /// <summary>Sum of all 12 weights at this waypoint. Validated to equal 1.0 ± 0.01.</summary>
     public float Sum() =>
         Sharpe + Sortino + Return + DrawdownDuration + CVaR
         + Calmar + InfoRatio + FeeDrag + Diversification
-        + BehavioralDiversity + DirFlipDominance;
+        + BehavioralDiversity + DirFlipDominance + Stability;
 
     /// <summary>
     /// Linear interpolation between two waypoints. <paramref name="t"/> ∈ [0, 1] selects
@@ -372,7 +408,8 @@ public sealed record WeightWaypoint(
         FeeDrag:             a.FeeDrag             + t * (b.FeeDrag             - a.FeeDrag),
         Diversification:     a.Diversification     + t * (b.Diversification     - a.Diversification),
         BehavioralDiversity: a.BehavioralDiversity + t * (b.BehavioralDiversity - a.BehavioralDiversity),
-        DirFlipDominance:    a.DirFlipDominance    + t * (b.DirFlipDominance    - a.DirFlipDominance));
+        DirFlipDominance:    a.DirFlipDominance    + t * (b.DirFlipDominance    - a.DirFlipDominance),
+        Stability:           a.Stability           + t * (b.Stability           - a.Stability));
 
     /// <summary>
     /// Builds a 2-waypoint <see cref="MarketConfig.WeightSchedule"/> with constant weights
@@ -384,17 +421,17 @@ public sealed record WeightWaypoint(
     public static List<WeightWaypoint> ConstantSchedule(
         float sharpe, float sortino, float returnWeight, float ddDuration, float cvar,
         float calmar, float infoRatio, float feeDrag, float diversification,
-        float behavioralDiversity = 0f, float dirFlipDominance = 0f) =>
+        float behavioralDiversity = 0f, float dirFlipDominance = 0f, float stability = 0f) =>
     [
         new WeightWaypoint(Gen: 0,
             Sharpe: sharpe, Sortino: sortino, Return: returnWeight, DrawdownDuration: ddDuration,
             CVaR: cvar, Calmar: calmar, InfoRatio: infoRatio, FeeDrag: feeDrag,
             Diversification: diversification, BehavioralDiversity: behavioralDiversity,
-            DirFlipDominance: dirFlipDominance),
+            DirFlipDominance: dirFlipDominance, Stability: stability),
         new WeightWaypoint(Gen: 1_000_000,
             Sharpe: sharpe, Sortino: sortino, Return: returnWeight, DrawdownDuration: ddDuration,
             CVaR: cvar, Calmar: calmar, InfoRatio: infoRatio, FeeDrag: feeDrag,
             Diversification: diversification, BehavioralDiversity: behavioralDiversity,
-            DirFlipDominance: dirFlipDominance),
+            DirFlipDominance: dirFlipDominance, Stability: stability),
     ];
 }
