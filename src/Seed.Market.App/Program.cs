@@ -15,14 +15,13 @@ using Seed.Market.Trading;
 using Seed.Observatory;
 
 var configPath = "market-config.default.json";
-string[]? pipelineConfigs = null;
 DateTimeOffset? cliEndDate = null;
 
-if (args.Length >= 2 && args[0] == "--pipeline")
-{
-    pipelineConfigs = args[1].Split(',');
-}
-else if (args.Length >= 2 && args[0] == "--config")
+// T2 — Multi-phase pipeline mode (--pipeline) is removed. The plan replaces it with a
+// single-config WeightSchedule-driven run; phase boundaries were a source of population
+// shock (TP1) and discontinuous selection. Use --config <path> with a non-trivial
+// WeightSchedule for continuous fitness annealing.
+if (args.Length >= 2 && args[0] == "--config")
     configPath = args[1];
 else if (args.Length >= 1 && !args[0].StartsWith("-"))
     configPath = args[0];
@@ -46,12 +45,6 @@ for (int i = 0; i < args.Length - 1; i++)
             return;
         }
     }
-}
-
-if (pipelineConfigs != null)
-{
-    await RunPipeline(pipelineConfigs, cliEndDate);
-    return;
 }
 
 if (!File.Exists(configPath))
@@ -1237,83 +1230,10 @@ static async Task RunNeuroAblation(MarketConfig config)
     Console.WriteLine($"  - Positive delta = that channel is actively hurting (noise)");
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PIPELINE MODE — run multiple backtest phases sequentially
-// ─────────────────────────────────────────────────────────────────────────────
-static async Task RunPipeline(string[] configPaths, DateTimeOffset? fixedEnd = null)
-{
-    Console.WriteLine("╔══════════════════════════════════════════════════════════════╗");
-    Console.WriteLine("║          THE SEED — PIPELINE TRAINING                       ║");
-    Console.WriteLine($"║  Phases: {configPaths.Length,-50}║");
-    Console.WriteLine("╚══════════════════════════════════════════════════════════════╝");
-
-    for (int i = 0; i < configPaths.Length; i++)
-    {
-        var path = configPaths[i].Trim();
-        if (!File.Exists(path))
-        {
-            Console.WriteLine($"[PIPELINE] ERROR: Config not found: {path}");
-            return;
-        }
-        var cfg = MarketConfig.Load(path);
-        Console.WriteLine($"  Phase {i + 1}: {Path.GetFileName(path)} -> {cfg.OutputDirectory} (gen {cfg.Generations})");
-    }
-
-    var pipelineEnd = fixedEnd ?? DateTimeOffset.UtcNow.AddHours(-1);
-    var endSource = fixedEnd != null ? "from --end-date CLI" : "now-1h default";
-    Console.WriteLine($"  Fixed date range end: {pipelineEnd:yyyy-MM-dd HH:mm:ss} UTC ({endSource})");
-
-    string sharedCacheDir = Path.Combine(
-        Path.GetDirectoryName(Path.GetFullPath(configPaths[0].Trim())) ?? ".",
-        "pipeline_shared_cache");
-    Directory.CreateDirectory(sharedCacheDir);
-    Console.WriteLine($"  Shared cache: {sharedCacheDir}");
-
-    string? prevOutputDir = null;
-
-    for (int phase = 0; phase < configPaths.Length; phase++)
-    {
-        var path = configPaths[phase].Trim();
-        var config = MarketConfig.Load(path);
-        config = config with { DataCacheDirectory = sharedCacheDir };
-
-        Console.WriteLine($"\n{"═══════════════════════════════════════════════════════════",-64}");
-        Console.WriteLine($"  PIPELINE PHASE {phase + 1}/{configPaths.Length}: {Path.GetFileName(path)}");
-        Console.WriteLine($"  Generations: {config.Generations}");
-        Console.WriteLine($"  Output: {config.OutputDirectory}");
-        Console.WriteLine($"  Data cache: {sharedCacheDir}");
-        Console.WriteLine($"{"═══════════════════════════════════════════════════════════",-64}");
-
-        Directory.CreateDirectory(config.OutputDirectory);
-
-        if (prevOutputDir != null)
-        {
-            var prevCheckpointDir = Path.Combine(prevOutputDir, "checkpoints");
-            var latestCp = CheckpointState.FindLatest(prevCheckpointDir);
-            if (latestCp != null)
-            {
-                var destDir = Path.Combine(config.OutputDirectory, "checkpoints");
-                Directory.CreateDirectory(destDir);
-                var destPath = Path.Combine(destDir, Path.GetFileName(latestCp));
-                File.Copy(latestCp, destPath, overwrite: true);
-                Console.WriteLine($"  Checkpoint copied: {Path.GetFileName(latestCp)}");
-            }
-            else
-            {
-                Console.WriteLine($"  [WARNING] No checkpoint found in {prevCheckpointDir}");
-            }
-        }
-
-        var sw = System.Diagnostics.Stopwatch.StartNew();
-        // Always reset stagnation in pipeline mode — species BestFitness from previous
-        // phases is unreachable under new fitness weights, causing permanent stagnation.
-        // Phase 0 with an existing checkpoint also needs reset (resumed pipeline).
-        await RunBacktest(config, path, pipelineEnd, resetStagnation: true);
-        sw.Stop();
-
-        prevOutputDir = config.OutputDirectory;
-        Console.WriteLine($"\n  Phase {phase + 1} complete in {sw.Elapsed.TotalHours:F1}h.");
-    }
-
-    Console.WriteLine($"\n[PIPELINE] All {configPaths.Length} phases complete.");
-}
+// T2 — Multi-phase RunPipeline removed. The 4-phase pipeline created discontinuous fitness
+// changes at phase boundaries (TP1) and forced ResetSpeciesStagnation that cleared the
+// elite archive (TP3). The plan replaces it with a single WeightSchedule-driven run:
+//   dotnet run --project src/Seed.Market.App -- --config market-config.ceiling.json
+// Schedules with multiple waypoints provide continuous fitness annealing without phase
+// boundaries. MarketEvolution.ResetSpeciesStagnation remains as a public method but is no
+// longer called from any production codepath; it can be invoked by tests/diagnostic tools.
