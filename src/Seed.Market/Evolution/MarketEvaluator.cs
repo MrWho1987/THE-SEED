@@ -155,8 +155,13 @@ public sealed class MarketEvaluator
         decimal finalPrice = (float.IsNaN(lastP) || float.IsInfinity(lastP) || lastP <= 0f)
             ? agent.Portfolio.InitialBalance : (decimal)lastP;
 
+        // T4 — End-of-session auto-close removed to make backtest close-reason distribution
+        // closer to live (where there is no forced eos close). Open positions at window end
+        // contribute their unrealized PnL via portfolio.Equity(finalPrice) but are NOT
+        // recorded as trades and do NOT register an EndOfSession close. The OpenPositionPenalty
+        // applied below + the S8 stale-position per-tick penalty pressure the population
+        // toward learning explicit-exit signals.
         int openAtEnd = agent.Portfolio.OpenPositions.Count;
-        trader.CloseAllPositions(agent.Portfolio, finalPrice, agent.Tick);
 
         // Compute HODL return baseline for Information Ratio fitness term
         float firstP = rawPrices[0];

@@ -158,6 +158,12 @@ public sealed class MarketEvolution
         // current Generation; no-op when weight is 0.
         ApplyBehavioralNiching();
 
+        // 1d. T4 — Apply DirFlip dominance penalty. Genomes whose closes are > 70% DirectionFlip
+        // (i.e., reactive opposite-signal exits rather than brain-driven explicit exits) get
+        // penalized to discourage strategies that don't transfer to live trading. Gated by
+        // WeightSchedule.DirFlipDominance at current Generation; no-op when weight is 0.
+        ApplyDirFlipDominancePenalty();
+
         // 2. Speciate with dynamic threshold
         var specCfg = new SpeciationConfig(
             C1: 1f, C2: 1f, C3: 0.5f,
@@ -397,6 +403,74 @@ public sealed class MarketEvolution
     }
 
     /// <summary>
+    /// T5 — Population-wide stddev of each output channel. <c>result[i]</c> is the mean
+    /// across genomes of <c>OutputObs.Stds[i]</c>. Genomes without OutputObs are skipped.
+    /// Used by the deadness alarm: if any V11 output (indices 5..10) shows a population
+    /// mean stddev below threshold for K consecutive checkpoints, that output is "dead".
+    /// </summary>
+    public static float[] GetPopulationOutputStds(IReadOnlyDictionary<Guid, MarketEvalResult> evaluations)
+    {
+        int outputDim = -1;
+        foreach (var kv in evaluations)
+        {
+            var obs = kv.Value.OutputObs;
+            if (obs.HasValue && obs.Value.Stds != null && obs.Value.Stds.Length > 0)
+            {
+                outputDim = obs.Value.Stds.Length;
+                break;
+            }
+        }
+        if (outputDim < 0) return Array.Empty<float>();
+
+        var sum = new float[outputDim];
+        int n = 0;
+        foreach (var kv in evaluations)
+        {
+            var obs = kv.Value.OutputObs;
+            if (!obs.HasValue || obs.Value.Stds == null || obs.Value.Stds.Length != outputDim) continue;
+            for (int i = 0; i < outputDim; i++) sum[i] += obs.Value.Stds[i];
+            n++;
+        }
+        if (n == 0) return Array.Empty<float>();
+        for (int i = 0; i < outputDim; i++) sum[i] /= n;
+        return sum;
+    }
+
+    /// <summary>
+    /// T5 — Mean variance of population output means. Computed as the average across
+    /// output channels of the variance of <c>OutputObs.Means[i]</c> across genomes. Low
+    /// values indicate the population has converged on a single behavior pattern (mode
+    /// collapse). Used by the mode-collapse alarm.
+    /// </summary>
+    public static float ComputePopulationOutputVariance(IReadOnlyDictionary<Guid, MarketEvalResult> evaluations)
+    {
+        var (centroid, outputDim) = ComputePopulationOutputCentroid(evaluations);
+        if (outputDim == 0) return 0f;
+
+        double sumVariance = 0;
+        int validChannels = 0;
+        for (int i = 0; i < outputDim; i++)
+        {
+            double sumSq = 0;
+            int n = 0;
+            foreach (var kv in evaluations)
+            {
+                var obs = kv.Value.OutputObs;
+                if (!obs.HasValue || obs.Value.Means == null || obs.Value.Means.Length != outputDim) continue;
+                double d = obs.Value.Means[i] - centroid[i];
+                sumSq += d * d;
+                n++;
+            }
+            if (n > 0)
+            {
+                sumVariance += sumSq / n;
+                validChannels++;
+            }
+        }
+        return validChannels > 0 ? (float)(sumVariance / validChannels) : 0f;
+    }
+
+    /// <summary>
     /// T3 — Behavioral niching. Penalizes genomes whose output behavior vector
     /// (OutputObs.Means) is too similar to the population centroid. Bonus added per genome:
     /// <c>wBehavDiv × tanh(Euclidean(genome.OutputObs.Means, centroid))</c>. The tanh saturates
@@ -471,6 +545,49 @@ public sealed class MarketEvolution
                 var f = eval.Fitness;
                 var boosted = f with { Fitness = f.Fitness + bonus };
                 _evaluations[id] = new MarketEvalResult(id, boosted, eval.OutputObs, eval.CloseReasonCounts);
+            }
+        }
+    }
+
+    /// <summary>
+    /// T4 — Computes the DirFlip dominance penalty contribution for a single genome.
+    /// Penalty = max(0, ratio − threshold) / (1 − threshold), where ratio is the fraction
+    /// of closes that were DirectionFlip. Saturates at 1.0 when ratio = 1 (all dirFlip);
+    /// 0 below threshold. Pure function — public so tests + diagnostic tooling can verify.
+    /// </summary>
+    public static float ComputeDirFlipDominancePenalty(int[] closeReasonCounts, float threshold = 0.7f)
+    {
+        if (closeReasonCounts == null || closeReasonCounts.Length == 0) return 0f;
+        int total = 0;
+        for (int i = 0; i < closeReasonCounts.Length; i++) total += closeReasonCounts[i];
+        if (total < 5) return 0f;  // not enough closes to draw a conclusion
+        int dirFlip = closeReasonCounts[(int)Trading.CloseReason.DirectionFlip];
+        float ratio = (float)dirFlip / total;
+        if (ratio <= threshold) return 0f;
+        return (ratio - threshold) / (1f - threshold);
+    }
+
+    private void ApplyDirFlipDominancePenalty()
+    {
+        if (_evaluations.Count == 0) return;
+        var w = _config.GetWeightsAt(Generation);
+        if (w.DirFlipDominance <= 0f) return;
+
+        var adjustments = new Dictionary<Guid, float>(_evaluations.Count);
+        foreach (var (id, eval) in _evaluations)
+        {
+            float penalty = ComputeDirFlipDominancePenalty(eval.CloseReasonCounts ?? Array.Empty<int>());
+            if (penalty > 0f)
+                adjustments[id] = -w.DirFlipDominance * penalty;
+        }
+
+        foreach (var (id, delta) in adjustments)
+        {
+            if (_evaluations.TryGetValue(id, out var eval))
+            {
+                var f = eval.Fitness;
+                _evaluations[id] = new MarketEvalResult(id, f with { Fitness = f.Fitness + delta },
+                    eval.OutputObs, eval.CloseReasonCounts);
             }
         }
     }

@@ -207,6 +207,20 @@ static async Task RunBacktest(MarketConfig config, string configPath, DateTimeOf
     string autoAnalyzeOutputRoot = config.AutoAnalyzeOutputDir
         ?? Path.Combine(config.OutputDirectory, "auto_analyses");
 
+    // T5 — Behavior-validation hooks. Track per-output deadness and mode-collapse counters
+    // across checkpoints. K consecutive checkpoints below threshold triggers a [BEHAVIOR-WARN]
+    // log line. Logging only — operator decides whether to intervene.
+    var outputDeadConsecutive = new int[MarketAgent.OutputCount];
+    int modeCollapseConsecutive = 0;
+    const int t5AlarmK = 3;
+    const float t5DeadStdThreshold = 0.01f;
+    const float t5CollapseVarianceThreshold = 0.001f;
+    string[] t5OutputNames =
+    [
+        "dir", "size", "urg", "exit", "predict",
+        "lv", "prt", "tre", "trd", "tp", "sl"
+    ];
+
     for (int gen = startGen; gen < config.Generations; gen++)
     {
         genStopwatch.Restart();
@@ -457,6 +471,33 @@ static async Task RunBacktest(MarketConfig config, string configPath, DateTimeOf
             string cpPath = Path.Combine(checkpointDir, $"checkpoint_{gen + 1:D4}.json");
             cp.Save(cpPath);
             Console.WriteLine($"  [checkpoint saved: gen {gen + 1}]");
+
+            // T5 — Behavior-validation hooks (logging only).
+            //
+            // (1) Output-deadness: per V11 output (indices 5..10), if mean stddev across the
+            //     population is below threshold for K consecutive checkpoints, log a warning.
+            //     Suggests the action channel never gets explored.
+            // (2) Mode collapse: overall variance of population output-means is below threshold
+            //     for K consecutive checkpoints. Suggests the population has converged on a
+            //     single behavior pattern.
+            // Lineage dominance + train/live divergence proxy require infrastructure not yet
+            // built (ancestry tracking + cross-window dispersion); deferred.
+            var t5PopStds = MarketEvolution.GetPopulationOutputStds(evolution.Evaluations);
+            if (t5PopStds.Length >= 11)
+            {
+                for (int oi = 5; oi <= 10; oi++)
+                {
+                    if (t5PopStds[oi] < t5DeadStdThreshold) outputDeadConsecutive[oi]++;
+                    else                                   outputDeadConsecutive[oi] = 0;
+                    if (outputDeadConsecutive[oi] == t5AlarmK)
+                        Console.WriteLine($"  [BEHAVIOR-WARN] V11 output {oi} ({t5OutputNames[oi]}) dead in population for {t5AlarmK} checkpoints (mean stddev {t5PopStds[oi]:F4})");
+                }
+            }
+            float t5PopVar = MarketEvolution.ComputePopulationOutputVariance(evolution.Evaluations);
+            if (t5PopVar < t5CollapseVarianceThreshold) modeCollapseConsecutive++;
+            else                                        modeCollapseConsecutive = 0;
+            if (modeCollapseConsecutive == t5AlarmK)
+                Console.WriteLine($"  [BEHAVIOR-WARN] population mode-collapse: variance {t5PopVar:F4} < {t5CollapseVarianceThreshold:F4} for {t5AlarmK} checkpoints");
 
             // S6 — fire-and-forget analyzer subprocess if enabled and prior is finished.
             if (config.AutoAnalyzeOnCheckpoint)

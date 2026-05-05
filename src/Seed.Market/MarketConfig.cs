@@ -344,13 +344,17 @@ public sealed record WeightWaypoint(
     float Diversification = 0f,
     // T3 — Behavioral niching. Bonus = BehavioralDiversity × tanh(|genome OutputObs.Means − population centroid|).
     // Defaults to 0 so existing 9-weight schedules remain valid; per-waypoint sum becomes 10-weight.
-    float BehavioralDiversity = 0f)
+    float BehavioralDiversity = 0f,
+    // T4 — DirFlip dominance penalty. Applied when a genome's close-reason histogram is
+    // > 70% DirectionFlip. Penalty = DirFlipDominance × normalized excess. Defaults to 0
+    // so existing schedules remain valid; per-waypoint sum becomes 11-weight.
+    float DirFlipDominance = 0f)
 {
-    /// <summary>Sum of all 10 weights at this waypoint. Validated to equal 1.0 ± 0.01.</summary>
+    /// <summary>Sum of all 11 weights at this waypoint. Validated to equal 1.0 ± 0.01.</summary>
     public float Sum() =>
         Sharpe + Sortino + Return + DrawdownDuration + CVaR
         + Calmar + InfoRatio + FeeDrag + Diversification
-        + BehavioralDiversity;
+        + BehavioralDiversity + DirFlipDominance;
 
     /// <summary>
     /// Linear interpolation between two waypoints. <paramref name="t"/> ∈ [0, 1] selects
@@ -367,7 +371,8 @@ public sealed record WeightWaypoint(
         InfoRatio:           a.InfoRatio           + t * (b.InfoRatio           - a.InfoRatio),
         FeeDrag:             a.FeeDrag             + t * (b.FeeDrag             - a.FeeDrag),
         Diversification:     a.Diversification     + t * (b.Diversification     - a.Diversification),
-        BehavioralDiversity: a.BehavioralDiversity + t * (b.BehavioralDiversity - a.BehavioralDiversity));
+        BehavioralDiversity: a.BehavioralDiversity + t * (b.BehavioralDiversity - a.BehavioralDiversity),
+        DirFlipDominance:    a.DirFlipDominance    + t * (b.DirFlipDominance    - a.DirFlipDominance));
 
     /// <summary>
     /// Builds a 2-waypoint <see cref="MarketConfig.WeightSchedule"/> with constant weights
@@ -379,15 +384,17 @@ public sealed record WeightWaypoint(
     public static List<WeightWaypoint> ConstantSchedule(
         float sharpe, float sortino, float returnWeight, float ddDuration, float cvar,
         float calmar, float infoRatio, float feeDrag, float diversification,
-        float behavioralDiversity = 0f) =>
+        float behavioralDiversity = 0f, float dirFlipDominance = 0f) =>
     [
         new WeightWaypoint(Gen: 0,
             Sharpe: sharpe, Sortino: sortino, Return: returnWeight, DrawdownDuration: ddDuration,
             CVaR: cvar, Calmar: calmar, InfoRatio: infoRatio, FeeDrag: feeDrag,
-            Diversification: diversification, BehavioralDiversity: behavioralDiversity),
+            Diversification: diversification, BehavioralDiversity: behavioralDiversity,
+            DirFlipDominance: dirFlipDominance),
         new WeightWaypoint(Gen: 1_000_000,
             Sharpe: sharpe, Sortino: sortino, Return: returnWeight, DrawdownDuration: ddDuration,
             CVaR: cvar, Calmar: calmar, InfoRatio: infoRatio, FeeDrag: feeDrag,
-            Diversification: diversification, BehavioralDiversity: behavioralDiversity),
+            Diversification: diversification, BehavioralDiversity: behavioralDiversity,
+            DirFlipDominance: dirFlipDominance),
     ];
 }

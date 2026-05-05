@@ -20,13 +20,17 @@ namespace Seed.Market.Tests;
 public class V11dEvolutionSmokeTests
 {
     [Fact]
-    public void MiniEvolution_FindsProfitableGenome_Within15Gens()
+    public void MiniEvolution_FindsProfitableGenome_WithinReasonableGens()
     {
-        // Configure for a fast smoke: pop 30, 15 gens, 500-bar synthetic window.
+        // Configure for a fast smoke: pop 60, 40 gens, 500-bar synthetic window.
+        // Pop/gen budget raised after T4 removed end-of-session auto-close: random brains
+        // now need to actually develop exit behavior (DirFlip via direction signal, or
+        // explicit-exit via output[3]) to realize trades. A longer evolution gives the
+        // population more chances to discover this behavior.
         var config = MarketConfig.Default with
         {
-            PopulationSize = 30,
-            Generations = 15,
+            PopulationSize = 60,
+            Generations = 40,
             InitialCapital = 10_000m,
             MaxPositionPct = 0.08m,            // V11d Phase 1 discovery sizing
             MaxLeverage = 1f,                  // simpler — no leverage for the smoke
