@@ -153,6 +153,11 @@ public sealed class MarketEvolution
         // 1b. Apply KNN diversity bonus
         ApplyDiversityBonus();
 
+        // 1c. T3 — Apply behavioral niching bonus (anti-dominance via tanh of distance from
+        // population output-mean centroid). Gated by WeightSchedule.BehavioralDiversity at
+        // current Generation; no-op when weight is 0.
+        ApplyBehavioralNiching();
+
         // 2. Speciate with dynamic threshold
         var specCfg = new SpeciationConfig(
             C1: 1f, C2: 1f, C3: 0.5f,
@@ -389,6 +394,85 @@ public sealed class MarketEvolution
             MaxDrawdownDuration: breakdowns.Max(b => b.MaxDrawdownDuration),
             ShrinkageConfidence: breakdowns.Average(b => b.ShrinkageConfidence)
         );
+    }
+
+    /// <summary>
+    /// T3 — Behavioral niching. Penalizes genomes whose output behavior vector
+    /// (OutputObs.Means) is too similar to the population centroid. Bonus added per genome:
+    /// <c>wBehavDiv × tanh(Euclidean(genome.OutputObs.Means, centroid))</c>. The tanh saturates
+    /// the bonus so a single far-out genome doesn't get unbounded credit.
+    ///
+    /// Only active when the current-generation BehavioralDiversity weight (from
+    /// <see cref="MarketConfig.GetWeightsAt"/>) is positive AND population ≥ 2 AND every
+    /// genome has a valid OutputObs.
+    /// </summary>
+    public static (float[] Centroid, int OutputDim) ComputePopulationOutputCentroid(
+        IReadOnlyDictionary<Guid, MarketEvalResult> evaluations)
+    {
+        // Find the first genome with a valid OutputObs to size the centroid array.
+        int outputDim = -1;
+        foreach (var kv in evaluations)
+        {
+            var obs = kv.Value.OutputObs;
+            if (obs.HasValue && obs.Value.Means != null && obs.Value.Means.Length > 0)
+            {
+                outputDim = obs.Value.Means.Length;
+                break;
+            }
+        }
+        if (outputDim < 0) return (Array.Empty<float>(), 0);
+
+        var sum = new float[outputDim];
+        int n = 0;
+        foreach (var kv in evaluations)
+        {
+            var obs = kv.Value.OutputObs;
+            if (!obs.HasValue || obs.Value.Means == null || obs.Value.Means.Length != outputDim) continue;
+            for (int i = 0; i < outputDim; i++) sum[i] += obs.Value.Means[i];
+            n++;
+        }
+        if (n == 0) return (Array.Empty<float>(), 0);
+        for (int i = 0; i < outputDim; i++) sum[i] /= n;
+        return (sum, outputDim);
+    }
+
+    private void ApplyBehavioralNiching()
+    {
+        if (_evaluations.Count < 2) return;
+
+        var w = _config.GetWeightsAt(Generation);
+        if (w.BehavioralDiversity <= 0f) return;
+
+        var (centroid, outputDim) = ComputePopulationOutputCentroid(_evaluations);
+        if (outputDim == 0) return;
+
+        // Compute and apply the bonus per genome.
+        var bonuses = new Dictionary<Guid, float>(_evaluations.Count);
+        foreach (var (id, eval) in _evaluations)
+        {
+            var obs = eval.OutputObs;
+            if (!obs.HasValue || obs.Value.Means == null || obs.Value.Means.Length != outputDim)
+                continue;
+            float sumSq = 0f;
+            for (int i = 0; i < outputDim; i++)
+            {
+                float d = obs.Value.Means[i] - centroid[i];
+                sumSq += d * d;
+            }
+            float distance = MathF.Sqrt(sumSq);
+            bonuses[id] = w.BehavioralDiversity * MathF.Tanh(distance);
+        }
+
+        foreach (var (id, bonus) in bonuses)
+        {
+            if (bonus == 0f) continue;
+            if (_evaluations.TryGetValue(id, out var eval))
+            {
+                var f = eval.Fitness;
+                var boosted = f with { Fitness = f.Fitness + bonus };
+                _evaluations[id] = new MarketEvalResult(id, boosted, eval.OutputObs, eval.CloseReasonCounts);
+            }
+        }
     }
 
     private void ApplyDiversityBonus()

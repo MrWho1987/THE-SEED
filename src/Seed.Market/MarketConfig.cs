@@ -275,7 +275,7 @@ public sealed record MarketConfig
             float sum = wp.Sum();
             if (MathF.Abs(sum - 1.0f) > 0.01f)
                 throw new InvalidOperationException(
-                    $"WeightSchedule waypoint at Gen={wp.Gen}: 9 weights sum to {sum:F4}, must equal 1.0 ± 0.01.");
+                    $"WeightSchedule waypoint at Gen={wp.Gen}: weights sum to {sum:F4}, must equal 1.0 ± 0.01.");
         }
 
         if (BarsPerHour <= 0)
@@ -341,12 +341,16 @@ public sealed record WeightWaypoint(
     float Calmar = 0f,
     float InfoRatio = 0f,
     float FeeDrag = 0f,
-    float Diversification = 0f)
+    float Diversification = 0f,
+    // T3 — Behavioral niching. Bonus = BehavioralDiversity × tanh(|genome OutputObs.Means − population centroid|).
+    // Defaults to 0 so existing 9-weight schedules remain valid; per-waypoint sum becomes 10-weight.
+    float BehavioralDiversity = 0f)
 {
-    /// <summary>Sum of all 9 weights at this waypoint. Validated to equal 1.0 ± 0.01.</summary>
+    /// <summary>Sum of all 10 weights at this waypoint. Validated to equal 1.0 ± 0.01.</summary>
     public float Sum() =>
         Sharpe + Sortino + Return + DrawdownDuration + CVaR
-        + Calmar + InfoRatio + FeeDrag + Diversification;
+        + Calmar + InfoRatio + FeeDrag + Diversification
+        + BehavioralDiversity;
 
     /// <summary>
     /// Linear interpolation between two waypoints. <paramref name="t"/> ∈ [0, 1] selects
@@ -354,32 +358,36 @@ public sealed record WeightWaypoint(
     /// </summary>
     public static WeightWaypoint Lerp(WeightWaypoint a, WeightWaypoint b, float t, int gen) => new(
         Gen: gen,
-        Sharpe:           a.Sharpe           + t * (b.Sharpe           - a.Sharpe),
-        Sortino:          a.Sortino          + t * (b.Sortino          - a.Sortino),
-        Return:           a.Return           + t * (b.Return           - a.Return),
-        DrawdownDuration: a.DrawdownDuration + t * (b.DrawdownDuration - a.DrawdownDuration),
-        CVaR:             a.CVaR             + t * (b.CVaR             - a.CVaR),
-        Calmar:           a.Calmar           + t * (b.Calmar           - a.Calmar),
-        InfoRatio:        a.InfoRatio        + t * (b.InfoRatio        - a.InfoRatio),
-        FeeDrag:          a.FeeDrag          + t * (b.FeeDrag          - a.FeeDrag),
-        Diversification:  a.Diversification  + t * (b.Diversification  - a.Diversification));
+        Sharpe:              a.Sharpe              + t * (b.Sharpe              - a.Sharpe),
+        Sortino:             a.Sortino             + t * (b.Sortino             - a.Sortino),
+        Return:              a.Return              + t * (b.Return              - a.Return),
+        DrawdownDuration:    a.DrawdownDuration    + t * (b.DrawdownDuration    - a.DrawdownDuration),
+        CVaR:                a.CVaR                + t * (b.CVaR                - a.CVaR),
+        Calmar:              a.Calmar              + t * (b.Calmar              - a.Calmar),
+        InfoRatio:           a.InfoRatio           + t * (b.InfoRatio           - a.InfoRatio),
+        FeeDrag:             a.FeeDrag             + t * (b.FeeDrag             - a.FeeDrag),
+        Diversification:     a.Diversification     + t * (b.Diversification     - a.Diversification),
+        BehavioralDiversity: a.BehavioralDiversity + t * (b.BehavioralDiversity - a.BehavioralDiversity));
 
     /// <summary>
     /// Builds a 2-waypoint <see cref="MarketConfig.WeightSchedule"/> with constant weights
     /// across all generations. Test/code helper for the common "no annealing, just fixed
-    /// weights" case. Validation still requires the 9 weights to sum to 1.0 ± 0.01.
+    /// weights" case. Validation still requires the per-waypoint weights to sum to 1.0 ± 0.01.
+    /// <paramref name="behavioralDiversity"/> defaults to 0 so existing 9-weight callers
+    /// remain valid; pass non-zero to enable T3 niching.
     /// </summary>
     public static List<WeightWaypoint> ConstantSchedule(
         float sharpe, float sortino, float returnWeight, float ddDuration, float cvar,
-        float calmar, float infoRatio, float feeDrag, float diversification) =>
+        float calmar, float infoRatio, float feeDrag, float diversification,
+        float behavioralDiversity = 0f) =>
     [
         new WeightWaypoint(Gen: 0,
             Sharpe: sharpe, Sortino: sortino, Return: returnWeight, DrawdownDuration: ddDuration,
             CVaR: cvar, Calmar: calmar, InfoRatio: infoRatio, FeeDrag: feeDrag,
-            Diversification: diversification),
+            Diversification: diversification, BehavioralDiversity: behavioralDiversity),
         new WeightWaypoint(Gen: 1_000_000,
             Sharpe: sharpe, Sortino: sortino, Return: returnWeight, DrawdownDuration: ddDuration,
             CVaR: cvar, Calmar: calmar, InfoRatio: infoRatio, FeeDrag: feeDrag,
-            Diversification: diversification),
+            Diversification: diversification, BehavioralDiversity: behavioralDiversity),
     ];
 }
