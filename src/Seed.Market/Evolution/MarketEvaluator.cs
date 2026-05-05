@@ -133,7 +133,7 @@ public sealed class MarketEvaluator
         var sg = (SeedGenome)entry.Genome;
         var brain = new BrainRuntime(entry.Graph, sg.Learn, sg.Stable, 1);
         var trader = new PaperTrader(_config);
-        var agent = new MarketAgent(sg.GenomeId, brain, trader, maxLeverage: _config.MaxLeverage, explicitExitBonus: _config.ExplicitExitBonus, peakExitBonus: _config.PeakExitBonus);
+        var agent = new MarketAgent(sg.GenomeId, brain, trader, maxLeverage: _config.MaxLeverage, explicitExitBonus: _config.ExplicitExitBonus, peakExitBonus: _config.PeakExitBonus, staleThresholdTicks: _config.StaleThresholdTicks, stalePenaltyPerTick: _config.StalePenaltyPerTick);
 
         for (int t = 0; t < history.Length; t++)
         {

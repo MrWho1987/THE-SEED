@@ -40,6 +40,15 @@ public sealed record MarketConfig
     // instead of giving back gains. Default 0.1 (10% of the ±1 reward range).
     public float PeakExitBonus { get; init; } = 0.1f;
 
+    // S8 — Stale-position penalty. When > 0 and an open position's age (ticks since open)
+    // exceeds StaleThresholdTicks, MarketAgent.ComputeReward subtracts
+    // StalePenaltyPerTick × (age − threshold) per tick. Linear ramp, no clamp. Defaults are
+    // 0 (disabled) for legacy compatibility; ceiling-test config sets non-zero values to
+    // pressure population away from holding stale positions and toward learning the
+    // explicit-exit output.
+    public int StaleThresholdTicks { get; init; } = 0;
+    public float StalePenaltyPerTick { get; init; } = 0f;
+
     // ── Evolution ──
     public int PopulationSize { get; init; } = 50;
     public int Generations { get; init; } = 100;
@@ -61,8 +70,14 @@ public sealed record MarketConfig
     public float FitnessInfoRatioWeight { get; init; } = 0.05f;
     public float FitnessFeeDragWeight { get; init; } = 0.03f;
     public float FitnessDiversificationWeight { get; init; } = 0.02f;
-    public float InactivityPenalty { get; init; } = -0.1f;
-    public int MinTradesForActive { get; init; } = 3;
+    // S2 Phase A — tightened defaults to push selection pressure off the inactive plateau.
+    // Phase 4 minimal observed ~60% of the population scoring exactly at the inactivity
+    // penalty for the entire run; doubling the penalty + raising the active-threshold to 5
+    // makes inactivity strictly worse than even a single losing active trade for many
+    // genomes, which gives selection a gradient to work with. Old defaults preserved as
+    // explicit values in any config that needs the legacy behavior.
+    public float InactivityPenalty { get; init; } = -0.20f;
+    public int MinTradesForActive { get; init; } = 5;
     public float WindowConsistencyWeight { get; init; } = 0f;
     public float ActivityBonusScale { get; init; } = 0f;
     public float RatioClampMax { get; init; } = 10f;
@@ -71,12 +86,23 @@ public sealed record MarketConfig
 
     // ── Species Diversity ──
     public int TargetSpeciesMin { get; init; } = 10;
-    public int TargetSpeciesMax { get; init; } = 50;
+    // S4 — TargetSpeciesMax tightened 50 → 20 to favor a smaller, deeper-explored set of
+    // species over a sprawling shallow population. Phase 4 minimal saw 30+ species none of
+    // which had time to mature; aiming for ~20 gives each species more breeding budget.
+    public int TargetSpeciesMax { get; init; } = 20;
     public float CompatibilityAdjustRate { get; init; } = 0.1f;
+    // S4 — Replaces the hard-coded `Math.Min(10.0f, ...)` upper bound on the compatibility
+    // threshold. With a fast-mutating population the threshold pinned at 10 within ~50 gens
+    // and lost its ability to compress oversized species. The new soft cap (30.0) plus the
+    // adaptive halving above 70% of max lets the controller settle smoothly.
+    public float CompatibilityThresholdMax { get; init; } = 30.0f;
     public int MinOffspringPerSpecies { get; init; } = 1;
     public int MinSpeciesSizeForElitism { get; init; } = 2;
     public int StagnationLimit { get; init; } = 25;
-    public float MinStagnationImprovement { get; init; } = 0.005f;
+    // S4 — MinStagnationImprovement raised 0.005 → 0.02 so floating-point drift in overfit
+    // champions can no longer indefinitely reset the stagnation counter. Only meaningful
+    // improvements (≥ 0.02 fitness units) count.
+    public float MinStagnationImprovement { get; init; } = 0.02f;
     public float DiversityBonusScale { get; init; } = 0.02f;
     public int DiversityKNeighbors { get; init; } = 5;
 

@@ -22,6 +22,14 @@ public sealed class MarketAgent
     private readonly float _maxLeverage;
     private readonly float _explicitExitBonus;
     private readonly float _peakExitBonus;
+    // S8 — Stale-position penalty parameters. When the open position's age (ticks since open)
+    // exceeds _staleThresholdTicks, ComputeReward subtracts _stalePenaltyPerTick × (age − threshold)
+    // from the per-tick reward. Defaults to 0/0 (disabled) so behavior is unchanged for callers
+    // that don't opt in. Phase 4 minimal observed pop[149] sitting at full leverage with rawExit
+    // stuck at 0.500 for 12+ hours; this penalty gives selection a gradient toward learning the
+    // explicit-exit output instead of relying on dirFlip closures.
+    private readonly int _staleThresholdTicks;
+    private readonly float _stalePenaltyPerTick;
     private int _tick;
     private int _ticksSinceEntry;
     private float _elapsedHoursAtEntry;
@@ -56,7 +64,8 @@ public sealed class MarketAgent
 
     public MarketAgent(Guid genomeId, BrainRuntime brain, PaperTrader trader,
         AblationConfig? ablation = null, float maxLeverage = 1.0f, float explicitExitBonus = 0.02f,
-        float peakExitBonus = 0.1f)
+        float peakExitBonus = 0.1f,
+        int staleThresholdTicks = 0, float stalePenaltyPerTick = 0f)
     {
         GenomeId = genomeId;
         _brain = brain;
@@ -65,6 +74,8 @@ public sealed class MarketAgent
         _maxLeverage = MathF.Max(1.0f, maxLeverage);
         _explicitExitBonus = MathF.Max(0f, explicitExitBonus);
         _peakExitBonus = MathF.Max(0f, peakExitBonus);
+        _staleThresholdTicks = Math.Max(0, staleThresholdTicks);
+        _stalePenaltyPerTick = MathF.Max(0f, stalePenaltyPerTick);
         _portfolio = trader.CreatePortfolio();
         _prevEquity = _portfolio.InitialBalance;
 
@@ -331,6 +342,20 @@ public sealed class MarketAgent
         }
     }
 
+    /// <summary>
+    /// S8 — Computes the stale-position penalty contribution to reward. Returns
+    /// <paramref name="perTick"/> × (age − threshold) when age &gt; threshold, otherwise 0.
+    /// Returns 0 when threshold ≤ 0 or perTick ≤ 0 (penalty disabled). Public static so
+    /// tests can verify the math without driving a full ProcessTick cycle.
+    /// </summary>
+    public static float ComputeStalePenalty(int currentTick, int openTick, int threshold, float perTick)
+    {
+        if (threshold <= 0 || perTick <= 0f) return 0f;
+        int age = currentTick - openTick;
+        if (age <= threshold) return 0f;
+        return perTick * (age - threshold);
+    }
+
     private float ComputeReward(decimal currentPrice)
     {
         float reward = 0f;
@@ -412,6 +437,17 @@ public sealed class MarketAgent
             float pnlPct = (float)pos2.UnrealizedPnlPct(currentPrice) / 100f;
             if (pnlPct <= 0f && _ticksSinceEntry > 20)
                 reward -= Math.Clamp((_ticksSinceEntry - 20) / 200f, 0f, 0.05f);
+        }
+
+        // S8 — Stale-position penalty. Linear ramp once age > _staleThresholdTicks; applies
+        // regardless of P&L direction. Unlike the V11d losing-hold penalty above (which only
+        // pressures losers), this one targets *all* long-held positions to push the population
+        // toward learning the explicit-exit output. Disabled (no effect) when threshold or
+        // per-tick rate is 0.
+        if (_portfolio.OpenPositions.Count > 0)
+        {
+            var posStale = _portfolio.OpenPositions[0];
+            reward -= ComputeStalePenalty(Tick, posStale.OpenTick, _staleThresholdTicks, _stalePenaltyPerTick);
         }
 
         _prevEquity = _portfolio.Equity(currentPrice);

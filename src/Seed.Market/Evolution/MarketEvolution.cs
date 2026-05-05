@@ -160,12 +160,24 @@ public sealed class MarketEvolution
             TournamentSize: 3);
         _speciation.Speciate(_population, specCfg);
 
-        // 2b. Adjust compatibility threshold toward target species count
+        // 2b. S4 — Adjust compatibility threshold toward target species count.
+        //
+        // Old upper bound was hard-coded at 10.0; with TargetSpeciesMax=30 and a fast-mutating
+        // population, the threshold pinned at 10 immediately and lost its ability to compress
+        // species when needed. New behavior:
+        //   - Upper bound is config-driven (CompatibilityThresholdMax, default 30.0).
+        //   - Adjust rate halves above 70% of the max (a soft brake) so the threshold settles
+        //     instead of overshooting the target.
+        //   - Lower bound stays at 1.0 (very tight clusters are pathological).
         int specCount = _speciation.Species.Count;
+        float maxThreshold = _config.CompatibilityThresholdMax;
+        float adjustRate = _config.CompatibilityAdjustRate;
+        if (_compatibilityThreshold > maxThreshold * 0.7f)
+            adjustRate *= 0.5f;
         if (specCount < _config.TargetSpeciesMin)
-            _compatibilityThreshold = Math.Max(1.0f, _compatibilityThreshold - _config.CompatibilityAdjustRate);
+            _compatibilityThreshold = Math.Max(1.0f, _compatibilityThreshold - adjustRate);
         else if (specCount > _config.TargetSpeciesMax)
-            _compatibilityThreshold = Math.Min(10.0f, _compatibilityThreshold + _config.CompatibilityAdjustRate);
+            _compatibilityThreshold = Math.Min(maxThreshold, _compatibilityThreshold + adjustRate);
 
         // 2c. Update elite archive with species champions + stagnation tracking
         foreach (var species in _speciation.Species)
