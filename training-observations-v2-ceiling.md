@@ -88,7 +88,7 @@ Curriculum logic: return-tolerant start → gradually emphasize risk-adjusted re
 | Field | Value |
 |---|---|
 | Launched | 2026-05-05 |
-| PID (initial) | 82056 |
+| PID (active) | 82272 (after Coinglass-key relaunch; first PID 82056 aborted) |
 | Cron monitor | job `5f33da83`, hourly at `:47` local time, session-only (auto-expires 7d — re-arm needed) |
 | Output | `output_ceiling/` |
 | Training log | `training-v11e-ceiling.log` |
@@ -100,5 +100,8 @@ Curriculum logic: return-tolerant start → gradually emphasize risk-adjusted re
 
 ### Launch
 
-- **2026-05-05** — data loaded cleanly from archived cache. 121016 candles (2022-11-09 → 2026-04-28). Training: 103496 bars (25874h). Validation: 17520 bars (4380h). 50/54 enrichment slots populated (Coinglass empty due to no API key; same config as the archived V1 runs, harmless). Gen 0 evaluation in progress.
+- **2026-05-05 14:33** — first launch. Data loaded but Coinglass enrichment was empty (no API key). 50/54 enrichment slots. Caught at gen 0 — V1 archived runs ALL had Coinglass populated (10/10 sources, +4 slots). Without it, 4 of 110 input signals are 0, breaking the apples-to-apples comparison vs the +2.0109 V1 ceiling. **Aborted PID 82056.**
+- **2026-05-05 14:35** — pulled `coinglassApiKey` + `coinGeckoApiKey` from `archive/V1-PrefinalFix/configs/market-config.paper-pop149.json` into the ceiling config. Marked `market-config.ceiling.json` as `git update-index --skip-worktree` so the local file (with secrets) is never committed. Wiped the partial `output_ceiling/`. Aborted log archived as `training-v11e-ceiling.aborted.log`.
+- **2026-05-05 14:36** — relaunched. Expecting `Sources OK: 10/10 | +Coinglass: 4 slots` this time. Cron 5f33da83 still armed.
+- **2026-05-05 14:38** — relaunch confirmed. **PID 82272**, 1.25 GB working set. `Sources OK: 10/10` + `+Coinglass: 4 slots` populated. Same training/val split as the aborted run (103496 / 17520 bars). Gen 0 evaluation in progress. Cron monitor 5f33da83 will start firing at :47 against this PID.
 
