@@ -69,6 +69,7 @@
   "mode": "Backtest",
   "confirmLive": false,
   "outputDirectory": "output_ceiling",
+  "dataCacheDirectory": "archive/V1-PrefinalFix/cache/pipeline_shared_cache",
 
   "validationIntervalGens": 10,
   "earlyStopPatience": 5,
